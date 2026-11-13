@@ -43,6 +43,8 @@ function mesajCevir(h: HamHata): string {
   if (kod === 'PGRST301' || kod === 'PGRST303') return 'Oturum yok'
   // Oturumsuz (anon) istemci RPC'leri çağıramaz: yetki hatası = oturum yok
   if (kod === '42501' && /permission denied for function/i.test(h.message)) return 'Oturum yok'
+  // Supabase Auth hız sınırı (ör. anonim giriş sınırı aşıldı): İngilizce mesaj yerine Türkçe
+  if (/rate limit/i.test(h.message)) return 'Çok fazla deneme yapıldı, biraz bekleyip tekrar dene'
   if (kod === '' && AG_HATASI.test(h.message)) return BAGLANTI_HATASI
   return h.message
 }
