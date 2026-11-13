@@ -438,7 +438,7 @@ async function bitirmeTesti(A: Kullanici, B: Kullanici, C: Kullanici, D: Kullani
 // ---- get_game_review testleri (0008_cozum_aciklamasi.sql) ----
 
 type Alan = Record<string, any>
-const SIZINTI_ADI = /explanation|cozum|correct|dogru|aciklama/i
+const SIZINTI_ADI = /^(explanation|cozum_aciklamasi|correct_option|dogru_sik|aciklama)$/i // correct_count gibi meşru alanlar etkilenmez
 
 // Bir JSON ağacındaki tüm alan ADLARINI toplar (metin içeriğine bakılmaz)
 function tumAnahtarlar(v: unknown, cikti: string[] = []): string[] {
