@@ -638,6 +638,219 @@ async function incelemeTesti(A: Kullanici, B: Kullanici, D: Kullanici) {
   }
 }
 
+// ---- Hemen Katıl: quick_join / start_if_ready / leave_game (0009_hemen_katil.sql) ----
+
+const HIZLI_KATEGORILER = ['sayisal', 'esit_agirlik', 'sozel', 'tyt', 'lgs_sozel', 'lgs_sayisal']
+
+async function qj(u: Kullanici, kategori: string) {
+  const r = await u.client.rpc('quick_join', { p_kategori: kategori })
+  if (r.data?.game_id) oyunlar.push(r.data.game_id)
+  return r
+}
+
+async function oyunSatiri(id: string) {
+  const { data } = await admin.from('games').select('*').eq('id', id).maybeSingle()
+  return data as Record<string, any> | null
+}
+
+async function oyuncuSayisi(id: string): Promise<number> {
+  const { count } = await admin.from('game_players').select('*', { count: 'exact', head: true }).eq('game_id', id)
+  return count ?? 0
+}
+
+// Senaryolar arasında temizlik: verilen oyunları sil
+async function oyunlariSil(idler: string[]) {
+  const liste = [...new Set(idler.filter(Boolean))]
+  if (liste.length > 0) await admin.from('games').delete().in('id', liste)
+}
+
+async function hemenKatilTesti(A: Kullanici, B: Kullanici, C: Kullanici, D: Kullanici, E: Kullanici) {
+  // Önceki denemelerden kalan herkese açık lobiler eşleşmeyi bozmasın: bayatlat
+  await admin
+    .from('games')
+    .update({ last_activity_at: new Date(Date.now() - 3_600_000).toISOString() })
+    .eq('status', 'lobby')
+    .eq('is_public', true)
+    .in('kategori', HIZLI_KATEGORILER)
+  const X: Kullanici[] = []
+  for (let i = 1; i <= 7; i++) X.push(await kullaniciOlustur(`X${i}`))
+  const gecici: string[] = []
+
+  // ===== 1. Temel eşleşme (tyt): A açar, B katılır, A tekrar çağırınca aynı lobi =====
+  const q1 = await qj(A, 'tyt')
+  rapor('quick_join: ilk oyuncu yeni herkese açık lobi açar (created=true)', !q1.error && q1.data?.created === true && !!q1.data?.game_id && /^QZ-/.test(q1.data?.code), q1.error?.message)
+  const g1 = q1.data?.game_id as string
+  gecici.push(g1)
+  const satir1 = await oyunSatiri(g1)
+  rapor('açılan lobi is_public=true, auto_start_at null, status lobby', satir1?.is_public === true && satir1?.auto_start_at === null && satir1?.status === 'lobby', JSON.stringify(satir1))
+
+  const q2 = await qj(B, 'tyt')
+  rapor('quick_join: ikinci oyuncu aynı lobiye girer (created=false)', !q2.error && q2.data?.game_id === g1 && q2.data?.created === false && q2.data?.code === q1.data?.code, q2.error?.message ?? JSON.stringify(q2.data))
+  const satir2 = await oyunSatiri(g1)
+  const kalan = satir2?.auto_start_at ? new Date(satir2.auto_start_at).getTime() - Date.now() : -1
+  rapor('2. oyuncudan sonra auto_start_at ≈ şimdi + 10 sn', kalan > 7000 && kalan <= 10500, `${kalan} ms`)
+
+  const q3 = await qj(A, 'tyt')
+  rapor('aynı kullanıcı arka arkaya quick_join: aynı lobi, yeni oyuncu eklenmez', !q3.error && q3.data?.game_id === g1 && q3.data?.created === false && (await oyuncuSayisi(g1)) === 2, q3.error?.message)
+
+  const gg = await A.client.rpc('get_game', { p_code: q1.data?.code })
+  rapor('get_game: game.is_public ve game.auto_start_at geliyor', !gg.error && gg.data?.game?.is_public === true && typeof gg.data?.game?.auto_start_at === 'string', gg.error?.message ?? JSON.stringify(gg.data?.game))
+  const ggid = await B.client.rpc('get_game_by_id', { p_game_id: g1 })
+  rapor('get_game_by_id: game.is_public ve game.auto_start_at geliyor', !ggid.error && ggid.data?.game?.is_public === true && 'auto_start_at' in (ggid.data?.game ?? {}), ggid.error?.message)
+
+  // ===== 2. start_if_ready =====
+  const erken = await B.client.rpc('start_if_ready', { p_game_id: g1 })
+  const sErken = await oyunSatiri(g1)
+  rapor('start_if_ready erken: hata yok, oyun lobby kalır', !erken.error && sErken?.status === 'lobby', erken.error?.message ?? sErken?.status)
+  const yabanci = await E.client.rpc('start_if_ready', { p_game_id: g1 })
+  rapor("üye olmayan start_if_ready çağıramıyor", yabanci.error?.message === 'Bu oyuna erişimin yok', yabanci.error?.message)
+
+  // Başlamak üzere: kodla katılım 'Oyun başlamak üzere'
+  await admin.from('games').update({ auto_start_at: new Date(Date.now() - 1000).toISOString() }).eq('id', g1)
+  const gec = await C.client.rpc('join_game', { p_code: q1.data?.code })
+  rapor("auto_start_at geçmişse kodla katılım 'Oyun başlamak üzere' der", gec.error?.message === 'Oyun başlamak üzere', gec.error?.message)
+  const gecQj = await qj(C, 'tyt')
+  rapor('auto_start_at geçmiş lobiye quick_join eşleşmez (yeni lobi)', !gecQj.error && gecQj.data?.created === true && gecQj.data?.game_id !== g1, gecQj.error?.message)
+  if (gecQj.data?.game_id) gecici.push(gecQj.data.game_id)
+
+  const [b1, a1] = await Promise.all([
+    B.client.rpc('start_if_ready', { p_game_id: g1 }),
+    A.client.rpc('start_if_ready', { p_game_id: g1 }),
+  ])
+  const sBas = await oyunSatiri(g1)
+  const baslaFark = sBas?.started_at ? new Date(sBas.started_at).getTime() - Date.now() : -99999
+  rapor('süre dolunca start_if_ready: playing, started_at ≈ şimdi + 3 sn (iki eşzamanlı çağrı)', !b1.error && !a1.error && sBas?.status === 'playing' && baslaFark > 1000 && baslaFark <= 3500, `${sBas?.status} ${baslaFark} ms ${b1.error?.message ?? a1.error?.message ?? ''}`)
+  const startedOnce = sBas?.started_at
+  const yine = await A.client.rpc('start_if_ready', { p_game_id: g1 })
+  const sYine = await oyunSatiri(g1)
+  rapor('ikinci start_if_ready durumu bozmaz', !yine.error && sYine?.status === 'playing' && sYine?.started_at === startedOnce, yine.error?.message)
+  const gpler = await admin.from('game_players').select('current_q, q_started_at').eq('game_id', g1)
+  rapor('başlayan oyunda oyuncular current_q=0, q_started_at null', (gpler.data ?? []).length === 2 && (gpler.data ?? []).every((r) => r.current_q === 0 && r.q_started_at === null))
+  await oyunlariSil(gecici.splice(0))
+
+  // ===== 3. Eşleşmemesi gerekenler =====
+  // Farklı kategori
+  const k1 = await qj(X[0], 'lgs_sozel')
+  const k2 = await qj(X[1], 'lgs_sayisal')
+  gecici.push(k1.data?.game_id, k2.data?.game_id)
+  rapor('farklı kategoriler eşleşmez', !k1.error && !k2.error && k1.data?.game_id !== k2.data?.game_id && k1.data?.created === true && k2.data?.created === true, k1.error?.message ?? k2.error?.message)
+  await oyunlariSil(gecici.splice(0))
+
+  // Özel lobi (create_game) quick_join'e hiç verilmez
+  const ozel = await C.client.rpc('create_game', { p_kategori: 'sozel' })
+  if (ozel.data?.game_id) {
+    oyunlar.push(ozel.data.game_id)
+    gecici.push(ozel.data.game_id)
+  }
+  const ozelSatir = await oyunSatiri(ozel.data?.game_id)
+  rapor('create_game ile kurulan lobi özel (is_public=false)', ozelSatir?.is_public === false, JSON.stringify(ozelSatir?.is_public))
+  const od = await qj(D, 'sozel')
+  if (od.data?.game_id) gecici.push(od.data.game_id)
+  rapor('quick_join özel lobiye eşleşmez (yeni herkese açık lobi açılır)', !od.error && od.data?.created === true && od.data?.game_id !== ozel.data?.game_id, od.error?.message)
+  await oyunlariSil(gecici.splice(0))
+
+  // 5 kişilik lobi eşleşmez
+  const bes: string[] = []
+  for (let i = 0; i < 5; i++) {
+    const r = await qj(X[i], 'esit_agirlik')
+    bes.push(r.data?.game_id)
+    if (r.error) rapor(`5 kişilik lobi: X${i + 1} quick_join`, false, r.error.message)
+  }
+  gecici.push(...bes)
+  const dolu = await oyunSatiri(bes[0])
+  rapor('5 kişi aynı lobide, 5.da auto_start_at ≈ şimdi', new Set(bes).size === 1 && (await oyuncuSayisi(bes[0])) === 5 && !!dolu?.auto_start_at && new Date(dolu.auto_start_at).getTime() - Date.now() <= 1500, JSON.stringify(bes))
+  const altinci = await qj(X[5], 'esit_agirlik')
+  if (altinci.data?.game_id) gecici.push(altinci.data.game_id)
+  rapor('dolu (5 kişilik) lobiye quick_join eşleşmez (yeni lobi)', !altinci.error && altinci.data?.created === true && altinci.data?.game_id !== bes[0], altinci.error?.message)
+  await oyunlariSil(gecici.splice(0))
+
+  // Bayat lobi (last_activity_at 3 dk geride)
+  const bay = await qj(X[0], 'sayisal')
+  gecici.push(bay.data?.game_id)
+  await admin.from('games').update({ last_activity_at: new Date(Date.now() - 180_000).toISOString() }).eq('id', bay.data?.game_id)
+  const bay2 = await qj(X[1], 'sayisal')
+  if (bay2.data?.game_id) gecici.push(bay2.data.game_id)
+  rapor('bayat lobi (3 dk önceki last_activity_at) eşleşmez', !bay2.error && bay2.data?.created === true && bay2.data?.game_id !== bay.data?.game_id, bay2.error?.message)
+  await oyunlariSil(gecici.splice(0))
+
+  // auto_start_at 4 sn içinde dolacak lobi eşleşmez
+  const yak = await qj(X[0], 'lgs_sayisal')
+  await qj(X[1], 'lgs_sayisal')
+  gecici.push(yak.data?.game_id)
+  await admin.from('games').update({ auto_start_at: new Date(Date.now() + 3000).toISOString() }).eq('id', yak.data?.game_id)
+  const yak3 = await qj(X[2], 'lgs_sayisal')
+  if (yak3.data?.game_id) gecici.push(yak3.data.game_id)
+  rapor('4 sn içinde başlayacak lobiye quick_join eşleşmez', !yak3.error && yak3.data?.created === true && yak3.data?.game_id !== yak.data?.game_id, yak3.error?.message)
+  await oyunlariSil(gecici.splice(0))
+
+  // ===== 4. leave_game =====
+  const l1 = await qj(X[0], 'tyt')
+  const lg = l1.data?.game_id as string
+  gecici.push(lg)
+  await qj(X[1], 'tyt')
+  await bekle(50)
+  await qj(X[2], 'tyt')
+  const yabLeave = await E.client.rpc('leave_game', { p_game_id: lg })
+  rapor('üye olmayan leave_game çağıramıyor', yabLeave.error?.message === 'Bu oyuna erişimin yok', yabLeave.error?.message)
+  const hostCik = await X[0].client.rpc('leave_game', { p_game_id: lg })
+  const sH = await oyunSatiri(lg)
+  rapor('host çıkınca host en eski oyuncuya (X2) devredilir; 2 kişi kalır, auto_start_at korunur', !hostCik.error && sH?.host_id === X[1].id && (await oyuncuSayisi(lg)) === 2 && sH?.auto_start_at !== null, hostCik.error?.message ?? JSON.stringify([sH?.host_id, sH?.auto_start_at]))
+  const ikinciCik = await X[1].client.rpc('leave_game', { p_game_id: lg })
+  const sI = await oyunSatiri(lg)
+  rapor('sayı 2\'nin altına düşünce auto_start_at null olur; host X3', !ikinciCik.error && sI?.auto_start_at === null && sI?.host_id === X[2].id && (await oyuncuSayisi(lg)) === 1, ikinciCik.error?.message ?? JSON.stringify([sI?.auto_start_at, sI?.host_id]))
+  const sonCik = await X[2].client.rpc('leave_game', { p_game_id: lg })
+  rapor('son oyuncu çıkınca oyun silinir', !sonCik.error && (await oyunSatiri(lg)) === null, sonCik.error?.message)
+  const silinmis = await X[2].client.rpc('leave_game', { p_game_id: lg })
+  rapor('silinmiş oyunda leave_game hata verir', !!silinmis.error, silinmis.error?.message)
+
+  // Başlamış oyunda 'Oyun başladı'
+  const b0 = await qj(X[0], 'tyt')
+  gecici.push(b0.data?.game_id)
+  await qj(X[1], 'tyt')
+  await admin.from('games').update({ auto_start_at: new Date(Date.now() - 1000).toISOString() }).eq('id', b0.data?.game_id)
+  await X[0].client.rpc('start_if_ready', { p_game_id: b0.data?.game_id })
+  const basladi = await X[1].client.rpc('leave_game', { p_game_id: b0.data?.game_id })
+  rapor("başlamış oyunda leave_game 'Oyun başladı' der", basladi.error?.message === 'Oyun başladı', basladi.error?.message)
+  await oyunlariSil(gecici.splice(0))
+
+  // ===== 5. Eşzamanlılık =====
+  const t4 = Date.now()
+  const es4 = await Promise.all(X.slice(0, 4).map((u) => qj(u, 'sozel')))
+  const ids4 = es4.map((r) => r.data?.game_id as string)
+  gecici.push(...ids4)
+  const hata4 = es4.find((r) => r.error)
+  const olusan4 = es4.filter((r) => r.data?.created === true).length
+  rapor('eşzamanlılık: 4 kullanıcı AYNI anda quick_join: tek lobi, 1 created, hata/kilitlenme yok',
+    !hata4 && new Set(ids4).size === 1 && olusan4 === 1 && (await oyuncuSayisi(ids4[0])) === 4,
+    hata4?.error?.message ?? `${new Set(ids4).size} lobi, created=${olusan4}, ${Date.now() - t4} ms`)
+  await oyunlariSil(gecici.splice(0))
+
+  const t7 = Date.now()
+  const es7 = await Promise.all(X.map((u) => qj(u, 'tyt')))
+  const ids7 = es7.map((r) => r.data?.game_id as string)
+  gecici.push(...ids7)
+  const hata7 = es7.find((r) => r.error)
+  const benzersiz7 = [...new Set(ids7)]
+  const sayilar7: number[] = []
+  for (const id of benzersiz7) sayilar7.push(await oyuncuSayisi(id))
+  rapor('eşzamanlılık: 7 kullanıcı: iki lobi, hiçbirinde 5\'ten fazla oyuncu yok, hata yok',
+    !hata7 && benzersiz7.length === 2 && sayilar7.every((n) => n <= 5) && sayilar7.reduce((a, b) => a + b, 0) === 7,
+    hata7?.error?.message ?? `${benzersiz7.length} lobi, oyuncular ${sayilar7.join('+')}, ${Date.now() - t7} ms`)
+  await oyunlariSil(gecici.splice(0))
+
+  // ===== 6. Doğrudan değiştirme ve geçersiz girdiler =====
+  const kk = await qj(X[0], 'tyt')
+  gecici.push(kk.data?.game_id)
+  const dogrudan = await X[0].client.from('games').update({ is_public: false, auto_start_at: null }).eq('id', kk.data?.game_id).select()
+  const sD = await oyunSatiri(kk.data?.game_id)
+  rapor('istemci games.is_public / auto_start_at alanını doğrudan değiştiremez', sD?.is_public === true && ((dogrudan.data ?? []).length === 0 || !!dogrudan.error), JSON.stringify([dogrudan.error?.message, sD?.is_public]))
+  const gk = await X[0].client.rpc('quick_join', { p_kategori: 'lgs_xyz' })
+  rapor("quick_join geçersiz kategori 'Geçersiz kategori' der", gk.error?.message === 'Geçersiz kategori', gk.error?.message)
+  const ic = await X[0].client.rpc('_create_game_internal', { p_kategori: 'tyt', p_host: X[0].id, p_public: true })
+  rapor('_create_game_internal istemciye kapalı', !!ic.error, ic.error?.message)
+  await oyunlariSil(gecici.splice(0))
+}
+
 async function main() {
   const A = await kullaniciOlustur('A')
   const B = await kullaniciOlustur('B')
@@ -843,6 +1056,9 @@ async function main() {
 
   // ---- get_game_review (0008_cozum_aciklamasi.sql) ----
   await incelemeTesti(A, B, D)
+
+  // ---- Hemen Katıl (0009_hemen_katil.sql) ----
+  await hemenKatilTesti(A, B, C, D, E)
 }
 
 main()
