@@ -5,6 +5,7 @@ import Button from '../components/Button'
 import Card from '../components/Card'
 import Cip from '../components/Cip'
 import DevreHatlari from '../components/DevreHatlari'
+import HizDemo from '../components/HizDemo'
 
 /** Geçici: B1 temel bileşen vitrini. Asıl açılış sayfası (W1) B6'da yapılacak. */
 export default function Acilis() {
@@ -52,6 +53,11 @@ export default function Acilis() {
           <div className="mt-4">
             <AvatarSecici secili={secili} onSec={setSecili} />
           </div>
+        </section>
+
+        <section className="mt-8">
+          <span className="etiket">2× hız modu · 5 oyuncu</span>
+          <HizDemo />
         </section>
 
         <section className="mt-8">
