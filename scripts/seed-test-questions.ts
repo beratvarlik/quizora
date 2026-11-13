@@ -29,6 +29,7 @@ const TABLOLAR = [
 ]
 const ADET = 8
 const ETIKET = '[TEST]'
+const ORNEK_COZUM = '[TEST] Bu bir örnek açıklamadır.'
 const SIKLAR = ['A', 'B', 'C', 'D', 'E']
 const SIKLAR_LGS = ['A', 'B', 'C', 'D'] // LGS soruları 4 şıklıdır (0007_lgs_4_sik.sql)
 const LGS_TABLOLARI = ['turkce_lgs', 'inkilap_lgs', 'din_kulturu_lgs', 'ingilizce_lgs', 'matematik_lgs', 'fen_lgs']
@@ -67,8 +68,16 @@ async function ekle() {
         secenek_e: lgs ? null : 'Seçenek E', // LGS: 4 şık, E boş
         dogru_sik: siklar[i % siklar.length],
         aciklama: 'Test sorusu',
+        cozum_aciklamasi: ORNEK_COZUM,
       })
     }
+    // Eski [TEST] sorularında çözüm açıklaması boşsa doldur (arayüz geliştirilirken görünsün)
+    const gunc = await admin
+      .from(t)
+      .update({ cozum_aciklamasi: ORNEK_COZUM })
+      .like('soru_metni', `${ETIKET}%`)
+      .is('cozum_aciklamasi', null)
+    if (gunc.error) throw new Error(`${t}: ${gunc.error.message}`)
     if (yeni.length === 0) {
       console.log(`${t}: zaten ${ADET} test sorusu var, atlandı`)
       continue
