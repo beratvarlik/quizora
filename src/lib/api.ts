@@ -13,6 +13,9 @@ import type {
   Kategori,
   MyStats,
   GameReview,
+  MistakeItem,
+  MistakeSummary,
+  PracticeResult,
   ReviewItem,
   ReviewOutcome,
   PlayerState,
@@ -181,6 +184,31 @@ interface HamIncelemeSatir {
   explanation: string | null
 }
 
+interface HamDefterSatir {
+  question_id: string
+  exam: Sinav
+  subject: string
+  text: string
+  image_url: string | null
+  options: Partial<Record<Secenek, string>>
+  last_answer: Secenek | null
+  wrong_count: number
+  last_wrong_at: string
+}
+
+interface HamDefterOzeti {
+  total: number
+  resolved_total: number
+  by_subject: { exam: Sinav; subject: string; count: number }[]
+}
+
+interface HamPratik {
+  is_correct: boolean
+  correct_option: Secenek
+  explanation: string | null
+  resolved: boolean
+}
+
 interface HamProfil {
   id: string
   display_name: string
@@ -302,6 +330,20 @@ function mapMyStats(h: HamIstatistik): MyStats {
     progressPct: h.progress_pct,
     wins: h.wins,
     gamesPlayed: h.games_played,
+  }
+}
+
+function mapMistakeItem(h: HamDefterSatir): MistakeItem {
+  return {
+    questionId: h.question_id,
+    exam: h.exam,
+    subject: h.subject,
+    text: h.text,
+    imageUrl: h.image_url,
+    options: h.options,
+    lastAnswer: h.last_answer,
+    wrongCount: h.wrong_count,
+    lastWrongAt: h.last_wrong_at,
   }
 }
 
@@ -600,8 +642,42 @@ export function createApi(client: Istemci): QuizoraApi {
     },
 
     async getGameReview(gameId: string): Promise<GameReview> {
-      const h = await rpc<{ items: HamIncelemeSatir[] }>(client, 'get_game_review', { p_game_id: gameId })
-      return { items: (h.items ?? []).map(mapReviewItem) }
+      const h = await rpc<{ items: HamIncelemeSatir[]; added_to_notebook?: number }>(client, 'get_game_review', {
+        p_game_id: gameId,
+      })
+      return { items: (h.items ?? []).map(mapReviewItem), addedToNotebook: h.added_to_notebook ?? 0 }
+    },
+
+    async getMistakeSummary(): Promise<MistakeSummary> {
+      const h = await rpc<HamDefterOzeti>(client, 'get_mistake_summary')
+      return {
+        total: h.total,
+        resolvedTotal: h.resolved_total,
+        bySubject: (h.by_subject ?? []).map((b) => ({ exam: b.exam, subject: b.subject, count: b.count })),
+      }
+    },
+
+    async getMistakes(opts?: { exam?: Sinav; subject?: string; limit?: number }): Promise<MistakeItem[]> {
+      const h = await rpc<{ items: HamDefterSatir[] }>(client, 'get_mistakes', {
+        p_exam: opts?.exam ?? null,
+        p_subject: opts?.subject ?? null,
+        p_limit: opts?.limit ?? 50,
+      })
+      return (h.items ?? []).map(mapMistakeItem)
+    },
+
+    async practiceAnswer(questionId: string, selected: Secenek): Promise<PracticeResult> {
+      const h = await rpc<HamPratik>(client, 'practice_answer', { p_question_id: questionId, p_selected: selected })
+      return {
+        isCorrect: h.is_correct,
+        correctOption: h.correct_option,
+        explanation: h.explanation,
+        resolved: h.resolved,
+      }
+    },
+
+    async removeMistake(questionId: string): Promise<void> {
+      await rpc<unknown>(client, 'remove_mistake', { p_question_id: questionId })
     },
 
     // Realtime olaylarında tam snapshot yeniden çekilir (50 ms debounce); 3 sn'de bir güvenlik ağı

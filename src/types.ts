@@ -37,7 +37,15 @@ export interface ReviewItem {
   selected: Secenek | null; correctOption: Secenek; outcome: ReviewOutcome;
   points: number; timeMs: number | null; explanation: string | null;
 }
-export interface GameReview { items: ReviewItem[] }
+export interface GameReview { items: ReviewItem[]; addedToNotebook: number } // addedToNotebook: bu yarıştan Yanlışlarım defterine giren soru sayısı
+export interface MistakeSummary { total: number; resolvedTotal: number; bySubject: { exam: Sinav; subject: string; count: number }[] }
+export interface MistakeItem {
+  questionId: string; exam: Sinav; subject: string; text: string; imageUrl: string | null;
+  options: Partial<Record<Secenek, string>>; // LGS'de yalnızca A-D
+  lastAnswer: Secenek | null; // null = boş bırakılmıştı
+  wrongCount: number; lastWrongAt: string; // doğru şık ve açıklama BURADA yok
+}
+export interface PracticeResult { isCorrect: boolean; correctOption: Secenek; explanation: string | null; resolved: boolean }
 export interface GameSnapshot { game: GameInfo; players: PlayerState[] }
 export interface QuizoraApi {
   ensureSession(): Promise<string>;
@@ -57,6 +65,10 @@ export interface QuizoraApi {
   getGlobalLeaderboard(): Promise<GlobalRow[]>;
   getMyStats(): Promise<MyStats>;
   getGameReview(gameId: string): Promise<GameReview>;
+  getMistakeSummary(): Promise<MistakeSummary>;
+  getMistakes(opts?: { exam?: Sinav; subject?: string; limit?: number }): Promise<MistakeItem[]>;
+  practiceAnswer(questionId: string, selected: Secenek): Promise<PracticeResult>;
+  removeMistake(questionId: string): Promise<void>;
   subscribeGame(gameId: string, cb: (s: GameSnapshot) => void): Unsubscribe;
   subscribeGlobalLeaderboard(cb: (rows: GlobalRow[]) => void): Unsubscribe;
 }
