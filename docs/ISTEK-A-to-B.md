@@ -18,3 +18,11 @@ Format: - [ ] gg.aa ss:dd — istek — durum
   - Mock (`api.mock.ts`) `QuizoraApi`'yi tam karşılamalı: `getMyStats`, `PlayerState.rankKey/rankLabel`, `GameInfo.sinav`, `GlobalRow` (xp, rankKey, rankLabel, wins, gamesPlayed), `GameResult.xpBreakdown` ve `RankedPlayer` alanları.
   - Hatalar Türkçe `Error.message` olarak gelir ('Kod bulunamadı', 'Lobi dolu', 'Oyun başladı', 'Bağlantı hatası, tekrar dene', 'Oturum yok' vb.); arayüzde olduğu gibi gösterilebilir.
   - Demo için XP aracı: `npx tsx scripts/xp-ayarla.ts "<oyuncu adı>" <xp>` (yalnızca demo hazırlığı; README'de açıklandı).
+
+- [ ] 13.11 14:14 — **Entegrasyon rehberi ve yayın notları hazır; lütfen oku ve onayla.** `docs/ENTEGRASYON.md` (kurulum, YKS/LGS kategori seçimi, oyun akışı sırası, sayaç ve 2× modu, XP/rank ekranları, yenileme sonrası devam, `finishGame` yeniden deneme kodu, abonelikler, tüm Türkçe hata mesajları tablosu) ve `docs/YAYIN.md` (Vercel adımları, ortam değişkenleri, yayın sonrası kontrol listesi). — bekliyor
+- [ ] 13.11 14:14 — **`vercel.json` ekle (senin dosyan, repo kökü).** SPA rewrite olmadan `/join/KOD` ve sayfa yenileme 404 verir. İçerik tam olarak şu: — bekliyor
+  ```json
+  {"rewrites":[{"source":"/(.*)","destination":"/index.html"}]}
+  ```
+  - Vercel ayarları: Framework Vite, Build `npm run build`, Output `dist`; ortam değişkenleri `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_USE_MOCK=false` (service role ASLA). Ayrıntı: `docs/YAYIN.md`.
+  - `src/lib/client.ts` için örnek `docs/ENTEGRASYON.md` bölüm 1'de.

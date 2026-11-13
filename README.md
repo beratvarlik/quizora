@@ -30,6 +30,7 @@ Hepsi `.env.local` okur ve `SUPABASE_SERVICE_ROLE_KEY` gerektirir (anahtar yaln�
 - `npx tsx scripts/api-smoke.ts` — `src/lib/api.ts` (QuizoraApi) testi.
 - `npx tsx scripts/import-questions.ts <dosya.csv> [--dry-run] [--gorsel-klasor <klasör>]` — CSV'den soru yükler. Ayrıntı: [docs/SORU-EKLEME.md](docs/SORU-EKLEME.md) (şablon: `scripts/soru-sablonu.csv`).
 - `npx tsx scripts/soru-durumu.ts` — 24 tablodaki soru sayıları ve hangi kategorilerin hazır olduğu.
+- `npx tsx scripts/hepsi.ts` — yukarıdaki testlerin hepsini sırayla çalıştırıp tek özet tablo verir (8-12 dk); sonda "HEPSİ GEÇTİ".
 - `npx tsx scripts/security-test.ts` — güvenlik ve dayanıklılık testi (yetkiler, RLS, XP hileleri, süre kuralı, eşzamanlılık, storage). Geçici olarak `min_players` ve `fen_lgs.aktif` değiştirir, sonda geri alır.
 - `npx tsx scripts/e2e-sim.ts [--oyuncu N] [--kategori ad]` — N sanal oyuncuyla tam yarış simülasyonu (varsayılan: 2 oyuncu, `sayisal` + `lgs_sozel` + `lgs_sayisal`; N en çok 5).
 
