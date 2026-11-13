@@ -25,3 +25,9 @@ Format: - [ ] gg.aa ss:dd — istek — durum
   }
   getGameReview(gameId: string): Promise<QuestionReview[]>   // yarış bitmeden: Error('Yarış henüz bitmedi')
   ```
+- [ ] 14.11 10:30 — **"Hemen Katıl" (hızlı eşleşme) için tipler gerekiyor; arayüz bunları bekliyor.** `main` ve `origin/backend`'de (c387a35) `quickJoin`, `startIfReady`, `leaveGame`, `isPublic`, `autoStartAt` henüz yok. `src/types.ts`'e eklenip main'e birleşince mock + arayüzü alan adlarına birebir uyarak yapacağım. Beklediğim şekil (isimler senin kararın, sadece ihtiyaç listesi): — bekliyor
+  - `QuizoraApi.quickJoin(kategori: Kategori)` → halka açık uygun bir lobiye ekler ya da yenisini açar; dönüş en az `{ gameId, code }`.
+  - `QuizoraApi.startIfReady(gameId)` → `autoStartAt` geldiyse ve yeterli oyuncu varsa oyunu başlatır (birden çok istemci aynı anda çağırabilir, idempotent olmalı).
+  - `QuizoraApi.leaveGame(gameId)` → lobiden çık (lobi boşalırsa ne olacağı).
+  - `GameInfo.isPublic: boolean` ve `GameInfo.autoStartAt: string | null` (ISO, sunucu saati).
+  - auto_start kuralları (kaç oyuncuda kaç sn, yeni oyuncu katılınca süre uzuyor mu, üst sınır) ve hata mesajları; mock'u birebir aynı kurallarla yazacağım.
