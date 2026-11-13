@@ -25,3 +25,6 @@ export const IkCarpi = ({ boyut = 18 }: { boyut?: number }) => (
 export const Tac = () => (
   <svg viewBox="0 0 50 34" aria-hidden="true"><path d="M4 30 L2 8 L15 18 L25 2 L35 18 L48 8 L46 30 Z" fill="#F15A24" stroke="#2B0E17" strokeWidth="2.5" strokeLinejoin="round" /><circle cx="25" cy="21" r="3.2" fill="#F5F2ED" /></svg>
 )
+export const IkSimsek = ({ boyut = 22 }: { boyut?: number }) => (
+  <svg width={boyut} height={boyut} viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 4 13.6h6.6L9.4 22 20 9.8h-6.7L13.5 2z" fill="currentColor" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" /></svg>
+)

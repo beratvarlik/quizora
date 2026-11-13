@@ -8,6 +8,7 @@ export interface GameInfo {
   id: string; code: string; kategori: Kategori; sinav: Sinav; status: GameStatus; hostId: string; speedupBy: string | null;
   startedAt: string | null; speedupAt: string | null; speedupRemainingMs: number | null;
   durationMs: number; totalQuestions: number;
+  isPublic: boolean; autoStartAt: string | null;
 }
 export interface PlayerState {
   userId: string; displayName: string; avatarKey: string | null; photoUrl: string | null;
@@ -47,6 +48,9 @@ export interface QuizoraApi {
   joinGame(code: string): Promise<{ gameId: string }>;
   getGameByCode(code: string): Promise<GameSnapshot>;
   startGame(gameId: string): Promise<void>;
+  quickJoin(kategori: Kategori): Promise<{ gameId: string; code: string; created: boolean }>;
+  leaveGame(gameId: string): Promise<void>;
+  startIfReady(gameId: string): Promise<void>;
   getQuestion(gameId: string, position: number): Promise<Question>;
   submitAnswer(gameId: string, position: number, secenek: Secenek | null): Promise<AnswerResult>;
   finishGame(gameId: string): Promise<GameResult>;

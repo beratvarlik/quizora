@@ -470,3 +470,94 @@
 @media (min-width: 1024px) {
   .sn-panel .inceleme { margin-top: 22px; }
 }
+
+/* ---------- Hemen Katıl (menü düğmesi) ---------- */
+.hk-btn { position: relative; min-height: 64px; font-size: 20px; isolation: isolate; }
+.hk-btn svg { width: 22px; height: 22px; }
+.hk-btn::after {
+  content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  animation: hkParla 2s ease-in-out infinite;
+}
+.hk-btn:disabled::after { animation: none; }
+@keyframes hkParla {
+  0% { box-shadow: 0 0 0 0 rgba(241, 90, 36, .55), 0 0 18px 2px rgba(241, 90, 36, .35); }
+  70% { box-shadow: 0 0 0 14px rgba(241, 90, 36, 0), 0 0 26px 6px rgba(241, 90, 36, .15); }
+  100% { box-shadow: 0 0 0 0 rgba(241, 90, 36, 0), 0 0 18px 2px rgba(241, 90, 36, .35); }
+}
+.hk-btn.araniyor { cursor: progress; }
+.hk-mini {
+  position: relative; width: 22px; height: 22px; flex: none; border-radius: 50%;
+  border: 2px solid rgba(43, 14, 23, .35); overflow: hidden;
+}
+.hk-mini::before {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 250deg, var(--ink) 360deg); animation: radarDon 1s linear infinite;
+}
+.hk-ipucu { margin-top: -8px; text-align: center; font: 500 13px var(--font-govde); color: var(--soluk); }
+.ayrac { display: flex; align-items: center; gap: 12px; font: 600 12px var(--font-govde); color: var(--soluk); text-transform: uppercase; letter-spacing: .08em; }
+.ayrac::before, .ayrac::after { content: ''; flex: 1; height: 1px; background: var(--cizgi); }
+
+/* ---------- Herkese açık lobi: radar / başlama halkası ---------- */
+.hk-durum { padding: 6px 20px 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.hk-baslik { margin-top: 18px; font: 800 26px/1.1 var(--font-baslik); letter-spacing: -.02em; }
+.hk-baslik em { font-style: normal; color: var(--orange); font-variant-numeric: tabular-nums; }
+.hk-alt { margin-top: 6px; font: 500 14px var(--font-govde); color: var(--soluk); }
+.hk-sure { font: 700 14px var(--font-baslik); color: var(--burgundy); font-variant-numeric: tabular-nums; }
+
+.radar {
+  position: relative; width: 210px; height: 210px; flex: none; border-radius: 50%; overflow: hidden;
+  display: grid; place-items: center; background: #fff; border: 1.5px solid var(--cizgi); box-shadow: var(--golge);
+}
+.radar-izgara {
+  position: absolute; inset: 0; border-radius: 50%;
+  background:
+    linear-gradient(var(--cizgi), var(--cizgi)) center / 1px 100% no-repeat,
+    linear-gradient(var(--cizgi), var(--cizgi)) center / 100% 1px no-repeat,
+    repeating-radial-gradient(circle, transparent 0 34px, rgba(112, 43, 58, .14) 35px 36px);
+}
+.radar-halka {
+  position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--orange); opacity: 0;
+  animation: radarYay 2.7s cubic-bezier(.2, .6, .4, 1) infinite; animation-delay: calc(var(--d, 0) * .9s);
+}
+@keyframes radarYay { 0% { transform: scale(.22); opacity: .95; } 100% { transform: scale(1); opacity: 0; } }
+.radar-tarama {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 280deg, rgba(241, 90, 36, .38) 359deg, transparent 360deg);
+  animation: radarDon 2.4s linear infinite;
+}
+.radar-tarama::after { content: ''; position: absolute; left: calc(50% - 1px); top: 0; width: 2px; height: 50%; background: linear-gradient(to top, rgba(241, 90, 36, .2), var(--orange)); border-radius: 2px; }
+@keyframes radarDon { to { transform: rotate(360deg); } }
+.radar-merkez { position: relative; z-index: 2; padding: 4px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 6px rgba(241, 90, 36, .12); }
+
+.bs-halka { position: relative; width: 210px; height: 210px; flex: none; display: grid; place-items: center; }
+.bs-halka svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.bs-iz { fill: #fff; stroke: rgba(112, 43, 58, .12); stroke-width: 12; }
+.bs-ark { fill: none; stroke: url(#bsGrad); stroke-width: 12; stroke-linecap: round; transition: stroke-dashoffset .1s linear; }
+.bs-ic { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; }
+.bs-ic b { font: 800 78px/1 var(--font-baslik); letter-spacing: -.04em; color: var(--ink); font-variant-numeric: tabular-nums; animation: bsSayi .35s var(--zipla); }
+.bs-ic span { margin-top: 2px; font: 600 13px var(--font-govde); color: var(--soluk); text-transform: uppercase; letter-spacing: .1em; }
+@keyframes bsSayi { from { transform: scale(1.18); } }
+.bs-flas { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; animation: bsFlas .75s ease-out both; }
+@keyframes bsFlas {
+  0% { box-shadow: 0 0 0 0 rgba(241, 90, 36, .7), inset 0 0 0 999px rgba(241, 90, 36, .18); }
+  100% { box-shadow: 0 0 0 22px rgba(241, 90, 36, 0), inset 0 0 0 999px rgba(241, 90, 36, 0); }
+}
+
+.lb-acik .slot-baslik { margin-top: 22px; }
+.lb-acik .slot { height: 54px; }
+.davet-kart { margin: 18px 20px 0; padding: 10px 12px; display: flex; align-items: center; gap: 12px; }
+.qr.qr-kucuk { width: 60px; height: 60px; padding: 4px; border-radius: 10px; }
+.davet-metin { flex: 1; min-width: 0; }
+.davet-metin b { display: block; margin-top: 4px; font: 800 20px/1 var(--font-baslik); letter-spacing: -.01em; }
+.hk-uzun { padding: 14px; border-radius: 18px; background: #fff; border: 1.5px solid var(--cizgi); box-shadow: var(--golge); animation: cipGel .35s var(--zipla) both; }
+.hk-uzun p { font: 600 14px/1.4 var(--font-govde); text-align: center; }
+.hk-uzun-btn { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hk-btn::after { animation: none; box-shadow: 0 0 18px 2px rgba(241, 90, 36, .35); }
+  .hk-mini::before, .radar-tarama { animation: none; }
+  .radar-halka { animation: none; opacity: .35; transform: scale(.6); }
+  .radar-halka + .radar-halka { display: none; }
+  .bs-ic b, .bs-flas, .hk-uzun { animation: none; }
+  .bs-ark { transition: none; }
+}

@@ -81,6 +81,9 @@
   .mn-sayfa .aksiyon > .btn { flex: 1 1 0; }
   .mn-sayfa .aksiyon > .katil-satir { flex: 1 1 0; }
   .mn-sayfa .aksiyon > .hata-kutu { flex-basis: 100%; }
+  .mn-sayfa .aksiyon > .hk-btn { flex: 1 1 100%; }
+  .mn-sayfa .aksiyon > .hk-ipucu { flex-basis: 100%; margin-top: -6px; }
+  .mn-sayfa .ayrac { display: none; }
   .mn-sayfa .ilerleme-kart { grid-column: 2; grid-row: 2; margin: 0 0 14px; align-self: start; }
   .mn-sayfa .lider { grid-column: 2; grid-row: 3 / -1; margin: 0; min-height: 0; overflow-y: auto; align-self: stretch; }
   .mn-sayfa .lider .kart-bant { position: sticky; top: 0; z-index: 1; }
@@ -102,6 +105,16 @@
   .lb-sayfa .slot { height: clamp(52px, 8vh, 64px); }
   .lb-sayfa .icerik > .hata-kutu { grid-column: 1; grid-row: 4; margin: 12px 0 0; }
   .lb-sayfa .alt-cta .bekle-not { text-align: right; }
+  /* Herkese açık lobi: solda radar / halka + davet, sağda slotlar */
+  .lb-acik .hk-durum { grid-column: 1; grid-row: 2 / 4; align-self: center; padding: 0; }
+  .lb-acik .radar, .lb-acik .bs-halka { width: clamp(200px, 38vh, 320px); height: clamp(200px, 38vh, 320px); }
+  .lb-acik .bs-ic b { font-size: clamp(72px, 11vh, 110px); }
+  .lb-acik .hk-baslik { font-size: clamp(26px, 4vh, 34px); }
+  .lb-acik .davet-kart { grid-column: 1; grid-row: 4; margin: 12px 0 0; align-self: end; max-width: 460px; justify-self: center; width: 100%; }
+  .lb-acik .icerik > .hata-kutu { grid-column: 2; grid-row: 4; }
+  .lb-acik .slot { height: clamp(50px, 7.5vh, 60px); }
+  .lb-acik .alt-cta .hk-uzun-btn { flex-direction: row; }
+  .lb-acik .alt-cta .hk-uzun-btn .btn { flex: 1 1 0; min-height: 52px; font-size: 16px; padding: 0 12px; }
 
   /* ---------- Oyun: sol durum (dikey) · orta soru · sağ dikey sıralama ---------- */
   .oy-sayfa .icerik {

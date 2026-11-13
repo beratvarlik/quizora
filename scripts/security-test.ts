@@ -307,6 +307,10 @@ async function testler(): Promise<void> {
       ['submit_answer', { p_game_id: SIFIR_UUID, p_position: 0, p_secenek: 'A' }],
       ['finish_game', { p_game_id: SIFIR_UUID }],
       ['get_game_review', { p_game_id: SIFIR_UUID }],
+      ['quick_join', { p_kategori: 'tyt' }],
+      ['start_if_ready', { p_game_id: SIFIR_UUID }],
+      ['leave_game', { p_game_id: SIFIR_UUID }],
+      ['_create_game_internal', { p_kategori: 'tyt', p_host: SIFIR_UUID, p_public: true }],
       ['get_global_leaderboard', {}],
       ['get_my_stats', {}],
       ['rank_of', { p_xp: 0 }],
@@ -358,6 +362,25 @@ async function testler(): Promise<void> {
       if (!okumaEngellendi(r)) sizan.push(t)
     }
     kontrol(sizan.length === 0, `authenticated okuyabildi: ${sizan.join(', ')}`)
+  })
+  await adim('2a3. Hemen Katıl: üye olmayan C start_if_ready/leave_game çağıramaz; istemci is_public/auto_start_at değiştiremez; _create_game_internal kapalı', async () => {
+    const m1 = await mesaj(() => C.client.rpc('start_if_ready', { p_game_id: g1 }).then((r) => { if (r.error) throw new Error(r.error.message) }))
+    const m2 = await mesaj(() => C.client.rpc('leave_game', { p_game_id: g1 }).then((r) => { if (r.error) throw new Error(r.error.message) }))
+    kontrol(m1 === 'Bu oyuna erişimin yok' && m2 === 'Bu oyuna erişimin yok', `mesajlar: '${m1}' / '${m2}'`)
+    // Üye A bile kendi lobisinde bu alanları doğrudan değiştiremez
+    const gec = new Date(Date.now() - 60_000).toISOString()
+    const u = await A.client.from('games').update({ is_public: true, auto_start_at: gec }).eq('id', g1).select()
+    kontrol(!!u.error || (u.data ?? []).length === 0, `games güncellenebildi: ${JSON.stringify(u.data)}`)
+    const { data: satir } = await admin.from('games').select('is_public, auto_start_at, status').eq('id', g1).single()
+    kontrol(satir?.is_public === false && satir?.auto_start_at === null && satir?.status === 'lobby', `satır değişti: ${JSON.stringify(satir)}`)
+    // Özel lobi: herkese açık olmadığından start_if_ready (üye olsa bile) hiçbir şey yapmaz
+    await admin.from('games').update({ auto_start_at: gec }).eq('id', g1)
+    const r = await A.client.rpc('start_if_ready', { p_game_id: g1 })
+    const { data: sonra } = await admin.from('games').select('status').eq('id', g1).single()
+    kontrol(!r.error && sonra?.status === 'lobby', `özel lobi başladı: ${r.error?.message ?? sonra?.status}`)
+    await admin.from('games').update({ auto_start_at: null }).eq('id', g1)
+    const ic = await C.client.rpc('_create_game_internal', { p_kategori: 'tyt', p_host: C.id, p_public: true })
+    kontrol(!!ic.error, '_create_game_internal istemciden çağrılabildi!')
   })
   await adim('2b. C: başkasının oyununu start_game ile başlatamıyor', async () => {
     const m = await mesaj(() => C.api.startGame(g1))

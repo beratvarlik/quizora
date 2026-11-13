@@ -118,6 +118,27 @@ else                                devamEt(ben.currentQ)      // currentQ = sı
 ```
 `finishGame` **idempotenttir**: oyun bittikten sonra kaç kez ve kim çağırırsa çağırsın aynı sonucu döndürür, XP tekrar eklenmez.
 
+## 7b. Hemen Katıl (hızlı eşleşme)
+Oda kurmadan ve kod girmeden yarışa girmek için. Menüde kategori seçilir, "Hemen Katıl" → `quickJoin(kategori)`:
+```ts
+const { gameId, code, created } = await api.quickJoin(kategori) // sunucu: uygun lobiye ekler ya da yenisini açar
+navigate(`/lobi/${code}`)
+```
+- Eşleşme yalnızca AYNI kategoride olur. Yalnızca `quickJoin` lobileri herkese açıktır (`game.isPublic`); `createGame` (özel lobi) ve kodla katılım aynen çalışır.
+- Herkese açık lobide host beklenmez. `game.autoStartAt` null iken (tek oyuncu) "Rakip aranıyor" göster. 2. oyuncu girince sunucu `autoStartAt = şimdi + 10 sn` yazar, 5. oyuncuda `şimdi`. 2'nin altına düşerse yeniden null olur. Geri sayımı `autoStartAt`'e ve sunucu saatine (`getServerOffsetMs`) göre çiz.
+- **`startIfReady(gameId)` ne zaman çağrılır:** `autoStartAt` süresi dolunca (geri sayım 0), her istemci çağırır; 500 ms arayla birkaç kez (örn. `status` `playing` olana ya da 5 deneme). Hata yutulabilir. Koşullar sağlanmıyorsa hiçbir şey yapmaz, birden çok istemcinin aynı anda çağırması güvenlidir; oyun bir kez başlar. Başlayınca her zamanki gibi `status='playing'` + `startedAt` (≈ +3 sn) ile 3-2-1 geri sayımı.
+```ts
+async function otomatikBaslat(gameId: string) {
+  for (let i = 0; i < 6; i++) {
+    try { await api.startIfReady(gameId) } catch { /* yut */ }
+    await new Promise((r) => setTimeout(r, 500))
+  }
+}
+```
+- **`leaveGame(gameId)`:** lobide geri düğmesi ya da sayfa kapanışında çağır (en iyi çaba; başarısız olabilir). Başlamış oyunda 'Oyun başladı' hatası verir, yut. Kimse kalmazsa oyun silinir; host ayrılırsa host devredilir (`hostId` değişir).
+- Kodla katılırken herkese açık lobide geri sayım bittiyse 'Oyun başlamak üzere' hatası gelir (tablo bölüm 10): "Yarış başlamak üzere, yeni bir lobi dene" göster; `quickJoin` yeni lobi açar.
+- Aynı kullanıcı arka arkaya `quickJoin` yaparsa aynı lobiyi alır (`created=false`).
+
 ## 8. `finishGame` ne zaman çağrılır
 `remainingMs ≤ 0` olduğunda **veya** tüm oyuncular `finished` olduğunda. Birden fazla istemcinin aynı anda çağırması güvenlidir. Saat farkı yüzünden bazen sunucu henüz bitmedi diyebilir; kısa süre yeniden dene:
 ```ts
@@ -190,6 +211,7 @@ Her hata `Error.message` içinde **Türkçe** gelir; olduğu gibi gösterebilirs
 | `Kod bulunamadı` | Yanlış/olmayan lobi kodu (`joinGame`, `getGameByCode`) | Kod alanında hata göster |
 | `Lobi dolu` | 5 oyuncu varken `joinGame` | "Lobi dolu" + menüye dön |
 | `Oyun başladı` | Başlamış oyuna yeni oyuncu `joinGame` | "Oyun zaten başladı" |
+| `Oyun başlamak üzere` | Herkese açık lobide geri sayım bitmiş, kodla `joinGame` | "Yarış başlamak üzere"; `quickJoin` ile yeni lobiye gir |
 | `Oyun zaten başladı` | Host ikinci kez `startGame` | Yok say |
 | `Sadece host başlatabilir` | Host olmayan `startGame` | Başlat düğmesi yalnızca host'ta görünmeli |
 | `En az X oyuncu gerekli` | Yetersiz oyuncuyla `startGame` (X = 2) | Başlat'ı pasif tut, mesajı göster |

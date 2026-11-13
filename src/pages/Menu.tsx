@@ -5,7 +5,7 @@ import Button from '../components/Button'
 import Cip from '../components/Cip'
 import DevreHatlari from '../components/DevreHatlari'
 import { BaglantiBandi, Yukleniyor } from '../components/Durum'
-import { IkArti } from '../components/Ikon'
+import { IkArti, IkSimsek } from '../components/Ikon'
 import KademeRozet from '../components/KademeRozet'
 import SesButonu from '../components/SesButonu'
 import { KATEGORILER, KategoriIkon, kategoriBul } from '../components/Kategoriler'
@@ -46,6 +46,7 @@ export default function Menu() {
   const [lider, setLider] = useState<GlobalRow[] | null>(null)
   const [hata, setHata] = useState<string | null>(null)
   const [kuruluyor, setKuruluyor] = useState(false)
+  const [araniyor, setAraniyor] = useState(false)
   const ses = useSes()
   const { muzikModu } = ses
   useEffect(() => muzikModu('sakin'), [muzikModu])
@@ -79,6 +80,21 @@ export default function Menu() {
     } catch (e) {
       setHata(hataMesaji(e))
       setKuruluyor(false)
+    }
+  }
+
+  /** Hemen Katıl: aynı kategoride uygun herkese açık lobiye gir ya da yenisini aç. */
+  async function hemenKatil() {
+    if (!secili || araniyor) return
+    setAraniyor(true)
+    setHata(null)
+    try {
+      // Radar en az ~0,8 sn görünsün (anında geçişte ne olduğu anlaşılmıyor)
+      const [{ code }] = await Promise.all([api.quickJoin(secili), new Promise(r => setTimeout(r, 800))])
+      git(`/lobi/${code}`)
+    } catch (e) {
+      setHata(hataMesaji(e))
+      setAraniyor(false)
     }
   }
 
@@ -143,7 +159,7 @@ export default function Menu() {
             <br />
             seç<em>.</em>
           </h1>
-          <p className="alt-metin">{sinav === 'yks' ? 'Üniversite sınavı: 4 alandan birini seç, lobiyi kur.' : 'Liselere geçiş: sözel ya da sayısal, 10 soru.'}</p>
+          <p className="alt-metin">{sinav === 'yks' ? 'Üniversite sınavı: 4 alandan birini seç, hemen yarışa gir.' : 'Liselere geçiş: sözel ya da sayısal, 10 soru.'}</p>
         </div>
 
         <div className="sinav-sec" role="tablist" aria-label="Sınav">
@@ -176,7 +192,25 @@ export default function Menu() {
         </div>
 
         <div className="aksiyon">
-          <Button onClick={lobiKur} disabled={!secili || kuruluyor} ikonSol={<IkArti />}>
+          <Button
+            className={`hk-btn${araniyor ? ' araniyor' : ''}`}
+            onClick={hemenKatil}
+            disabled={!secili || kuruluyor}
+            aria-busy={araniyor}
+            aria-describedby={secili ? undefined : 'hk-ipucu'}
+            ikonSol={araniyor ? <span className="hk-mini" aria-hidden="true" /> : <IkSimsek />}
+          >
+            {araniyor ? 'Rakip aranıyor…' : 'Hemen Katıl'}
+          </Button>
+          {!secili && (
+            <span id="hk-ipucu" className="hk-ipucu">
+              Önce bir alan seç
+            </span>
+          )}
+          <div className="ayrac" aria-hidden="true">
+            <span>ya da arkadaşlarınla</span>
+          </div>
+          <Button tur="uc" onClick={lobiKur} disabled={!secili || kuruluyor || araniyor} ikonSol={<IkArti />}>
             {kuruluyor ? 'Lobi kuruluyor…' : 'Lobi kur'}
           </Button>
           <form

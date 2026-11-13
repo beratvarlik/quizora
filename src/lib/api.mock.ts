@@ -474,9 +474,34 @@ function oyuncuEkle(g: IcOyun, o: Omit<IcOyuncu, 'score' | 'currentQ' | 'correct
 }
 function botEkle(g: IcOyun) {
   if (g.info.status !== 'lobby' || g.oyuncular.length >= LOBI_SINIRI) return
+  // Sunucudaki quick_join gibi: geri sayımın bitmesine 4 sn'den az kalan lobiye yeni oyuncu girmez
+  if (g.info.isPublic && g.info.autoStartAt && Date.parse(g.info.autoStartAt) <= Date.now() + 4000) return
   const b = botUret(new Set(g.oyuncular.map(o => o.ad)))
   oyuncuEkle(g, { id: b.id, bot: true, ad: b.ad, avatarKey: b.avatarKey, photoUrl: null })
+  otoBaslatGuncelle(g)
   yayinla(g)
+}
+
+/**
+ * Herkese açık lobi auto_start kuralı (0009_hemen_katil.sql ile aynı):
+ * oyuncu sayısı 2'ye ulaşınca şimdi + 10 sn, 5'e ulaşınca şimdi, 2'nin altına düşünce null.
+ * 3. ve 4. oyuncu süreyi uzatmaz.
+ */
+function otoBaslatGuncelle(g: IcOyun) {
+  if (!g.info.isPublic) return
+  const n = g.oyuncular.length
+  if (n < 2) g.info.autoStartAt = null
+  else if (n >= LOBI_SINIRI) g.info.autoStartAt = new Date().toISOString()
+  else if (n === 2 && !g.info.autoStartAt) g.info.autoStartAt = new Date(Date.now() + 10_000).toISOString()
+}
+
+function oyunuSil(g: IcOyun) {
+  for (const t of g.zamanlayicilar) window.clearTimeout(t)
+  if (g.saat !== null) window.clearInterval(g.saat)
+  g.zamanlayicilar = []
+  g.dinleyiciler.clear()
+  oyunlar.delete(g.info.id)
+  kodlar.delete(g.info.code)
 }
 function yeniOyun(kategori: Kategori, hostId: string, kod = kodUret()): IcOyun {
   while (kodlar.has(kod)) kod = kodUret()
@@ -495,6 +520,8 @@ function yeniOyun(kategori: Kategori, hostId: string, kod = kodUret()): IcOyun {
       speedupRemainingMs: null,
       durationMs: SURE_MS,
       totalQuestions: SORU_SAYISI,
+      isPublic: false,
+      autoStartAt: null,
     },
     oyuncular: [],
     sorular: sorulariHazirla(kategori, sinav),
@@ -708,7 +735,9 @@ export const api: QuizoraApi = {
       if (g.oyuncular.some(o => o.id === p.id)) return { gameId: g.info.id }
       if (g.info.status !== 'lobby') throw new Error('Bu yarış çoktan başladı')
       if (g.oyuncular.length >= LOBI_SINIRI) throw new Error('Lobi dolu (en fazla 5 kişi)')
+      if (g.info.isPublic && g.info.autoStartAt && Date.parse(g.info.autoStartAt) <= Date.now()) throw new Error('Oyun başlamak üzere')
       oyuncuEkle(g, { id: p.id, bot: false, ad: p.displayName, avatarKey: p.avatarKey, photoUrl: p.photoUrl })
+      otoBaslatGuncelle(g)
       yayinla(g)
       return { gameId: g.info.id }
     }
@@ -738,6 +767,68 @@ export const api: QuizoraApi = {
     if (g.info.status !== 'lobby') throw new Error('Yarış zaten başladı')
     if (g.oyuncular.length < 2) throw new Error('Başlamak için en az 2 oyuncu gerekli')
     baslat(g)
+  },
+
+  /**
+   * Hemen Katıl: mock her zaman yeni herkese açık lobi açar (aynı kategoride hâlâ beklediğin
+   * lobin varsa onu döndürür, created=false). 2 sn sonra bir bot girer → autoStartAt = +10 sn;
+   * ardından 1-2 bot daha 3-6 sn arayla katılabilir.
+   */
+  async quickJoin(kategori) {
+    await ag()
+    const p = benimProfil()
+    if (!p) throw new Error('Önce profil oluştur')
+    for (const g of oyunlar.values()) {
+      if (g.info.isPublic && g.info.status === 'lobby' && g.info.kategori === kategori && g.oyuncular.some(o => o.id === p.id)) {
+        return { gameId: g.info.id, code: g.info.code, created: false }
+      }
+    }
+    const g = yeniOyun(kategori, p.id)
+    g.info.isPublic = true
+    oyuncuEkle(g, { id: p.id, bot: false, ad: p.displayName, avatarKey: p.avatarKey, photoUrl: p.photoUrl })
+    let t = 2000
+    zamanla(g, t, () => botEkle(g))
+    const ekBot = Math.random() < 0.5 ? 1 : 2
+    for (let i = 0; i < ekBot; i++) {
+      t += rastgele(3000, 6000)
+      zamanla(g, t, () => botEkle(g))
+    }
+    return { gameId: g.info.id, code: g.info.code, created: true }
+  },
+
+  /** autoStartAt geçmişse ve en az 2 oyuncu varsa başlatır; aksi hâlde sessizce hiçbir şey yapmaz. */
+  async startIfReady(gameId) {
+    await ag()
+    const g = oyunBul(gameId)
+    benOyuncuyum(g)
+    if (
+      g.info.status === 'lobby' &&
+      g.info.isPublic &&
+      g.info.autoStartAt !== null &&
+      Date.parse(g.info.autoStartAt) <= Date.now() &&
+      g.oyuncular.length >= 2
+    ) {
+      baslat(g)
+    }
+  },
+
+  /** Lobiden çık. Başlamış oyunda 'Oyun başladı'. İnsan kalmazsa oyun silinir; host ayrılırsa devredilir. */
+  async leaveGame(gameId) {
+    await ag()
+    const g = oyunlar.get(gameId)
+    if (!g) return
+    const benim = benimId()
+    if (!g.oyuncular.some(o => o.id === benim)) throw new Error('Bu oyuna erişimin yok')
+    if (g.info.status !== 'lobby') throw new Error('Oyun başladı')
+    g.oyuncular = g.oyuncular.filter(o => o.id !== benim)
+    // Mock'ta botlar tek başına oynamaz: insan oyuncu kalmadıysa lobiyi kapat
+    if (!g.oyuncular.some(o => !o.bot)) {
+      oyunuSil(g)
+      return
+    }
+    if (g.info.hostId === benim) g.info.hostId = g.oyuncular[0].id
+    otoBaslatGuncelle(g)
+    yayinla(g)
   },
 
   async getQuestion(gameId, position) {
