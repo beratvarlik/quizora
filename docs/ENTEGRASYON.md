@@ -233,6 +233,25 @@ const p = await api.getPerformance({ exam: 'yks', days: 30 }) // ikisi de isteğ
 - Boş kullanıcı (hiç bitmiş yarış yok): `totals` sıfır, listeler boş, `daily` 7 gün sıfır, `streakDays` 0 → "Henüz veri yok, bir yarışa katıl" ekranı.
 - **Hatalar:** `Geçersiz sınav` (`exam` `'yks'`/`'lgs'` dışında), `Oturum yok`, `Bağlantı hatası, tekrar dene`.
 
+## 8e. Günlük görevler (`getDailyTasks`, `claimDailyTask`)
+Her gün 3 görev; tamamlanınca ödül (XP) elle alınır, 3'ü alınınca +50 XP bonus. **İlerleme ayrı sayılmaz:** o günün bitmiş yarışlarından her çağrıda yeniden hesaplanır; yalnızca ödül alımı saklanır.
+
+```ts
+const g = await api.getDailyTasks()
+// g.date: '2026-11-14' (Europe/Istanbul), g.resetsAt: bir sonraki İstanbul gece yarısı (ISO)
+// g.tasks: [{ id, title, target, progress, xp, completed, claimed }]  (3 görev, progress target ile sınırlı)
+// g.bonus: { xp: 50, completed, claimed }
+
+const r = await api.claimDailyTask(gorev.id)   // ya da 'bonus'
+// { xpGained, newXp, tierBefore, tierAfter }   (tier = rütbe etiketi, örn. 'Çaylak' → 'Bronz I')
+```
+- **Görev havuzu** (id → hedef, XP): `math10` "10 Matematik sorusu çöz" 10 / +30 · `win1` "1 yarışma kazan" 1 / +40 · `correct5` "5 doğru cevap ver" 5 / +20 · `friends2` "2 arkadaşınla yarış (3+ kişilik)" 1 / +30 · `notebook3` "Yanlışlarım'dan 3 soru çöz" 3 / +30 · `acc70` "Bir yarışta %70 doğruluk yakala" 1 / +30 · `quick1` "Hemen Katıl ile 1 yarış" 1 / +20 · `games3` "3 yarışma tamamla" 3 / +30. Başlıklar sunucudan gelir (`title`), arayüzde sabit yazma.
+- **Günün görevleri** tarihe göre deterministik seçilir: herkes aynı gün aynı 3 görevi, aynı sırada görür. **Bugün = Europe/Istanbul takvim günü**; gece yarısı (`resetsAt`) görevler ve ilerleme sıfırlanır. Geri sayım için `resetsAt - şimdi` (sunucu saati farkı için `getServerOffsetMs`) kullan.
+- **İlerleme nasıl sayılır** (yalnızca BİTMİŞ yarışlar; oyuncunun en az 1 soru cevapladığı yarışlar; yarış hangi gün BİTTİYSE o güne yazılır): `math10` bugünkü Matematik cevapları (YKS + LGS; boş bırakılanlar sayılmaz) · `win1` 1. olunan yarışlar · `correct5` doğru cevaplar · `friends2` 3+ oyunculu yarışlar · `notebook3` bugün `practiceAnswer` ile **doğru çözülen** defter soruları (elle `removeMistake` ve yarışta çözülenler SAYILMAZ) · `acc70` en az 5 soru cevaplanmış ve doğru/cevaplanan ≥ %70 olan yarışlar (7/10 yeterli) · `quick1` Hemen Katıl (herkese açık lobi) yarışları · `games3` tamamlanan yarışlar. Yani yarış bittiğinde (`finishGame` sonrası) ya da defterde soru çözünce `getDailyTasks`'ı yeniden çağırmak yeterli.
+- **Ödül:** `completed` görevde `claimDailyTask(id)`; XP oyuncunun XP'sine eklenir (`newXp`), rütbe atlarsa `tierBefore !== tierAfter` ("Rütbe atladın!" gösterilebilir). `claimed: true` olanlar tekrar alınamaz. **Bonus:** `bonus.completed` = bugünün 3 görevinin ödülü de alınmış; sonra `claimDailyTask('bonus')` (+50 XP).
+- Ödül alındıktan sonra `getMyStats()` / üst bar XP'sini yenile.
+- **Hatalar:** `Görev henüz tamamlanmadı`, `Ödül zaten alındı` (çift tıklama/ikinci cihaz), `Bu görev bugünün görevi değil` (gece yarısı geçmiş: listeyi yenile), `Önce üç görevin ödülünü al` (yalnızca `'bonus'`), `Geçersiz görev`, `Oturum yok`, `Bağlantı hatası, tekrar dene`.
+
 ## 9. Abonelikler
 ```ts
 useEffect(() => {
@@ -271,6 +290,11 @@ Her hata `Error.message` içinde **Türkçe** gelir; olduğu gibi gösterebilirs
 | `Bu soru defterinde yok` | `practiceAnswer`/`removeMistake`: soru zaten çözülmüş, çıkarılmış ya da defterde değil | Listeyi yenile (`getMistakes`) |
 | `Geçersiz sınav` | `getMistakes({ exam })` / `getPerformance({ exam })` değeri `'yks'`/`'lgs'` dışında | Programlama hatası |
 | `Soru bulunamadı` | `practiceAnswer`: soru veritabanından silinmiş | Listeyi yenile; soru zaten listede görünmez |
+| `Görev henüz tamamlanmadı` | `claimDailyTask`: görev hedefine ulaşılmamış | Düğmeyi pasif tut; `getDailyTasks`'ı yenile |
+| `Ödül zaten alındı` | `claimDailyTask`: ödül daha önce alınmış (çift tıklama, başka sekme) | Listeyi yenile; hata gösterme |
+| `Bu görev bugünün görevi değil` | `claimDailyTask`: gece yarısı geçmiş ya da yanlış id | Listeyi yenile (`getDailyTasks`) |
+| `Önce üç görevin ödülünü al` | `claimDailyTask('bonus')`: 3 görevin ödülü alınmamış | Bonus düğmesi yalnızca `bonus.completed` iken aktif |
+| `Geçersiz görev` | `claimDailyTask('')` | Programlama hatası |
 | `Oyun bitti` | Biten oyunda `getQuestion`/`submitAnswer` | Sonuç ekranına git |
 | `Bu oyuna erişimin yok` | Üye olmayan biri oyun verisi ister | Menüye dön; kodla `joinGame` dene |
 | `Oyun bulunamadı` | Olmayan `gameId` | Menüye dön |
