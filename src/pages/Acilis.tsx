@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import Avatar, { AVATAR_KEYS } from '../components/Avatar'
+import AvatarSecici from '../components/AvatarSecici'
 import Button from '../components/Button'
 import Card from '../components/Card'
 import Cip from '../components/Cip'
@@ -6,6 +8,7 @@ import DevreHatlari from '../components/DevreHatlari'
 
 /** Geçici: B1 temel bileşen vitrini. Asıl açılış sayfası (W1) B6'da yapılacak. */
 export default function Acilis() {
+  const [secili, setSecili] = useState<string | null>('avatar-3')
   return (
     <main className="sayfa pb-10">
       <DevreHatlari kose="sag-kenar" ust={120} boyut={200} />
@@ -42,9 +45,12 @@ export default function Acilis() {
         <section className="mt-8">
           <span className="etiket">Avatar</span>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <Avatar avatarKey="avatar-3" ad="Deniz" boyut={104} ben />
-            {AVATAR_KEYS.slice(0, 5).map(k => <Avatar key={k} avatarKey={k} boyut={48} />)}
+            <Avatar avatarKey={secili} ad="Deniz" boyut={104} ben />
+            {AVATAR_KEYS.slice(0, 4).map(k => <Avatar key={k} avatarKey={k} boyut={48} />)}
             <Avatar avatarKey={null} ad="Elif" boyut={48} />
+          </div>
+          <div className="mt-4">
+            <AvatarSecici secili={secili} onSec={setSecili} />
           </div>
         </section>
 
