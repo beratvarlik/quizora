@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import DevreHatlari from '../components/DevreHatlari'
 import { BaglantiBandi } from '../components/Durum'
 import { IkOk } from '../components/Ikon'
+import Avatar from '../components/Avatar'
 import { UstBar } from '../components/Logo'
 import { useSes } from '../hooks/useSes'
 import { useSession } from '../hooks/useSession'
@@ -123,7 +124,16 @@ export default function Acilis() {
       <DevreHatlari kose="sag-kenar" ust={150} boyut={170} />
       <DevreHatlari kose="sol-alt" boyut={200} />
       <div className="lp-ust">
-        <UstBar />
+        <UstBar
+          sag={
+            profile && (
+              <Link to="/menu" className="lp-menu-kisa" aria-label="Menüye git">
+                <Avatar avatarKey={profile.avatarKey} photoUrl={profile.photoUrl} ad={profile.displayName} boyut={28} ben />
+                <span>Menüye git</span>
+              </Link>
+            )
+          }
+        />
       </div>
       <section className="lp-hero">
         <div className="lp-isik" aria-hidden="true" />

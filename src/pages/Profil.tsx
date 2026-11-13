@@ -110,11 +110,15 @@ export default function Profil() {
       <DevreHatlari kose="sag-kenar" ust={116} boyut={200} />
       <DevreHatlari kose="sol-kenar" ust={300} boyut={150} />
       <div className="icerik">
-        <UstBar sag={<span className="etiket">{yeni ? 'Adım 1/2' : 'Profil'}</span>} />
+        <UstBar
+          sag={<span className="etiket">{yeni ? 'Adım 1/2' : 'Profil'}</span>}
+          geri={() => git(yeni ? '/' : '/menu')}
+          geriEtiket={yeni ? 'Açılış sayfasına dön' : 'Ana menüye dön'}
+        />
         <div className="pf-sol">
         <div className="px-5 pt-2">
           <h1 className="baslik">
-            Kim
+            Kim{' '}
             <br />
             yarışıyor<em>?</em>
           </h1>
