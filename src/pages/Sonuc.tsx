@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import Button from '../components/Button'
 import DevreHatlari from '../components/DevreHatlari'
@@ -9,48 +9,54 @@ import KademeRozet from '../components/KademeRozet'
 import { sinavEtiketi } from '../components/Kategoriler'
 import { UstBar } from '../components/Logo'
 import { hataMesaji } from '../hooks/hata'
+import { finishGameYeniden } from '../hooks/useBitir'
 import { useGame } from '../hooks/useGame'
 import { api } from '../lib/client'
 import type { GameResult, MyStats } from '../types'
 
-const DENEME_SINIRI = 90 // ~90 sn: süre dolana kadar bekleyebilir
-
 export default function Sonuc() {
   const { code = '' } = useParams()
   const git = useNavigate()
+  const konum = useLocation()
   const { snapshot, userId, loading, error } = useGame(code)
   const oyun = snapshot?.game
-  const [sonuc, setSonuc] = useState<GameResult | null>(null)
+  const oyunId = oyun?.id
+  // Oyun ekranı finishGame'i çağırıp sonucu buraya taşır; yoksa (yenileme / bağlantı) burada alınır.
+  const gelen = (konum.state as { sonuc?: GameResult } | null)?.sonuc ?? null
+  const [sonuc, setSonuc] = useState<GameResult | null>(gelen)
   const [stat, setStat] = useState<MyStats | null>(null)
   const [hata, setHata] = useState<string | null>(null)
   const [bar, setBar] = useState(0)
   const [kuruluyor, setKuruluyor] = useState(false)
-  const basladi = useRef(false)
-
-  // finishGame idempotent; "henüz bitmedi" derse (diğerleri hâlâ oynuyor) bir saniye sonra yine dene.
+  const [deneme, setDeneme] = useState(0)
+  const kilit = useRef(false)
+  const bagli = useRef(true)
   useEffect(() => {
-    if (!oyun || basladi.current) return
-    basladi.current = true
-    let iptal = false
-    let deneme = 0
-    const dene = async () => {
-      try {
-        const r = await api.finishGame(oyun.id)
-        if (iptal) return
-        setSonuc(r)
-        api.getMyStats().then(s => !iptal && setStat(s), () => {})
-      } catch (e) {
-        if (iptal) return
-        const m = hataMesaji(e)
-        if (/henüz bitmedi/i.test(m) && deneme++ < DENEME_SINIRI) window.setTimeout(dene, 1000)
-        else setHata(m)
-      }
-    }
-    void dene()
+    bagli.current = true
     return () => {
-      iptal = true
+      bagli.current = false
     }
-  }, [oyun])
+  }, [])
+
+  // Yalnızca oyun kimliğine bağlı: snapshot yenilendikçe (3 sn'de bir) yeniden başlamaz/iptal olmaz.
+  useEffect(() => {
+    if (!oyunId || kilit.current) return
+    kilit.current = true
+    ;(async () => {
+      try {
+        const r = sonuc ?? (await finishGameYeniden(oyunId))
+        if (!bagli.current) return
+        setSonuc(r)
+        api.getMyStats().then(s => bagli.current && setStat(s), () => {})
+      } catch (e) {
+        if (!bagli.current) return
+        kilit.current = false
+        // Yarış sürüyorsa (doğrudan /sonuc açıldıysa) bekleme ekranına dön.
+        if (/henüz bitmedi/i.test(hataMesaji(e))) git(`/oyun/${code}`, { replace: true })
+        else setHata('Sonuçlar alınamadı, tekrar dene')
+      }
+    })()
+  }, [oyunId, deneme, sonuc, code, git])
 
   useEffect(() => {
     if (!stat) return
@@ -72,7 +78,16 @@ export default function Sonuc() {
 
   if (loading) return <Yukleniyor />
   if (error || !oyun) return <HataEkrani mesaj={error ?? 'Oyun bulunamadı.'} />
-  if (hata && !sonuc) return <HataEkrani mesaj={hata} />
+  if (hata && !sonuc)
+    return (
+      <HataEkrani
+        mesaj={hata}
+        onTekrar={() => {
+          setHata(null)
+          setDeneme(d => d + 1)
+        }}
+      />
+    )
   if (!sonuc) {
     return (
       <main className="sayfa">

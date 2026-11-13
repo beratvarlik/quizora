@@ -10,6 +10,7 @@ import { IkCarpi, IkTik } from '../components/Ikon'
 import { sinavEtiketi, sinavHarfleri } from '../components/Kategoriler'
 import SureHalkasi from '../components/SureHalkasi'
 import { hataMesaji } from '../hooks/hata'
+import { useBitir } from '../hooks/useBitir'
 import { useCountdown } from '../hooks/useCountdown'
 import { useGame } from '../hooks/useGame'
 import { api } from '../lib/client'
@@ -65,16 +66,29 @@ export default function Oyun() {
     if (me.finished || me.currentQ >= toplam) setBitirdim(true)
   }, [me, toplam])
 
-  // Faz yönlendirmeleri: lobi → lobiye, süre bitti / herkes bitirdi → sonuca.
+  // Faz yönlendirmeleri (ENTEGRASYON.md §7-8). Snapshot gelmeyebilir: sayaç (2× dahil) her 100 ms
+  // yerel olarak hesaplanır; süre dolunca ya da herkes bitirince finishGame (tek sefer, yeniden
+  // denemeli) çağrılır ve sonuca geçilir. Oyun zaten bitmişse (sayfa yenileme) doğrudan sonuca.
   const herkesBitti = Boolean(snapshot && snapshot.players.length > 0 && snapshot.players.every(p => p.finished))
+  const { bitir, bekliyor: sonucBekleniyor, hata: bitirHata } = useBitir(oyun?.id, oyun?.code)
+  const durum = oyun?.status
+  const oyunKodu = oyun?.code
+  const sureBitti = sayac.phase === 'bitti'
   useEffect(() => {
-    if (!oyun) return
-    if (oyun.status === 'lobby') git(`/lobi/${oyun.code}`, { replace: true })
-    else if (sayac.phase === 'bitti' || herkesBitti) {
-      const t = window.setTimeout(() => git(`/sonuc/${oyun.code}`, { replace: true }), geri ? 900 : 300)
+    if (!durum || !oyunKodu) return
+    if (durum === 'lobby') {
+      git(`/lobi/${oyunKodu}`, { replace: true })
+      return
+    }
+    if (durum === 'finished') {
+      git(`/sonuc/${oyunKodu}`, { replace: true })
+      return
+    }
+    if (sureBitti || herkesBitti) {
+      const t = window.setTimeout(() => void bitir(), geri ? 900 : 0)
       return () => window.clearTimeout(t)
     }
-  }, [oyun, sayac.phase, herkesBitti, geri, git])
+  }, [durum, oyunKodu, sureBitti, herkesBitti, geri, bitir, git])
 
   // 2× anı: oyun sırasında speedupBy ilk kez dolunca bir kez oynat.
   useEffect(() => {
@@ -154,6 +168,8 @@ export default function Oyun() {
   if (!me) return <HataEkrani mesaj="Bu yarışta değilsin." />
 
   const hizli = sayac.hizli
+  const dogruSayisi = Object.values(sonuclar).filter(v => v === 'd').length
+  const yanlisSayisi = Object.values(sonuclar).filter(v => v === 'y').length
   const benimPuan = puan ?? me.score
   const suAnki = pos ?? me.currentQ
   // Şık sayısı sorudan gelir (boş/null şık gösterilmez); LGS'de E asla gösterilmez.
@@ -204,8 +220,17 @@ export default function Oyun() {
             </p>
             <div className="buyuk">{sureYazi(sayac.kalanMs)}</div>
             <p>
-              {me.correctCount} doğru · {me.wrongCount} yanlış
+              {Math.max(me.correctCount, dogruSayisi)} doğru · {Math.max(me.wrongCount, yanlisSayisi)} yanlış
             </p>
+            {sonucBekleniyor && <p>Sonuçlar hazırlanıyor…</p>}
+            {bitirHata && (
+              <div className="mt-4">
+                <p className="text-[color:var(--yanlis)] font-semibold">{bitirHata}</p>
+                <button type="button" className="btn btn-ana btn-blok mt-3" onClick={() => void bitir()}>
+                  Tekrar dene
+                </button>
+              </div>
+            )}
           </div>
         ) : sayac.phase === 'gerisayim' ? (
           <div className="bekleme kart">
@@ -258,6 +283,14 @@ export default function Oyun() {
                 Boş geç
               </button>
             </div>
+          </div>
+        )}
+        {bitirHata && !bitirdim && (
+          <div className="hata-kutu" role="alert">
+            {bitirHata}{' '}
+            <button type="button" className="underline" onClick={() => void bitir()}>
+              Tekrar dene
+            </button>
           </div>
         )}
         {hata && (
