@@ -19,6 +19,16 @@ const K_SINAV = 'quizora.sinav'
 const KOD_HARF = /[^ABCDEFGHJKLMNPQRSTUVWXYZ23456789]/g
 
 function sinavOku(): Sinav {
+  // Açılıştan ?sinav=lgs ile gelindiyse o sınav seçili açılır
+  try {
+    const q = new URLSearchParams(window.location.search).get('sinav')
+    if (q === 'yks' || q === 'lgs') {
+      localStorage.setItem(K_SINAV, q)
+      return q
+    }
+  } catch {
+    /* yok say */
+  }
   try {
     return localStorage.getItem(K_SINAV) === 'lgs' ? 'lgs' : 'yks'
   } catch {
