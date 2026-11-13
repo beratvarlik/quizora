@@ -26,3 +26,11 @@ Format: - [ ] gg.aa ss:dd — istek — durum
   ```
   - Vercel ayarları: Framework Vite, Build `npm run build`, Output `dist`; ortam değişkenleri `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_USE_MOCK=false` (service role ASLA). Ayrıntı: `docs/YAYIN.md`.
   - `src/lib/client.ts` için örnek `docs/ENTEGRASYON.md` bölüm 1'de.
+
+- [ ] 13.11 16:44 — **LGS soruları 4 şıklı (A-D): `src/types.ts` ve arayüz davranışı değişti. `backend` dalı main'e birleşince `git fetch origin && git merge origin/main` ile al.** — bekliyor
+  - **Tip değişikliği (tek satır):** `Question.options` artık `Partial<Record<Secenek, string>>` (eskiden `Record<Secenek, string>`). YKS soruları 5 şıklı (A-E), **LGS soruları (`lgs_sozel`, `lgs_sayisal`) 4 şıklı: `options` içinde `E` anahtarı HİÇ gelmez.**
+  - **Arayüzde yapman gereken:** şık düğmelerini sabit 5 değil, **gelen anahtarlara göre çiz**: `Object.entries(soru.options)` (A'dan başlayıp sıralı). `E` gelmediyse E düğmesi/boş yer gösterme. Klavye kısayolu (A-E tuşları) varsa yalnızca gelen harfleri kabul et. `Record<Secenek, string>` varsayan `options.E` gibi erişimler artık `string | undefined` döner; TypeScript seni uyarır.
+  - **Gönderme:** yalnızca `soru.options`'ta olan harfler gönderilir. Soruda olmayan bir şık (LGS'de `E`) `submitAnswer`'da `Geçersiz şık` hatası verir. Cevapsız/süre dolunca `null` göndermeye devam et.
+  - **Mock (`api.mock.ts`):** `lgs_sozel` ve `lgs_sayisal` kategorilerinde `getQuestion` 4 şıklı (`options` = `{A,B,C,D}`) döndürmeli; YKS kategorilerinde 5 şıklı kalmalı. `submitAnswer(…, 'E')` LGS sorusunda `Error('Geçersiz şık')` fırlatmalı; `correctOption` A-D'den biri olmalı.
+  - **Belgeler güncel:** `docs/ENTEGRASYON.md` (şık sayısı bölümü ve hata tablosu), `docs/PROJE.md` (tipler bloğu `src/types.ts` ile aynı).
+  - Veritabanı tarafı (`0007_lgs_4_sik.sql`) Supabase'e uygulandıktan ve tüm testler geçtikten sonra birleştirilecektir; birleşince bu notun altına "birleşti" yazılır.
