@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Alevler from '../components/Alevler'
 import CanliSerit from '../components/CanliSerit'
 import DevreHatlari from '../components/DevreHatlari'
+import DikeySiralama from '../components/DikeySiralama'
 import { BaglantiBandi, HataEkrani, Yukleniyor } from '../components/Durum'
 import HizBildirimi from '../components/HizBildirimi'
 import HizRozeti from '../components/HizRozeti'
@@ -209,7 +210,7 @@ export default function Oyun() {
   const bitiren = oyun.speedupBy ? snapshot.players.find(p => p.userId === oyun.speedupBy) : null
 
   return (
-    <main className={`sayfa${hizli ? ' koyu-ekran' : ''}`}>
+    <main className={`sayfa oy-sayfa${hizli ? ' koyu-ekran' : ''}`}>
       <BaglantiBandi />
       <DevreHatlari kose="sol-alt" boyut={180} soluk={!hizli} koyu={hizli} hiz={hizli ? 2.5 : 1} zemin={hizli ? '#1E0910' : undefined} />
       <DevreHatlari kose="sag-alt" boyut={180} soluk={!hizli} koyu={hizli} hiz={hizli ? 2.5 : 1} zemin={hizli ? '#1E0910' : undefined} />
@@ -344,6 +345,7 @@ export default function Oyun() {
             </button>
           </div>
         )}
+        <DikeySiralama oyuncular={snapshot.players} benId={userId ?? ''} toplamSoru={toplam} />
       </div>
 
       {geri && (

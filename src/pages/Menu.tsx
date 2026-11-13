@@ -96,7 +96,7 @@ export default function Menu() {
   const bilgi = secili ? kategoriBul(secili) : null
 
   return (
-    <main className="sayfa">
+    <main className="sayfa mn-sayfa">
       <BaglantiBandi />
       <DevreHatlari kose="sag-kenar" ust="orta" boyut={220} />
       <DevreHatlari kose="sol-alt" boyut={200} />

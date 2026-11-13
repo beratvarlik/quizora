@@ -105,12 +105,13 @@ export default function Profil() {
   if (loading) return <Yukleniyor />
 
   return (
-    <main className="sayfa">
+    <main className="sayfa pf-sayfa">
       <BaglantiBandi />
       <DevreHatlari kose="sag-kenar" ust={116} boyut={200} />
       <DevreHatlari kose="sol-kenar" ust={300} boyut={150} />
       <div className="icerik">
         <UstBar sag={<span className="etiket">{yeni ? 'Adım 1/2' : 'Profil'}</span>} />
+        <div className="pf-sol">
         <div className="px-5 pt-2">
           <h1 className="baslik">
             Kim
@@ -140,10 +141,12 @@ export default function Profil() {
           </div>
         </div>
 
-        <div className="px-5" style={{ marginTop: 28 }}>
+        </div>
+        <div className="pf-sag">
+        <div className="px-5 pf-avatar-etiket" style={{ marginTop: 28 }}>
           <span className="etiket">Avatar</span>
         </div>
-        <div className="mt-3 px-5">
+        <div className="mt-3 px-5 pf-izgara">
           <AvatarSecici secili={foto || fotoUrl ? null : avatar} onSec={avatarSec} />
         </div>
         <button type="button" className="yukle-btn" aria-pressed={Boolean(fotoUrl)} onClick={() => dosya.current?.click()}>
@@ -173,6 +176,7 @@ export default function Profil() {
           </div>
         </div>
         {hata && <div className="hata-kutu" role="alert">{hata}</div>}
+        </div>
         <div className="alt-bosluk" />
       </div>
 

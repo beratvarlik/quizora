@@ -114,7 +114,7 @@ export default function Lobi() {
   const yeterli = oyuncular.length >= 2
 
   return (
-    <main className="sayfa">
+    <main className="sayfa lb-sayfa">
       <BaglantiBandi />
       <DevreHatlari kose="sag-kenar" ust={404} boyut={220} />
       <DevreHatlari kose="sol-kenar" ust={476} boyut={220} />
