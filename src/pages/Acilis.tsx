@@ -6,6 +6,7 @@ import Card from '../components/Card'
 import Cip from '../components/Cip'
 import DevreHatlari from '../components/DevreHatlari'
 import HizDemo from '../components/HizDemo'
+import { UstBar } from '../components/Logo'
 
 /** Geçici: B1 temel bileşen vitrini. Asıl açılış sayfası (W1) B6'da yapılacak. */
 export default function Acilis() {
@@ -14,11 +15,9 @@ export default function Acilis() {
     <main className="sayfa pb-10">
       <DevreHatlari kose="sag-kenar" ust={120} boyut={200} />
       <DevreHatlari kose="sol-alt" boyut={200} />
-      <div className="mx-auto max-w-[480px] px-5 pt-10">
-        <span className="font-baslik text-[30px] font-extrabold tracking-[-.035em] text-burgundy">
-          quizora<span className="text-orange">.</span>
-        </span>
-        <h1 className="baslik mt-8">
+      <UstBar sag={<span className="etiket">Vitrin</span>} />
+      <div className="mx-auto max-w-[480px] px-5 pt-4">
+        <h1 className="baslik">
           Sınav değil,
           <br />
           düello<em>.</em>
