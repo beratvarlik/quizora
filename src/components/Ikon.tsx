@@ -47,3 +47,35 @@ export const IkGrafik = ({ boyut = 22 }: { boyut?: number }) => (
 export const IkAlev = ({ boyut = 18 }: { boyut?: number }) => (
   <svg width={boyut} height={boyut} viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c.5 3.2-1.2 5-2.7 6.7C7.8 10.4 6 12.2 6 15a6 6 0 0 0 12 0c0-2.4-1.1-4.2-2.3-5.6-.3 1.4-1 2.4-2 3 .4-3.6-.6-7.4-1.7-10.4z" fill="#F15A24" /><path d="M12 22a3.2 3.2 0 0 1-3.2-3.2c0-1.6 1-2.6 2-3.6.4 1 1 1.6 1.8 2 .2-1 .7-1.8 1.4-2.4.8 1 1.2 2.1 1.2 3.4A3.2 3.2 0 0 1 12 22z" fill="#FFB15C" /></svg>
 )
+/* ---- Günlük görev ikonları (çizgi) ---- */
+type IkP = { boyut?: number }
+const Ik = ({ boyut = 20, children }: IkP & { children: React.ReactNode }) => (
+  <svg width={boyut} height={boyut} viewBox="0 0 24 24" strokeWidth="2" {...P} aria-hidden="true">{children}</svg>
+)
+export const IkTakvim = ({ boyut = 22 }: IkP) => (
+  <Ik boyut={boyut}><rect x="4" y="5" width="16" height="15" rx="3" /><path d="M8 3v4M16 3v4M4 10h16" /><path d="M9.5 15l2 2 3.5-3.5" /></Ik>
+)
+export const IkHesap = ({ boyut }: IkP) => (
+  <Ik boyut={boyut}><rect x="5" y="3" width="14" height="18" rx="3" /><path d="M8 7h8" /><path d="M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01" strokeWidth="2.6" /></Ik>
+)
+export const IkKupa = ({ boyut }: IkP) => (
+  <Ik boyut={boyut}><path d="M8 4h8v5a4 4 0 0 1-8 0z" /><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4" /><path d="M12 13v4M9 20h6M10 17h4" /></Ik>
+)
+export const IkOnay = ({ boyut }: IkP) => (
+  <Ik boyut={boyut}><circle cx="12" cy="12" r="8.5" /><path d="M8.5 12.2l2.4 2.4 4.6-4.8" /></Ik>
+)
+export const IkKisiler = ({ boyut }: IkP) => (
+  <Ik boyut={boyut}><circle cx="9" cy="9" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0" /><circle cx="17" cy="10" r="2.5" /><path d="M16 14.6a4.5 4.5 0 0 1 5 4.4" /></Ik>
+)
+export const IkHedef = ({ boyut }: IkP) => (
+  <Ik boyut={boyut}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" /></Ik>
+)
+export const IkBayrak = ({ boyut }: IkP) => (
+  <Ik boyut={boyut}><path d="M6 21V4" /><path d="M6 4h11l-2.5 4L17 12H6" /></Ik>
+)
+export const IkSimsekCizgi = ({ boyut }: IkP) => (
+  <Ik boyut={boyut}><path d="M13 3 5 13.5h6L10 21l8.5-11H12.5z" /></Ik>
+)
+export const IkDefterCizgi = ({ boyut }: IkP) => (
+  <Ik boyut={boyut}><path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M9 3v18" /><path d="M12.5 8h3.5M12.5 12h3.5" /></Ik>
+)
