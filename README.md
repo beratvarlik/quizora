@@ -210,6 +210,8 @@ npx tsx scripts/soru-durumu.ts
 
 `soru-durumu` hangi kategorinin oynanabilir olduğunu gösterir.
 
+Yarış sonrası soru incelemesinde öğrenciye gösterilen çözüm açıklamaları (`cozum_aciklamasi`, en çok 400 karakter) ayrı bir CSV ile yüklenir: `npx tsx scripts/aciklama-yukle.ts aciklamalar.csv --dry-run` (ayrıntı: `docs/SORU-EKLEME.md`). Migration `0008_cozum_aciklamasi.sql` önce uygulanmış olmalı.
+
 ### 6. Çalıştır
 ```bash
 npm run dev
