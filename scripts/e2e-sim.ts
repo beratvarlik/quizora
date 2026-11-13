@@ -604,8 +604,6 @@ async function tur(n: number, kategori: Kategori, tam: boolean): Promise<void> {
     return `${lb.length} satır`
   })
 
-  if (!tam) return
-
   // Günlük görevler: ilerleme bu yarıştan hesaplanır; tamamlanan görevin ödülü alınır, XP ve rütbe tutarlı.
   // NOT: ödül XP ekler, bu yüzden XP'nin yalnızca yarıştan geldiğini doğrulayan 6b ve 7'den SONRA çalışır.
   await adim(`${e} 8b. getDailyTasks / claimDailyTask: 3 görev, ilerleme hedefle sınırlı, ödül yalnızca tamamlananda; XP getMyStats ile tutarlı`, async () => {
@@ -633,6 +631,8 @@ async function tur(n: number, kategori: Kategori, tam: boolean): Promise<void> {
       }
     }
   })
+
+  if (!tam) return
 
   // 9. Rank atlama: oyuncu 1'in XP'si 95 → yeni yarışı kazanır
   await adim(`${e} 9. rank atlama: XP 95 → yarışı kazanınca rankedUp, rankLabelBefore 'Çaylak'`, async () => {
