@@ -57,6 +57,36 @@ Bir yarıştan kazanılan XP = **20** (katılım) + **max(0, floor(puan / 10))**
 Oyun tabloları: profiles, games, game_players, game_questions, answers, global_scores (eski), rank_tiers, player_stats. RPC'ler: create_game, join_game, start_game, get_game, get_game_by_id, get_question, submit_answer, finish_game, get_global_leaderboard, get_my_stats, server_time.
 - `finish_game(game_id)`: sıralamayı kesinleştirir, XP'yi yarış başına bir kez uygular (`games.xp_applied`), idempotenttir. Süre dolmadan ve herkes bitirmeden 'Yarış henüz bitmedi' der. Dönüş: `{winner_id, ranking[{rank, user_id, ..., xp_gained, xp_before, xp_after, rank_label_before, rank_label_after, ranked_up}], breakdown, xp_breakdown}`. `global_scores`'a yazılmaz.
 - `get_global_leaderboard()`: **XP döner** (`player_stats` + `profiles`), ilk 20; `[{user_id, display_name, avatar_key, photo_url, xp, rank_key, rank_label, wins, games_played}]`, `xp` azalan, eşitlikte `wins` azalan.
+- `get_question(game_id, position)`: yalnızca oyuncunun sıradaki sorusu; süre sayacını (`q_started_at`) ilk çağrıda başlatır, tekrar çağrıda sıfırlamaz. Doğru şık, açıklama ve `aktif` ASLA dönmez. `submit_answer(game_id, position, secenek|null)`: puanı sunucu hesaplar; süre bitmişse cevabı boş sayar; 10. soruyu ilk bitiren `speedup_at/speedup_remaining_ms/speedup_by` değerlerini yazar. Hata mesajları listesi: `docs/ENTEGRASYON.md`.
+- `get_my_stats()`: çağıranın XP/rank özeti (satır yoksa 0 ile oluşturur). Tüm RPC'ler oturum ister (anon çağıramaz); iç yardımcılar (`min_players`, `remaining_ms`, `question_label`, `game_snapshot`) istemciye kapalıdır.
+- Soru tablolarına ve `answers`/`game_questions`'a istemci erişimi YOKTUR (RLS açık, policy yok, yetki alınmış); `player_stats`, `rank_tiers`, `global_scores`, `games`, `game_players` istemciye yalnızca okunur.
+
+## Migration'lar (Supabase SQL Editor'de bu sırayla, hepsi yeniden çalıştırılabilir)
+| Dosya | İçerik |
+|---|---|
+| `0001_schema.sql` | 18 YKS soru tablosu, oyun tabloları, RLS, realtime, storage |
+| `0002_rpc_lobby.sql` | `create_game`, `join_game`, `start_game`, `get_game`, `get_game_by_id`, `server_time`, yardımcılar |
+| `0003_lgs_xp.sql` | 6 LGS tablosu, 6 kategori, `rank_tiers`, `player_stats`, `get_my_stats`, XP sütunları |
+| `0004_rpc_game.sql` | `get_question`, `submit_answer` |
+| `0005_rpc_finish.sql` | `finish_game` (XP + rank), `get_global_leaderboard` |
+| `0006_fix_is_member.sql` | `is_member` anon erişimini kapatır (güvenlik testi bulgusu) |
+| `0006b_fix_submit_lock.sql` | `submit_answer` eşzamanlı son soru kilitlenmesini giderir (`for no key update`) |
+
+Eski migration dosyaları değiştirilmez; düzeltmeler yeni dosya olarak eklenir. Geliştirmede `app_settings.min_players` 1 yapılabilir; **demo/yayın öncesi 2 olmalı** (`docs/YAYIN.md`).
+
+## Test ve doğrulama araçları (`scripts/`, service role gerekir, hepsi `.env.local` okur)
+| Komut | Ne yapar |
+|---|---|
+| `npx tsx scripts/hepsi.ts` | Aşağıdakilerin hepsini sırayla çalıştırır; sonda "HEPSİ GEÇTİ" (8-12 dk) |
+| `check-schema.ts` | Şema, kovalar, anon/yazma güvenliği, 24 soru tablosu, `rank_tiers` |
+| `rpc-smoke.ts` | RPC'lerin uçtan uca testi (lobi, soru/cevap, bitirme, XP, liderlik) |
+| `api-smoke.ts` | `src/lib/api.ts` (`QuizoraApi`) testi, abonelikler dahil |
+| `e2e-sim.ts [--oyuncu N] [--kategori ad]` | N sanal oyuncuyla tam yarış simülasyonu |
+| `security-test.ts` | Yetkiler, RLS, XP hileleri, süre kuralı, eşzamanlılık, storage |
+| `soru-durumu.ts` | 24 tabloda soru sayıları; kategoriler hazır mı |
+| `import-questions.ts`, `seed-test-questions.ts`, `xp-ayarla.ts` | Soru yükleme, test sorusu, demo XP aracı (`docs/SORU-EKLEME.md`) |
+
+Entegrasyon ve yayın: [ENTEGRASYON.md](ENTEGRASYON.md) (B için akış, sayaç, hata mesajları), [YAYIN.md](YAYIN.md) (Vercel).
 
 ## Roller ve dosya sahipliği (kesin; akşam da geçerli)
 Kişi A (backend, dal: backend) SADECE: supabase/**, scripts/**, src/lib/api.ts, src/lib/scoring.ts, src/lib/scoring.test.ts, src/types.ts, .env.example, README.md, docs/PROJE.md, docs/GIT-REHBERI.md, docs/SORU-EKLEME.md, docs/ENTEGRASYON.md, docs/YAYIN.md, docs/SUPABASE-KURULUM.md, docs/ISTEK-A-to-B.md

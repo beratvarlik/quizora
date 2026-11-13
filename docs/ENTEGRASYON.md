@@ -1,0 +1,175 @@
+# Entegrasyon rehberi (Kişi B için)
+
+Backend hazır: şema, RPC'ler, `src/lib/api.ts`. Arayüz yalnızca `QuizoraApi`'yi (`src/types.ts`) çağırır; Supabase'i doğrudan kullanmaz. Davranış kuralları `docs/PROJE.md` içindedir; bu belge "hangi sırayla hangi fonksiyonu çağırırım" sorusunu yanıtlar.
+
+## 1. Kurulum
+`.env.local` (repoya girmez):
+```
+VITE_SUPABASE_URL=https://xxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
+VITE_USE_MOCK=false
+```
+`VITE_USE_MOCK=true` iken `src/lib/client.ts` (senin dosyan) mock'u, `false` iken gerçek api'yi vermeli:
+```ts
+// src/lib/client.ts
+import type { QuizoraApi } from '../types'
+import { api as gercekApi } from './api'
+import { mockApi } from './api.mock'
+export const api: QuizoraApi = import.meta.env.VITE_USE_MOCK === 'true' ? mockApi : gercekApi
+```
+Sayfalarda hep şu içe aktarma kullanılır:
+```ts
+import { api } from '../lib/client'
+import { remainingMs, scorePoints } from '../lib/scoring' // salt okunur; dosyayı değiştirme
+```
+`gercekApi` ilk çağrıda oluşur; env eksikse ilk çağrı "Supabase ayarı eksik: …" hatası fırlatır.
+
+## 2. Sınav ve kategori seçimi
+Arayüz **önce sınav türünü** (`Sinav = 'yks' | 'lgs'`), sonra kategoriyi seçtirir:
+
+| Sınav | Kategori kimliği | Gösterim | Dersler |
+|---|---|---|---|
+| YKS | `sayisal` | Sayısal | Fizik, Kimya, Biyoloji, Matematik (AYT) |
+| YKS | `esit_agirlik` | Eşit Ağırlık | Tarih, Coğrafya, Felsefe, Din Kültürü, Matematik, Edebiyat (AYT) |
+| YKS | `sozel` | Sözel | Edebiyat, Tarih, Coğrafya, Felsefe, Din Kültürü (AYT) |
+| YKS | `tyt` | TYT | Türkçe, Matematik, Kimya, Fizik, Biyoloji, Tarih, Coğrafya, Felsefe, Din Kültürü |
+| LGS | `lgs_sozel` | Sözel oturum | Türkçe, T.C. İnkılap Tarihi ve Atatürkçülük, Din Kültürü ve Ahlak Bilgisi, İngilizce |
+| LGS | `lgs_sayisal` | Sayısal oturum | Matematik, Fen Bilimleri |
+
+```ts
+const { gameId, code } = await api.createGame('lgs_sozel') // Kategori kimliği
+```
+`GameInfo.sinav` sunucudan gelir (`'lgs'` ya da `'yks'`); kendin türetme. Ders adı her soruda hazır etiketle gelir: `Question.ders` (örn. `"Fen Bilimleri (LGS)"`), dönüştürmen gerekmez.
+
+## 3. Oyun akışı (sırayla)
+1. **`ensureSession()`**: uygulama açılışında bir kez. Aynı tarayıcıda aynı kullanıcıyı döndürür.
+2. **`getProfile()`**: `null` ise `/profil` ekranı → **`saveProfile({ displayName, avatarKey, photoFile? })`**.
+3. **`getMyStats()`**: menüde rank rozeti ve ilerleme çubuğu için.
+4. **`createGame(kategori)`** (host) veya **`joinGame(code)`** (diğerleri) → `gameId`.
+5. **`getGameByCode(code)`** ile ilk durum + **`subscribeGame(gameId, cb)`** ile canlı lobi.
+6. Host **`startGame(gameId)`**. `status` `'playing'` olur, `startedAt` = şimdi + 3 sn.
+7. **Geri sayım:** `startedAt`'e göre 3-2-1 (aşağıdaki "Sayaç" bölümü).
+8. **Her soru için:** `getQuestion(gameId, position)` → oyuncu seçer → `submitAnswer(gameId, position, secenek)` → doğru/yanlış animasyonu + puan (~2 sn) → sonraki soru.
+9. **10. sorudan sonra:** bekleme ekranı (puanın sabit, sıralama canlı).
+10. **Süre dolunca ya da herkes bitince** `finishGame(gameId)` → sonuç ekranı.
+11. **Menüye dönünce** yeniden `getMyStats()` (rank/XP güncel görünsün).
+
+```ts
+// Soru döngüsü (özet)
+for (let pos = benimCurrentQ; pos < 10; pos++) {
+  const soru = await api.getQuestion(gameId, pos)      // süre sayacı sunucuda burada başlar
+  const secenek = await oyuncuSecsin(soru)             // süre dolduysa null (boş)
+  const sonuc = await api.submitAnswer(gameId, pos, secenek)
+  await animasyon(sonuc)                               // ~2 sn; sonuc.correctOption doğru şık
+  if (sonuc.finished) break                            // 10. soru bitti
+}
+```
+`getQuestion` aynı soru için tekrar çağrılabilir (sayfa yenileme); süre **sıfırlanmaz**. Doğru şık yalnızca `submitAnswer` sonucunda (`correctOption`) gelir.
+
+## 4. Sayaç ve 2× modu
+```ts
+const offset = await api.getServerOffsetMs() // oyun ekranına girerken bir kez
+// Her 100-250 ms:
+const kalanMs = remainingMs(snapshot.game, Date.now() + offset)
+const saniye = Math.ceil(kalanMs / 1000)
+```
+- `snapshot.game.speedupAt !== null` ise 2× modu açıktır; `remainingMs` bunu zaten hesaplar (iki kat hızlı azalır). Efektleri bu koşulla aç.
+- "X bitirdi, süre 2× hızlı akıyor": `snapshot.players.find(p => p.userId === snapshot.game.speedupBy)?.displayName`.
+- **Geri sayım (3-2-1):** `Math.ceil((new Date(game.startedAt).getTime() - (Date.now() + offset)) / 1000)`; ≤ 0 olunca `/oyun/:code`'a geç.
+- Süre dolunca cevaplanmayan sorular boş sayılır: kendi `currentQ`'dan sonrasını göndermene gerek yok, doğrudan `finishGame` çağır.
+
+## 5. XP ve rank
+- **Menü:** `MyStats` = `{ xp, rankKey, rankLabel, nextRankLabel, xpToNext, progressPct, wins, gamesPlayed }`. Çubuk: `progressPct` (0-100). Efsane'de `nextRankLabel` ve `xpToNext` `null`, `progressPct` 100'dür.
+- **Lobi ve oyun sıralaması:** `PlayerState.rankLabel` / `rankKey` rozet için.
+- **Sonuç ekranı:** `GameResult.ranking[i]` (`RankedPlayer`):
+  - XP çubuğu animasyonu: `xpBefore → xpAfter`.
+  - `rankedUp === true` ise rank atlama animasyonu: `rankLabelBefore → rankLabelAfter`.
+  - Çağıran oyuncunun dökümü `GameResult.xpBreakdown`: `participation` (katılım), `points` (puan), `placement` (yerleşim), `firstFinisher` (ilk bitiren), `total` (toplam = `xpGained`).
+- **Genel liderlik:** `getGlobalLeaderboard()` / `subscribeGlobalLeaderboard(cb)` → `GlobalRow[]` (`xp`, `rankLabel`, `wins`, `gamesPlayed`), XP'ye göre sıralı, ilk 20.
+- Cevap vermeyen oyuncu 0 XP alır; tek oyunculu yarış XP vermez (yalnızca geliştirme modunda mümkün).
+
+```ts
+const ben = sonuc.ranking.find(r => r.userId === benimId)!
+animeEtXpCubugu(ben.xpBefore, ben.xpAfter)
+if (ben.rankedUp) animeEtRankAtlama(ben.rankLabelBefore, ben.rankLabelAfter)
+```
+
+## 6. Puan alanları
+- `AnswerResult.points`: doğru `+100…+200`, yanlış `−25`, boş `0`. `newScore` toplam puandır.
+- `GameResult.breakdown`: `base` (100 × doğru), `bonus` (hız bonusu), `penalty` (**pozitif sayı**; ekranda "−125" diye eksi ile göster), `correct`, `wrong`, `blank` (cevaplanmayan). `base + bonus − penalty = puan`.
+- Puan yalnızca önizleme için istemcide hesaplanabilir (`scorePoints`); asıl puan sunucudan gelir.
+
+## 7. Sayfa yenileme sonrası devam
+`/oyun/:code` ve `/lobi/:code` açılırken önce `getGameByCode(code)` çağır, sonra duruma göre yönlendir:
+```ts
+const snap = await api.getGameByCode(code)
+const ben = snap.players.find(p => p.userId === benimId)!
+if (snap.game.status === 'lobby')   goLobi()
+else if (snap.game.status === 'finished') goSonuc()            // finishGame tekrar çağrılabilir
+else if (ben.finished)              goBeklemeEkrani()          // 10. soruyu bitirmiş
+else                                devamEt(ben.currentQ)      // currentQ = sıradaki soru (0-9)
+```
+`finishGame` **idempotenttir**: oyun bittikten sonra kaç kez ve kim çağırırsa çağırsın aynı sonucu döndürür, XP tekrar eklenmez.
+
+## 8. `finishGame` ne zaman çağrılır
+`remainingMs ≤ 0` olduğunda **veya** tüm oyuncular `finished` olduğunda. Birden fazla istemcinin aynı anda çağırması güvenlidir. Saat farkı yüzünden bazen sunucu henüz bitmedi diyebilir; kısa süre yeniden dene:
+```ts
+async function bitir(gameId: string): Promise<GameResult> {
+  for (let deneme = 0; ; deneme++) {
+    try {
+      return await api.finishGame(gameId)
+    } catch (e) {
+      const yeniden = e instanceof Error && e.message === 'Yarış henüz bitmedi' && deneme < 5
+      if (!yeniden) throw e
+      await new Promise((r) => setTimeout(r, 500))
+    }
+  }
+}
+```
+
+## 9. Abonelikler
+```ts
+useEffect(() => {
+  const durdur = api.subscribeGame(gameId, (snap) => setSnapshot((onceki) => { animasyonIcinKarsilastir(onceki, snap); return snap }))
+  return durdur // unmount'ta MUTLAKA çağır
+}, [gameId])
+```
+- Callback **ilk çağrıda hemen** veri alır; sonra her değişimde **tam durum** (fark değil) gelir.
+- Satır yer değiştirme animasyonu için önceki ve yeni sıralamayı kendin karşılaştır (`rankPlayers` `scoring.ts`'te).
+- Kanal koparsa kendiliğinden yeniden bağlanır; ayrıca 3 sn'de bir durum yenilenir. "Bağlantı koptu" bandı için ek bir şey yapman gerekmez (istersen `callback`'in uzun süre gelmemesini kullan).
+- `subscribeGlobalLeaderboard(cb)` aynı şekilde çalışır (`Unsubscribe` döndürür).
+
+## 10. Hata mesajları
+Her hata `Error.message` içinde **Türkçe** gelir; olduğu gibi gösterebilirsin.
+
+| Mesaj | Ne zaman çıkar | Önerilen davranış |
+|---|---|---|
+| `Kod bulunamadı` | Yanlış/olmayan lobi kodu (`joinGame`, `getGameByCode`) | Kod alanında hata göster |
+| `Lobi dolu` | 5 oyuncu varken `joinGame` | "Lobi dolu" + menüye dön |
+| `Oyun başladı` | Başlamış oyuna yeni oyuncu `joinGame` | "Oyun zaten başladı" |
+| `Oyun zaten başladı` | Host ikinci kez `startGame` | Yok say |
+| `Sadece host başlatabilir` | Host olmayan `startGame` | Başlat düğmesi yalnızca host'ta görünmeli |
+| `En az X oyuncu gerekli` | Yetersiz oyuncuyla `startGame` (X = 2) | Başlat'ı pasif tut, mesajı göster |
+| `Önce profil oluştur` | Profilsiz `createGame`/`joinGame` | `/profil`'e yönlendir |
+| `Geçersiz kategori` | Tanımsız kategori kimliği | Programlama hatası; kimliği kontrol et |
+| `Bu kategori için yeterli soru yok: <tablo>` | O kategori için soru tablosu boş/az | "Bu kategori şu an hazır değil"; başka kategori seçtir |
+| `Oyun başlamadı` | Lobide ya da 3 sn geri sayım bitmeden `getQuestion`/`submitAnswer` | Geri sayımı bekle |
+| `Süre doldu` | Süre bittikten sonra `getQuestion` | `finishGame`'e geç |
+| `Sıra dışı soru` | Beklenen `currentQ` dışında pozisyon | Snapshot'taki `currentQ`'ya dön |
+| `Bu soru zaten cevaplandı` | Aynı soruya ikinci `submitAnswer` (çift tıklama) | Yok say, sonraki soruya geç |
+| `Önce soruyu getir` | `getQuestion` çağrılmadan `submitAnswer` | Önce `getQuestion` |
+| `Geçersiz şık` | A-E dışında şık | Programlama hatası |
+| `Yarış henüz bitmedi` | Süre dolmadan/herkes bitmeden `finishGame` | 500 ms sonra yeniden dene (en çok 5) |
+| `Oyun bitti` | Biten oyunda `getQuestion`/`submitAnswer` | Sonuç ekranına git |
+| `Bu oyuna erişimin yok` | Üye olmayan biri oyun verisi ister | Menüye dön; kodla `joinGame` dene |
+| `Oyun bulunamadı` | Olmayan `gameId` | Menüye dön |
+| `Oturum yok` | Oturum açılmadan çağrı / oturum bitti | `ensureSession()`'ı çağırıp işlemi tekrarla |
+| `Bağlantı hatası, tekrar dene` | Ağ kesildi / zaman aşımı | "Tekrar dene" düğmesi; otomatik yeniden deneme |
+| `Çok fazla deneme yapıldı, biraz bekleyip tekrar dene` | Supabase hız sınırı (ör. aynı IP'den çok sayıda yeni anonim giriş) | Birkaç saniye sonra otomatik yeniden dene; sürerse yöneticiye haber ver (`docs/YAYIN.md`) |
+| `İsim 2-20 karakter olmalı` | `saveProfile` isim doğrulaması | Form hatası |
+| `Fotoğraf çok büyük` | `saveProfile`, fotoğraf > 5 MB | Form hatası |
+
+## 11. Test için
+- `npx tsx scripts/e2e-sim.ts` bu akışın tamamını sanal oyuncularla otomatik uygular; arayüzünde ne beklenmesi gerektiğinin canlı örneğidir (`--oyuncu 5`, `--kategori lgs_sozel` seçenekleri var).
+- Demoda rank atlamayı göstermek için: `npx tsx scripts/xp-ayarla.ts "<oyuncu adı>" 95` (Bronz I eşiği 100 XP). **Yalnızca demo hazırlığı içindir.**
+- Soru yoksa kategori kurulamaz: durumu görmek için `npx tsx scripts/soru-durumu.ts`; soru yükleme `docs/SORU-EKLEME.md`'de.
