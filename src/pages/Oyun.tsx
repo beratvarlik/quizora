@@ -15,6 +15,9 @@ import { api } from '../lib/client'
 import type { AnswerResult, PlayerState, Question, Secenek } from '../types'
 
 const GERI_BILDIRIM_MS = 1500
+const CIKIS_MS = 250
+/** "Tarih (AYT)" → "Tarih": çipte yalnızca ders adı. */
+const dersAdi = (d: string) => d.replace(/\s*\((AYT|TYT|LGS)\)\s*$/, '')
 
 type Sonuc = 'd' | 'y' | 'b'
 interface Geri { secenek: Secenek | null; sonuc: AnswerResult }
@@ -41,6 +44,7 @@ export default function Oyun() {
   const [hata, setHata] = useState<string | null>(null)
   const [hizAni, setHizAni] = useState<PlayerState | null>(null)
   const [deneme, setDeneme] = useState(0)
+  const [cikiyor, setCikiyor] = useState(false)
   const isteniyor = useRef<number | null>(null)
   const gonderiliyor = useRef(false)
   const oncekiHiz = useRef<string | null | undefined>(undefined)
@@ -121,12 +125,15 @@ export default function Oyun() {
       setGeri({ secenek: s, sonuc: r })
       setPuan(r.newScore)
       setSonuclar(o => ({ ...o, [soru.position]: s === null ? 'b' : r.correct ? 'd' : 'y' }))
+      // Geri bildirimden sonra eski kart sola kayıp solar (250 ms), ardından yenisi sağdan gelir.
+      window.setTimeout(() => setCikiyor(true), GERI_BILDIRIM_MS)
       window.setTimeout(() => {
+        setCikiyor(false)
         setGeri(null)
         setSecili(null)
         if (r.finished) setBitirdim(true)
         setPos(soru.position + 1)
-      }, GERI_BILDIRIM_MS)
+      }, GERI_BILDIRIM_MS + CIKIS_MS)
     } catch (e) {
       const m = hataMesaji(e)
       setSecili(null)
@@ -208,27 +215,40 @@ export default function Oyun() {
             <span />
           </div>
         ) : (
-          <div key={soru.position} className="soru-gir">
-            <div className="soru-kart kart">
-              <div className="kart-bant">
-                {sinavEtiketi(oyun.kategori)}
-                <span className="sag">{soru.ders.replace(/\s*\(LGS\)\s*$/, '')}</span>
+          <div key={soru.position} className={`soru-sahne soru-gir${cikiyor ? ' cik' : ''}`}>
+            <div className="soru-kart">
+              <div className="soru-ust">
+                <span className="ders-cip">{dersAdi(soru.ders)}</span>
+                <span className="sinav-yazi">{sinavEtiketi(oyun.kategori)}</span>
               </div>
               {soru.imageUrl && <img src={soru.imageUrl} alt="" />}
               <div className="metin">{soru.text}</div>
             </div>
             <div className={`siklar${harfler.length <= 4 ? ' siklar-4' : ''}`} role="group" aria-label="Şıklar">
-              {harfler.map(h => {
+              {harfler.map((h, i) => {
                 let cls = ''
+                let ikon: 'tik' | 'carpi' | null = null
                 if (geri) {
-                  if (h === geri.secenek) cls = geri.sonuc.correct ? 'dogru' : 'yanlis'
-                  else if (h === geri.sonuc.correctOption) cls = 'dogrusu'
-                  else cls = 'soluk'
+                  if (h === geri.secenek) {
+                    cls = geri.sonuc.correct ? 'dogru' : 'yanlis'
+                    ikon = geri.sonuc.correct ? 'tik' : 'carpi'
+                  } else if (h === geri.sonuc.correctOption) {
+                    cls = 'dogrusu'
+                    ikon = 'tik'
+                  } else cls = 'soluk'
                 } else if (h === secili) cls = 'secili'
                 return (
-                  <button key={h} type="button" className={`sik ${cls}`} disabled={Boolean(geri) || secili !== null} onClick={() => cevapla(h)}>
+                  <button
+                    key={h}
+                    type="button"
+                    className={`sik ${cls}`}
+                    style={{ '--i': i } as React.CSSProperties}
+                    disabled={Boolean(geri) || secili !== null}
+                    onClick={() => cevapla(h)}
+                  >
                     <span className="harf">{h}</span>
-                    <span>{soru.options[h]}</span>
+                    <span className="sik-metin">{soru.options[h]}</span>
+                    {ikon && <span className="sik-ikon">{ikon === 'tik' ? <IkTik boyut={16} /> : <IkCarpi boyut={16} />}</span>}
                   </button>
                 )
               })}

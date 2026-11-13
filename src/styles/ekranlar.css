@@ -143,27 +143,6 @@
 @keyframes segNabiz { 50% { opacity: .45; } }
 .puan-kutu { flex: none; min-width: 66px; text-align: right; }
 .puan-kutu b { display: block; font: 800 28px/1 var(--font-baslik); letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-bottom: 6px; }
-.soru-kart { margin: 14px 20px 0; }
-.soru-kart .metin { padding: 15px 18px 18px; font: 500 17px/1.45 var(--font-govde); color: var(--ink); }
-.soru-kart img { display: block; max-width: 100%; margin: 0 auto; }
-.soru-gir { animation: soruGir .4s var(--zipla); }
-@keyframes soruGir { from { transform: translateX(44px); opacity: 0; } }
-.siklar { display: flex; flex-direction: column; gap: 8px; padding: 14px 20px 120px; }
-.sik {
-  position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 9px 14px 9px 9px;
-  background: #fff; border: 1.5px solid var(--cizgi); border-radius: 16px; font: 500 16px/1.3 var(--font-govde); color: var(--ink); text-align: left;
-  box-shadow: 0 2px 0 rgba(112, 43, 58, .1); transition: opacity .25s, background .2s, border-color .2s;
-}
-.sik:disabled { cursor: default; }
-@media (hover: hover) { .sik:not(:disabled):hover { border-color: var(--burgundy); } }
-.sik .harf { width: 38px; height: 38px; flex: none; border-radius: 11px; border: 1.5px solid var(--burgundy); display: grid; place-items: center; font: 800 16px var(--font-baslik); color: var(--burgundy); }
-.sik.soluk { opacity: .4; }
-.sik.secili { border-color: var(--burgundy); box-shadow: 0 0 0 3px rgba(112, 43, 58, .18); }
-.sik.dogru { background: var(--dogru); border-color: var(--dogru); color: #fff; animation: zipla .5s var(--zipla); opacity: 1; }
-.sik.yanlis { background: var(--yanlis); border-color: var(--yanlis); color: #fff; animation: sars .45s; opacity: 1; }
-.sik.dogru .harf, .sik.yanlis .harf { border-color: rgba(255, 255, 255, .75); color: #fff; background: rgba(255, 255, 255, .14); }
-.sik.dogrusu { border: 2px solid var(--dogru); box-shadow: 0 0 0 3px rgba(19, 128, 90, .2); opacity: 1; }
-.sik.dogrusu .harf { background: var(--dogru); border-color: var(--dogru); color: #fff; }
 @keyframes sars { 0%, 100% { transform: translateX(0); } 15% { transform: translateX(-9px); } 30% { transform: translateX(8px); } 45% { transform: translateX(-6px); } 60% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
 .bos-gec { display: block; margin: 0 auto; min-height: 44px; padding: 0 16px; font: 600 14px var(--font-govde); color: var(--soluk); text-decoration: underline; text-underline-offset: 3px; }
 .bant {
@@ -183,7 +162,6 @@
 .koyu-ekran .seg { background: rgba(245, 242, 237, .16); }
 .koyu-ekran .seg.d { background: var(--dogru); } .koyu-ekran .seg.y { background: var(--yanlis); } .koyu-ekran .seg.b { background: #8E7F83; }
 .koyu-ekran .seg.su { background: var(--orange); }
-.koyu-ekran .sik { box-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
 .bekleme { margin: 22px 20px 0; padding: 26px 20px; text-align: center; }
 .bekleme h2 { font: 800 30px/1 var(--font-baslik); letter-spacing: -.03em; color: var(--ink); }
 .bekleme p { margin-top: 10px; font-size: 15px; line-height: 1.45; color: var(--soluk); }
@@ -240,7 +218,67 @@
 }
 .kazanan .ust-bar { padding-left: 0; padding-right: 0; }
 .kazanan .logo { color: var(--cream); }
-/* LGS: 4 şık — butonlar biraz büyür, boşluk dengeli dağılır */
+
+/* ---------- Soru kartı + şıklar (kenarlıksız; dolgu ve gölgeyle ayrılır) ---------- */
+:root { --yumusak-golge: 0 1px 2px rgba(43, 14, 23, .06), 0 4px 14px rgba(43, 14, 23, .06); }
+.soru-gir { animation: soruGir .25s ease-out both; }
+.soru-sahne.cik { animation: soruCik .25s ease-in forwards; }
+@keyframes soruGir { from { transform: translateX(36px); opacity: 0; } }
+@keyframes soruCik { to { transform: translateX(-36px); opacity: 0; } }
+.soru-kart {
+  position: relative; margin: 14px 20px 0; padding: 14px 18px 18px 22px; border-radius: 20px;
+  background: #fff; box-shadow: var(--yumusak-golge); overflow: hidden;
+}
+.soru-kart::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: linear-gradient(to bottom, var(--burgundy), var(--orange)); }
+.soru-ust { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ders-cip { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--burgundy); color: var(--cream); font: 700 12px var(--font-govde); letter-spacing: .02em; white-space: nowrap; }
+.sinav-yazi { font: 600 12px var(--font-govde); color: #8A7A7E; white-space: nowrap; }
+.soru-kart .metin { margin-top: 12px; font: 600 17px/1.45 var(--font-govde); color: var(--ink); }
+.soru-kart img { display: block; max-width: 100%; margin: 12px auto 0; border-radius: 12px; }
+.siklar { display: flex; flex-direction: column; gap: 10px; padding: 14px 20px 120px; }
+.sik {
+  position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 10px 14px 10px 10px;
+  background: #FFFDFB; border: 0; border-radius: 16px; box-shadow: var(--yumusak-golge);
+  font: 500 15px/1.35 var(--font-govde); color: var(--ink); text-align: left; -webkit-tap-highlight-color: transparent;
+  transition: transform .12s ease, background-color .18s ease, color .18s ease, opacity .25s ease;
+  animation: sikGel .3s ease-out both; animation-delay: calc(var(--i, 0) * 40ms);
+}
+@keyframes sikGel { from { opacity: 0; transform: translateY(8px); } }
+.sik .harf {
+  width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(112, 43, 58, .1); color: var(--burgundy); font: 700 15px var(--font-baslik);
+  transition: background-color .18s ease, color .18s ease;
+}
+.sik .sik-metin { flex: 1; min-width: 0; }
+.sik .sik-ikon { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: rgba(255, 255, 255, .2); animation: ikonPop .4s var(--zipla) both; }
+.sik:disabled { cursor: default; }
+.sik:not(:disabled):active { transform: scale(.98); background: #F7EFE8; }
+.sik:not(:disabled):active .harf { background: var(--orange); color: var(--ink); }
+.sik.secili { background: rgba(241, 90, 36, .12); }
+.sik.secili .harf { background: var(--orange); color: var(--ink); }
+.sik.dogru, .sik.dogrusu { background: var(--dogru); color: #fff; opacity: 1; }
+.sik.dogru { animation: zipla .45s var(--zipla); }
+.sik.yanlis { background: var(--yanlis); color: #fff; opacity: 1; animation: sars .45s; }
+.sik.dogru .harf, .sik.dogrusu .harf, .sik.yanlis .harf { background: rgba(255, 255, 255, .2); color: #fff; }
+.sik.soluk { opacity: .5; }
+/* LGS: 4 şık — biraz daha büyük, boşluk dengeli */
 .siklar-4 { gap: 12px; }
-.siklar-4 .sik { min-height: 64px; padding: 11px 16px 11px 11px; font-size: 17px; }
-.siklar-4 .sik .harf { width: 42px; height: 42px; font-size: 17px; }
+.siklar-4 .sik { min-height: 60px; font-size: 16px; }
+.siklar-4 .sik .harf { width: 34px; height: 34px; }
+/* 2× modu (koyu zemin) */
+.koyu-ekran .soru-kart { background: #2A1118; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04); }
+.koyu-ekran .soru-kart .metin { color: var(--cream); }
+.koyu-ekran .sinav-yazi { color: rgba(245, 242, 237, .55); }
+.koyu-ekran .ders-cip { background: var(--cream); color: var(--burgundy); }
+.koyu-ekran .sik { background: #2A1118; color: var(--cream); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04); }
+.koyu-ekran .sik .harf { background: rgba(245, 242, 237, .1); color: var(--cream); }
+.koyu-ekran .sik:not(:disabled):active { background: #3A1A22; }
+.koyu-ekran .sik:not(:disabled):active .harf, .koyu-ekran .sik.secili .harf { background: var(--orange); color: var(--ink); }
+.koyu-ekran .sik.secili { background: rgba(241, 90, 36, .18); }
+.koyu-ekran .sik.dogru, .koyu-ekran .sik.dogrusu { background: var(--dogru); color: #fff; }
+.koyu-ekran .sik.yanlis { background: var(--yanlis); color: #fff; }
+.koyu-ekran .sik.dogru .harf, .koyu-ekran .sik.dogrusu .harf, .koyu-ekran .sik.yanlis .harf { background: rgba(255, 255, 255, .2); color: #fff; }
+@media (prefers-reduced-motion: reduce) {
+  .soru-sahne.cik { animation: none !important; opacity: 0; }
+  .sik, .sik .sik-ikon { animation: none !important; }
+}
