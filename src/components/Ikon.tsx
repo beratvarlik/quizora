@@ -35,3 +35,15 @@ export const IkDefter = ({ boyut = 22 }: { boyut?: number }) => (
 export const IkAmpul = ({ boyut = 20 }: { boyut?: number }) => (
   <svg width={boyut} height={boyut} viewBox="0 0 24 24" strokeWidth="2" {...P} aria-hidden="true"><path d="M9 18h6M10 21h4" /><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1.1 2V16h5v-.2c.1-.8.5-1.5 1.1-2A6 6 0 0 0 12 3z" /></svg>
 )
+/** Akıllı öneri: üç küçük parıltı. */
+export const IkParilti = ({ boyut = 20 }: { boyut?: number }) => (
+  <svg width={boyut} height={boyut} viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M10 3l1.6 4.4L16 9l-4.4 1.6L10 15l-1.6-4.4L4 9l4.4-1.6z" /><path d="M18 13l.9 2.1L21 16l-2.1.9L18 19l-.9-2.1L15 16l2.1-.9z" opacity=".7" /><path d="M18 2l.6 1.4L20 4l-1.4.6L18 6l-.6-1.4L16 4l1.4-.6z" opacity=".55" /></svg>
+)
+/** Grafik: üç sütun + taban. */
+export const IkGrafik = ({ boyut = 22 }: { boyut?: number }) => (
+  <svg width={boyut} height={boyut} viewBox="0 0 24 24" strokeWidth="2" {...P} aria-hidden="true"><path d="M4 20h16" /><rect x="5.5" y="11" width="3" height="6" rx="1" /><rect x="10.5" y="6" width="3" height="11" rx="1" /><rect x="15.5" y="13" width="3" height="4" rx="1" /></svg>
+)
+/** Alev (seri). */
+export const IkAlev = ({ boyut = 18 }: { boyut?: number }) => (
+  <svg width={boyut} height={boyut} viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c.5 3.2-1.2 5-2.7 6.7C7.8 10.4 6 12.2 6 15a6 6 0 0 0 12 0c0-2.4-1.1-4.2-2.3-5.6-.3 1.4-1 2.4-2 3 .4-3.6-.6-7.4-1.7-10.4z" fill="#F15A24" /><path d="M12 22a3.2 3.2 0 0 1-3.2-3.2c0-1.6 1-2.6 2-3.6.4 1 1 1.6 1.8 2 .2-1 .7-1.8 1.4-2.4.8 1 1.2 2.1 1.2 3.4A3.2 3.2 0 0 1 12 22z" fill="#FFB15C" /></svg>
+)

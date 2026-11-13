@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { hataMesaji } from '../hooks/hata'
-import { api } from '../lib/client'
+import type { IncelemeVerisi } from '../hooks/useInceleme'
 import type { ReviewItem, Secenek } from '../types'
 import { IkCarpi, IkTik } from './Ikon'
 
@@ -10,8 +9,6 @@ const HARFLER: Secenek[] = ['A', 'B', 'C', 'D', 'E']
 type Filtre = 'tumu' | 'yanlis' | 'bos'
 type Durum = 'dogru' | 'yanlis' | 'bos'
 
-const DENEME = 5
-const bekle = (ms: number) => new Promise(r => setTimeout(r, ms))
 const durumu = (q: ReviewItem): Durum => (q.outcome === 'blank' ? 'bos' : q.outcome === 'correct' ? 'dogru' : 'yanlis')
 const azHareket = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
@@ -40,46 +37,29 @@ function Ampul() {
  * Sonuç ekranı "Soruları incele": 10 soruluk kutusuz şerit (doğru / yanlış / boş), filtre çipleri ve
  * seçili sorunun inceleme kartı (doğru şık, senin cevabın, "Neden doğru?"). Kart yana kaydırılarak da geçilir.
  */
-export default function SoruInceleme({ gameId }: { gameId: string }) {
-  const [liste, setListe] = useState<ReviewItem[] | null>(null)
-  const [hata, setHata] = useState<string | null>(null)
-  const [deneme, setDeneme] = useState(0)
+export default function SoruInceleme({ veri, acilacak }: { veri: IncelemeVerisi; acilacak?: { position: number; n: number } | null }) {
+  const { liste, eklenen: defter, hata, tekrar } = veri
   const [filtre, setFiltre] = useState<Filtre>('tumu')
   const [secili, setSecili] = useState<number | null>(null)
-  const [defter, setDefter] = useState(0)
   const [yon, setYon] = useState<'ileri' | 'geri'>('ileri')
   const serit = useRef<HTMLOListElement>(null)
+  const bolum = useRef<HTMLElement>(null)
   const kaydirma = useRef<{ x: number; y: number } | null>(null)
 
-  // Veri: yarış bitmeden çağrılırsa "henüz bitmedi" → 500 ms arayla en çok 5 kez yeniden dene.
+  // İlk açılışta ilk YANLIŞ soru seçili (yoksa ilk soru)
   useEffect(() => {
-    let iptal = false
-    setHata(null)
-    ;(async () => {
-      for (let d = 0; d <= DENEME; d++) {
-        try {
-          const r = await api.getGameReview(gameId)
-          if (iptal) return
-          const sirali = [...r.items].sort((a, b) => a.position - b.position)
-          setListe(sirali)
-          setDefter(r.addedToNotebook ?? 0) // bu yarıştan Yanlışlarım defterine giren soru sayısı
-          // İlk açılışta ilk YANLIŞ soru seçili (yoksa ilk soru)
-          setSecili(sirali.find(q => durumu(q) === 'yanlis')?.position ?? sirali[0]?.position ?? null)
-          return
-        } catch (e) {
-          if (iptal) return
-          if (/henüz bitmedi/i.test(hataMesaji(e)) && d < DENEME) await bekle(500)
-          else {
-            setHata('Sorular yüklenemedi, tekrar dene')
-            return
-          }
-        }
-      }
-    })()
-    return () => {
-      iptal = true
-    }
-  }, [gameId, deneme])
+    if (!liste || secili !== null) return
+    setSecili(liste.find(q => durumu(q) === 'yanlis')?.position ?? liste[0]?.position ?? null)
+  }, [liste, secili])
+
+  // Maç analizinden "şu soruyu aç": Tümü filtresine geç, soruyu seç, bölümü görünür yap
+  useEffect(() => {
+    if (!acilacak) return
+    setFiltre('tumu')
+    setYon('ileri')
+    setSecili(acilacak.position)
+    bolum.current?.scrollIntoView({ block: 'start', behavior: azHareket() ? 'auto' : 'smooth' })
+  }, [acilacak])
 
   const gorunen = useMemo(() => {
     if (!liste) return []
@@ -140,7 +120,7 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
   const toplam = liste?.length ?? 10
 
   return (
-    <section className="inceleme" aria-label="Soruları incele">
+    <section className="inceleme" aria-label="Soruları incele" ref={bolum}>
       <div className="inc-ust">
         <span className="etiket">Soruları incele</span>
         {liste && (
@@ -163,7 +143,7 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
       {hata ? (
         <div className="hata-kutu inc-hata" role="alert">
           {hata}{' '}
-          <button type="button" className="underline" onClick={() => setDeneme(d => d + 1)}>
+          <button type="button" className="underline" onClick={tekrar}>
             Tekrar dene
           </button>
         </div>

@@ -7,11 +7,16 @@ import { getMistakes, tekrarSec, type MistakeItem } from '../hooks/defter'
 import { useSes } from '../hooks/useSes'
 import { useWeb } from '../hooks/useWeb'
 
-/** /yanlislarim/coz: çalışma modu (mobilde tam sayfa). Sorular state'ten gelir; yoksa defterden 10 tane seçilir. */
+/**
+ * /yanlislarim/coz: çalışma modu (mobilde tam sayfa). Sorular state'ten gelir; yoksa defterden 10 tane seçilir
+ * (state.ders verilirse yalnızca o dersten: Maç analizi önerisi).
+ */
 export default function Coz() {
   const git = useNavigate()
   const web = useWeb()
-  const gelen = (useLocation().state as { sorular?: MistakeItem[] } | null)?.sorular
+  const durum = useLocation().state as { sorular?: MistakeItem[]; ders?: string } | null
+  const gelen = durum?.sorular
+  const dersFiltre = durum?.ders
   const [sorular, setSorular] = useState<MistakeItem[] | null>(gelen?.length ? gelen : null)
   const [tur, setTur] = useState(0)
   const [hata, setHata] = useState(false)
@@ -20,11 +25,11 @@ export default function Coz() {
 
   useEffect(() => {
     if (sorular) return
-    getMistakes().then(
+    getMistakes(dersFiltre ? { subject: dersFiltre } : undefined).then(
       l => setSorular(tekrarSec(l)),
       () => setHata(true),
     )
-  }, [sorular])
+  }, [sorular, dersFiltre])
 
   if (hata) return <HataEkrani mesaj="Yüklenemedi, tekrar dene." onTekrar={() => setHata(false)} />
   if (!sorular) return <Yukleniyor />

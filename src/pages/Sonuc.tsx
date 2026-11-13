@@ -12,7 +12,9 @@ import { hataMesaji } from '../hooks/hata'
 import { finishGameYeniden } from '../hooks/useBitir'
 import { useGame } from '../hooks/useGame'
 import { useSes } from '../hooks/useSes'
+import MacAnalizi from '../components/MacAnalizi'
 import SoruInceleme from '../components/SoruInceleme'
+import { useInceleme } from '../hooks/useInceleme'
 import { api } from '../lib/client'
 import type { GameResult, MyStats } from '../types'
 
@@ -23,6 +25,8 @@ export default function Sonuc() {
   const { snapshot, userId, loading, error } = useGame(code)
   const oyun = snapshot?.game
   const oyunId = oyun?.id
+  const inceleme = useInceleme(oyunId)
+  const [acilacak, setAcilacak] = useState<{ position: number; n: number } | null>(null)
   // Oyun ekranı finishGame'i çağırıp sonucu buraya taşır; yoksa (yenileme / bağlantı) burada alınır.
   const gelen = (konum.state as { sonuc?: GameResult } | null)?.sonuc ?? null
   const [sonuc, setSonuc] = useState<GameResult | null>(gelen)
@@ -210,7 +214,12 @@ export default function Sonuc() {
           </div>
         </div>
 
-        {oyunId && <SoruInceleme gameId={oyunId} />}
+        {oyunId && (
+          <>
+            <MacAnalizi liste={inceleme.liste} onSoruAc={position => setAcilacak(a => ({ position, n: (a?.n ?? 0) + 1 }))} />
+            <SoruInceleme veri={inceleme} acilacak={acilacak} />
+          </>
+        )}
 
         {ben?.rankedUp && (
           <div className="rutbe-atladi" role="status">

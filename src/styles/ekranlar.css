@@ -689,3 +689,41 @@
   .df-iskelet span, .df-temiz-ikon, .df-tost, .cz-cikti { animation: none; }
   .konfeti { display: none; }
 }
+
+/* ---------- Maç analizi (sonuç ekranı) ---------- */
+.mac-analiz { margin-top: 26px; padding: 0 20px; }
+.ma-dersler { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.ma-ders-ust { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+.ma-ad { font: 700 15px var(--font-baslik); color: var(--ink); }
+.ma-etiket { padding: 2px 8px; border-radius: 99px; font: 700 11px var(--font-govde); letter-spacing: .02em; white-space: nowrap; }
+.ma-etiket.guclu { background: rgba(19, 128, 90, .12); color: var(--dogru); }
+.ma-etiket.zayif { background: rgba(241, 90, 36, .16); color: #B23F12; }
+.ma-oran { margin-left: auto; font: 700 13px var(--font-baslik); color: var(--soluk); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ma-cubuk { margin-top: 6px; height: 8px; border-radius: 99px; background: rgba(112, 43, 58, .1); overflow: hidden; }
+.ma-cubuk i { display: block; height: 100%; border-radius: inherit; background: var(--dogru); transform-origin: left center; animation: maDol .7s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 120ms + 150ms); }
+@keyframes maDol { from { transform: scaleX(0); } }
+.ma-istat { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 18px; }
+.ma-kutu {
+  min-width: 0; min-height: 76px; padding: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+  border-radius: 14px; background: #fff; border: 1.5px solid var(--cizgi); color: var(--ink);
+}
+.ma-kutu span { font: 600 11px/1.25 var(--font-govde); color: var(--soluk); }
+.ma-kutu b { font: 800 19px var(--font-baslik); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.ma-kutu small { max-width: 100%; font: 600 12px var(--font-govde); color: var(--soluk); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ma-tik { cursor: pointer; transition: border-color .2s, transform .15s; -webkit-tap-highlight-color: transparent; }
+.ma-tik:active { transform: scale(.97); }
+.ma-tik em { font-style: normal; color: var(--burgundy); font-weight: 800; }
+@media (hover: hover) { .ma-tik:hover { border-color: var(--burgundy); } }
+.ma-oneri { display: flex; gap: 12px; margin-top: 14px; padding: 14px 16px; border-radius: 16px; background: var(--night); color: var(--cream); }
+.ma-oneri-ikon { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: rgba(241, 90, 36, .2); color: var(--orange); }
+.ma-oneri b { font: 800 15px var(--font-baslik); }
+.ma-oneri p { margin-top: 4px; font: 500 14px/1.45 var(--font-govde); color: rgba(245, 242, 237, .9); }
+.ma-oneri .ma-eylem { margin-top: 12px; min-height: 46px; font-size: 15px; background: var(--orange); color: var(--ink); box-shadow: 0 3px 0 rgba(0, 0, 0, .45); }
+.ma-tum { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-top: 6px; color: var(--burgundy); font: 700 14px var(--font-baslik); text-decoration: none; }
+.ma-iskelet { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.ma-iskelet span { height: 30px; border-radius: 10px; background: linear-gradient(90deg, #EAE2DA 0%, #F4EEE8 50%, #EAE2DA 100%); background-size: 200% 100%; animation: dfIskelet 1.2s linear infinite; }
+.sn-panel .mac-analiz + .inceleme { margin-top: 18px; }
+@media (prefers-reduced-motion: reduce) {
+  .ma-cubuk i, .ma-iskelet span { animation: none; }
+  .ma-tik { transition: none; }
+}
