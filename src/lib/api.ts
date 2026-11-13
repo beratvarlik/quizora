@@ -86,6 +86,8 @@ interface HamOyun {
   speedup_remaining_ms: number | null
   duration_ms: number
   total_questions: number
+  is_public: boolean
+  auto_start_at: string | null
 }
 
 interface HamOyuncu {
@@ -207,6 +209,8 @@ function mapGameInfo(h: HamOyun): GameInfo {
     speedupRemainingMs: h.speedup_remaining_ms,
     durationMs: h.duration_ms,
     totalQuestions: h.total_questions,
+    isPublic: h.is_public,
+    autoStartAt: h.auto_start_at,
   }
 }
 
@@ -552,6 +556,19 @@ export function createApi(client: Istemci): QuizoraApi {
     async joinGame(code: string): Promise<{ gameId: string }> {
       const h = await rpc<{ game_id: string }>(client, 'join_game', { p_code: code })
       return { gameId: h.game_id }
+    },
+
+    async quickJoin(kategori: Kategori): Promise<{ gameId: string; code: string; created: boolean }> {
+      const h = await rpc<{ game_id: string; code: string; created: boolean }>(client, 'quick_join', { p_kategori: kategori })
+      return { gameId: h.game_id, code: h.code, created: h.created }
+    },
+
+    async leaveGame(gameId: string): Promise<void> {
+      await rpc<null>(client, 'leave_game', { p_game_id: gameId })
+    },
+
+    async startIfReady(gameId: string): Promise<void> {
+      await rpc<null>(client, 'start_if_ready', { p_game_id: gameId })
     },
 
     async getGameByCode(code: string): Promise<GameSnapshot> {

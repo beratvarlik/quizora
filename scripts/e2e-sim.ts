@@ -3,6 +3,7 @@
 //   npx tsx scripts/e2e-sim.ts                      (2 oyuncu, sayisal + lgs_sozel + lgs_sayisal)
 //   npx tsx scripts/e2e-sim.ts --oyuncu 5           (5 oyuncu; 2-5 arası)
 //   npx tsx scripts/e2e-sim.ts --kategori tyt       (yalnızca o kategori)
+//   npx tsx scripts/e2e-sim.ts --hizli              (oyuncular quickJoin ile girer; host olmadan startIfReady ile başlar)
 // Test soruları için önce: npx tsx scripts/seed-test-questions.ts
 import { config } from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
@@ -42,6 +43,7 @@ function argumanOku(ad: string): string | undefined {
 
 const oyuncuSayisi = Number(argumanOku('--oyuncu') ?? '2')
 const kategoriArg = argumanOku('--kategori')
+const hizli = process.argv.includes('--hizli')
 if (!Number.isInteger(oyuncuSayisi) || oyuncuSayisi < 2 || oyuncuSayisi > 5) {
   console.error('HATA: --oyuncu 2 ile 5 arasında bir sayı olmalı')
   process.exit(1)
@@ -285,16 +287,34 @@ async function tur(n: number, kategori: Kategori, tam: boolean): Promise<void> {
   // 2. Lobi
   if (
     !(await adim(`${e} 2. createGame, joinGame, getGameByCode (${n} oyuncu, sinav '${beklenenSinav}')`, async () => {
-      const olusan = await oyuncular[0].api.createGame(kategori)
-      gameId = olusan.gameId
-      code = olusan.code
-      oyunlar.push(gameId)
-      for (const o of oyuncular.slice(1)) await o.api.joinGame(code)
+      if (hizli) {
+        // Önceki denemelerden kalan herkese açık lobiler eşleşmeyi bozmasın: bayatlat
+        await admin.from('games').update({ last_activity_at: new Date(Date.now() - 600_000).toISOString() })
+          .eq('status', 'lobby').eq('is_public', true).eq('kategori', kategori)
+        const ilk = await oyuncular[0].api.quickJoin(kategori)
+        kontrol(ilk.created === true, 'ilk quickJoin yeni lobi açmadı')
+        gameId = ilk.gameId
+        code = ilk.code
+        oyunlar.push(gameId)
+        for (const o of oyuncular.slice(1)) {
+          const r = await o.api.quickJoin(kategori)
+          kontrol(r.gameId === gameId && r.created === false, `quickJoin farklı lobi verdi (${r.gameId}, created=${r.created})`)
+        }
+      } else {
+        const olusan = await oyuncular[0].api.createGame(kategori)
+        gameId = olusan.gameId
+        code = olusan.code
+        oyunlar.push(gameId)
+        for (const o of oyuncular.slice(1)) await o.api.joinGame(code)
+      }
       const snap = await oyuncular[0].api.getGameByCode(code)
       kontrol(snap.players.length === n, `${snap.players.length} oyuncu görünüyor (beklenen ${n})`)
       kontrol(snap.game.sinav === beklenenSinav, `sinav '${snap.game.sinav}' (beklenen '${beklenenSinav}')`)
       kontrol(snap.game.kategori === kategori && snap.game.status === 'lobby', 'kategori/durum yanlış')
       kontrol(snap.game.hostId === oyuncular[0].id, 'host ilk oyuncu değil')
+      if (hizli) {
+        kontrol(snap.game.isPublic === true && snap.game.autoStartAt !== null, `isPublic/autoStartAt: ${snap.game.isPublic}/${snap.game.autoStartAt}`)
+      }
       return code
     }))
   ) return
@@ -314,7 +334,32 @@ async function tur(n: number, kategori: Kategori, tam: boolean): Promise<void> {
 
   // 3. Başlatma
   const ofsetMs = await oyuncular[0].api.getServerOffsetMs()
-  if (
+  if (hizli) {
+    if (
+      !(await adim(`${e} 3. host olmadan: autoStartAt dolunca startIfReady herkesten aynı anda; startedAt ≈ şimdi+3 sn, tek başlama`, async () => {
+        const snap0 = await oyuncular[0].api.getGameByCode(code)
+        const hedefMs = new Date(snap0.game.autoStartAt!).getTime()
+        if (n < 5) {
+          // Süre dolmadan startIfReady hiçbir şey yapmaz (hata da vermez)
+          await oyuncular[1].api.startIfReady(gameId)
+          const erken = await oyuncular[0].api.getGameByCode(code)
+          kontrol(erken.game.status === 'lobby', `erken startIfReady oyunu başlattı (${erken.game.status})`)
+        }
+        await bekle(Math.max(0, hedefMs - (Date.now() + ofsetMs)) + 400)
+        const t0 = Date.now() + ofsetMs
+        await Promise.all(oyuncular.map((o) => o.api.startIfReady(gameId)))
+        const snap = await oyuncular[0].api.getGameByCode(code)
+        kontrol(snap.game.status === 'playing' && snap.game.startedAt !== null, `oyun playing değil (${snap.game.status})`)
+        const fark = new Date(snap.game.startedAt!).getTime() - t0
+        kontrol(fark >= 1500 && fark <= 4500, `startedAt şimdi+${fark} ms`)
+        await oyuncular[1].api.startIfReady(gameId) // ikinci tur: durumu bozmaz
+        const tekrar = await oyuncular[0].api.getGameByCode(code)
+        kontrol(tekrar.game.startedAt === snap.game.startedAt, 'ikinci startIfReady startedAt değiştirdi')
+        await bekle(3300) // geri sayım
+        return `startedAt = şimdi+${fark} ms`
+      }))
+    ) return
+  } else if (
     !(await adim(`${e} 3. host dışı startGame hata verir; host başlatır, startedAt ≈ şimdi+3 sn`, async () => {
       let mesaj = ''
       try {

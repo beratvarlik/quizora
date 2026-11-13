@@ -45,8 +45,8 @@ Bir yarıştan kazanılan XP = **20** (katılım) + **max(0, floor(puan / 10))**
 ## İşlevsel ekran sözleşmesi (tasarımdan bağımsız; B görseli kendi tasarlar, davranış bu)
 - `/` Açılış: oyunun tanıtımı, 6 kategori (YKS 4 + LGS 2), "Başla" (profil yoksa /profil, varsa /menu), lobi koduyla katıl alanı, canlı genel liderlik (subscribeGlobalLeaderboard).
 - `/profil`: isim (zorunlu, 2-20 karakter) + hazır avatar seçimi (`avatarKey`) VEYA kendi fotoğrafını yükleme (`photoFile`); canlı önizleme; kaydet → saveProfile.
-- `/menu`: **önce sınav türü seçilir (YKS / LGS), sonra kategori** (YKS: sayisal, esit_agirlik, sozel, tyt; LGS: lgs_sozel, lgs_sayisal), "Lobi kur" → createGame → /lobi/:code; kodla katıl → joinGame; canlı genel liderlik; kullanıcının profili. **Ana menüde rank rozeti ve sonraki ranka ilerleme çubuğu** (`getMyStats`: rankLabel, progressPct, xpToNext). Genel liderlik tablosu **XP'ye göre sıralı ve rank rozetlidir**.
-- `/join/:code`: profil yoksa önce /profil, sonra joinGame, /lobi/:code. `/lobi/:code`: QR kod (içeriği `<site>/join/KOD`), kod ve kopyalama, canlı oyuncu listesi (5 slot, boşlar belirgin), host için "Başlat" (min 2 oyuncu), oyun `playing` olunca herkeste 3-2-1 geri sayım (startedAt'e göre) sonra /oyun/:code.
+- `/menu`: **önce sınav türü seçilir (YKS / LGS), sonra kategori** (YKS: sayisal, esit_agirlik, sozel, tyt; LGS: lgs_sozel, lgs_sayisal), kategori seçimi + **"Hemen Katıl" düğmesi** (`quickJoin(kategori)` → `/lobi/:code`; aynı kategorideki uygun herkese açık lobiye girer, yoksa yeni açar); "Lobi kur" → createGame (özel lobi) → /lobi/:code; kodla katıl → joinGame; canlı genel liderlik; kullanıcının profili. **Ana menüde rank rozeti ve sonraki ranka ilerleme çubuğu** (`getMyStats`: rankLabel, progressPct, xpToNext). Genel liderlik tablosu **XP'ye göre sıralı ve rank rozetlidir**.
+- `/join/:code`: profil yoksa önce /profil, sonra joinGame, /lobi/:code. `/lobi/:code`: QR kod (içeriği `<site>/join/KOD`), kod ve kopyalama, canlı oyuncu listesi (5 slot, boşlar belirgin), host için "Başlat" (min 2 oyuncu; özel lobide), **herkese açık lobide (`game.isPublic`, Hemen Katıl)**: "Rakip aranıyor" durumu (tek oyuncu), oyuncu slotları, kod/QR (arkadaş davet etmek için kalır), `autoStartAt` doluysa "Yarış X saniye sonra başlıyor" geri sayımı (sunucu saatine göre); süre dolunca her istemci `startIfReady` çağırır; host "Başlat" düğmesi gizli ya da isteğe bağlı erken başlatma; geri düğmesi/sayfa kapanışında `leaveGame` (en iyi çaba), oyun `playing` olunca herkeste 3-2-1 geri sayım (startedAt'e göre) sonra /oyun/:code.
 - `/oyun/:code`: kalan süre (sunucu saatine göre sayaç), soru no (1-10), kendi puanın; soru metni + opsiyonel görsel + şıklar (YKS 5, LGS 4: **gelen `options` anahtarlarına göre çizilir**); şık seçilince submitAnswer; sonuç ANİMASYONLU doğru/yanlış gösterilir, kazanılan/kaybedilen puan görünür, ~2 sn sonra sonraki soru; canlı sıralama paneli (ad, puan, kaçıncı soruda, "bitirdi" işareti), puan değişince satırlar animasyonla yer değiştirir ve vurgulanır. Süre dolunca kalan sorular boş sayılır ve finishGame çağrılır.
 - **2× hız modu** (`game.speedupAt` dolunca): "X bitirdi, süre 2× hızlı akıyor" bildirimi (X = `game.speedupBy` oyuncusu), sayaç hızlanır, belirgin heyecan efektleri (şimşek, elektrik, ateş benzeri animasyonlar), son 10 sn ek vurgu. Bitiren oyuncu bekleme ekranında kalır: puanı sabit, sıralama canlı.
 - `/sonuc/:code`: finishGame sonucu: kazanan, sıralama (animasyonlu), kullanıcının doğru/yanlış/boş sayısı ve puan dökümü (taban + hız bonusu − ceza), kazanana kutlama, **XP dökümü** (`xpBreakdown`: katılım + puan + yerleşim + ilk bitiren = toplam), **XP çubuğunun dolması** (`xpBefore` → `xpAfter`) ve rank atlandıysa (`rankedUp`) **rank atlama animasyonu** (`rankLabelBefore` → `rankLabelAfter`), "Ana menüye dön" ve "Tekrar oyna". Ana menüdeki genel tablo kazananı canlı gösterir.
@@ -55,10 +55,14 @@ Bir yarıştan kazanılan XP = **20** (katılım) + **max(0, floor(puan / 10))**
 
 ## Veritabanı
 24 soru tablosu (aynı şema): matematik_tyt, turkce_tyt, kimya_tyt, fizik_tyt, biyoloji_tyt, tarih_tyt, cografya_tyt, felsefe_tyt, din_kulturu_tyt, fizik_ayt, kimya_ayt, biyoloji_ayt, matematik_ayt, edebiyat_ayt, tarih_ayt, cografya_ayt, felsefe_ayt, din_kulturu_ayt, turkce_lgs, inkilap_lgs, din_kulturu_lgs, ingilizce_lgs, matematik_lgs, fen_lgs. Sütunlar: id uuid pk, soru_metni, gorsel_url null, secenek_a..secenek_e, dogru_sik char(1) A–E (**LGS tablolarında secenek_e NULL olabilir ve dogru_sik yalnız A–D**), aciklama null (dahili not, öğrenciye gösterilmez), cozum_aciklamasi null (en çok 400 karakter; yarış sonrası öğrenciye gösterilir), aktif bool default true, created_at.
-Oyun tabloları: profiles, games, game_players, game_questions, answers, global_scores (eski), rank_tiers, player_stats. RPC'ler: create_game, join_game, start_game, get_game, get_game_by_id, get_question, submit_answer, finish_game, get_global_leaderboard, get_my_stats, get_game_review, server_time.
+Oyun tabloları: profiles, games, game_players, game_questions, answers, global_scores (eski), rank_tiers, player_stats. RPC'ler: create_game, join_game, start_game, get_game, get_game_by_id, get_question, submit_answer, finish_game, get_global_leaderboard, get_my_stats, get_game_review, quick_join, start_if_ready, leave_game, server_time.
 - `finish_game(game_id)`: sıralamayı kesinleştirir, XP'yi yarış başına bir kez uygular (`games.xp_applied`), idempotenttir. Süre dolmadan ve herkes bitirmeden 'Yarış henüz bitmedi' der. Dönüş: `{winner_id, ranking[{rank, user_id, ..., xp_gained, xp_before, xp_after, rank_label_before, rank_label_after, ranked_up}], breakdown, xp_breakdown}`. `global_scores`'a yazılmaz.
 - `get_global_leaderboard()`: **XP döner** (`player_stats` + `profiles`), ilk 20; `[{user_id, display_name, avatar_key, photo_url, xp, rank_key, rank_label, wins, games_played}]`, `xp` azalan, eşitlikte `wins` azalan.
 - `get_question(game_id, position)`: yalnızca oyuncunun sıradaki sorusu; süre sayacını (`q_started_at`) ilk çağrıda başlatır, tekrar çağrıda sıfırlamaz. Doğru şık, açıklama ve `aktif` ASLA dönmez. `submit_answer(game_id, position, secenek|null)`: puanı sunucu hesaplar; süre bitmişse cevabı boş sayar; 10. soruyu ilk bitiren `speedup_at/speedup_remaining_ms/speedup_by` değerlerini yazar. Hata mesajları listesi: `docs/ENTEGRASYON.md`.
+- `quick_join(p_kategori)` → `{game_id, code, created}`: aynı kategoride uygun herkese açık lobiye ekler, yoksa yeni herkese açık lobi açar (`created=true`). Uygun lobi: `status='lobby'`, `is_public`, aynı kategori, 5'ten az oyuncu, `last_activity_at` son 2 dk içinde, `auto_start_at` yok ya da 4 sn'den uzakta, oyuncu üye değil; çok oyunculu olan önce. Zaten (taze, aynı kategoride) üyesi olduğu herkese açık lobiyi tekrar döndürür. Kategori başına advisory lock ile sıralanır. Yalnızca `quick_join` lobileri `is_public` olur; `create_game` lobileri hep özeldir.
+- `start_if_ready(p_game_id)`: üye olmalı. `status='lobby'`, `is_public`, `auto_start_at <= now()` ve oyuncu sayısı ≥ `min_players()` ise `start_game` gibi başlatır (`started_at = now() + 3 sn`); aksi hâlde HATA VERMEDEN hiçbir şey yapmaz (idempotent, eşzamanlı çağrılabilir).
+- `leave_game(p_game_id)`: lobiden çıkar; oyun `lobby` değilse 'Oyun başladı'. Kimse kalmazsa oyun silinir; host ayrılırsa en eski oyuncuya devredilir; herkese açık lobide sayı 2'nin altına düşerse `auto_start_at = null`.
+- Herkese açık lobi `auto_start_at` kuralı (`quick_join` ve `join_game` uygular): oyuncu sayısı 2'ye ulaşınca `now() + 10 sn`, 5'e ulaşınca `now()`, 2'nin altına düşünce null. `auto_start_at` geçmişse kodla katılım 'Oyun başlamak üzere' hatası verir.
 - `get_game_review(p_game_id)`: **yalnızca `finished` oyunda ve yalnızca üyeye**; oyunu bitirmez. Çağıranın 10 soruluk incelemesi: `{items:[{position, ders, text, image_url, options, selected, correct_option, outcome, points, time_ms, explanation}]}` (`position` sırasıyla). `options`'ta `secenek_e` boşsa `E` anahtarı yoktur (LGS). `outcome`: `correct` (seçilen = doğru şık) / `wrong` / `blank` (cevap satırı yok ya da şık null; `selected` null, `points` 0, `time_ms` null). `explanation` = `cozum_aciklamasi` (null olabilir). Silinmiş sorunun pozisyonu atlanır. Hatalar: 'Oturum yok', 'Bu oyuna erişimin yok', 'Yarış henüz bitmedi'. Doğru şık ve açıklama başka hiçbir RPC'de (`get_question`, `submit_answer`'ın `correct_option`'ı hariç, `get_game`, `get_game_by_id`) bulunmaz.
 - `get_my_stats()`: çağıranın XP/rank özeti (satır yoksa 0 ile oluşturur). Tüm RPC'ler oturum ister (anon çağıramaz); iç yardımcılar (`min_players`, `remaining_ms`, `question_label`, `game_snapshot`) istemciye kapalıdır.
 - Soru tablolarına ve `answers`/`game_questions`'a istemci erişimi YOKTUR (RLS açık, policy yok, yetki alınmış); `player_stats`, `rank_tiers`, `global_scores`, `games`, `game_players` istemciye yalnızca okunur.
@@ -75,6 +79,7 @@ Oyun tabloları: profiles, games, game_players, game_questions, answers, global_
 | `0006b_fix_submit_lock.sql` | `submit_answer` eşzamanlı son soru kilitlenmesini giderir (`for no key update`) |
 | `0007_lgs_4_sik.sql` | LGS soruları 4 şıklı: LGS tablolarında `secenek_e` boş olabilir, `dogru_sik` yalnız A-D; `get_question` boş E'yi `options`'a koymaz; `submit_answer` soruda olmayan şık için 'Geçersiz şık' der. **0006b'den SONRA çalıştırılır** (`submit_answer`'ın en güncel hâlini içerir). |
 | `0008_cozum_aciklamasi.sql` | 24 soru tablosuna `cozum_aciklamasi` (≤ 400 karakter) ve `get_game_review` RPC'si |
+| `0009_hemen_katil.sql` | Hemen Katıl: `games.is_public/auto_start_at/last_activity_at`, `quick_join`, `start_if_ready`, `leave_game`; `create_game` iç yardımcıya taşındı, `join_game` güncellendi |
 
 Eski migration dosyaları değiştirilmez; düzeltmeler yeni dosya olarak eklenir. Geliştirmede `app_settings.min_players` 1 yapılabilir; **demo/yayın öncesi 2 olmalı** (`docs/YAYIN.md`).
 
@@ -85,7 +90,7 @@ Eski migration dosyaları değiştirilmez; düzeltmeler yeni dosya olarak ekleni
 | `check-schema.ts` | Şema, kovalar, anon/yazma güvenliği, 24 soru tablosu, `rank_tiers` |
 | `rpc-smoke.ts` | RPC'lerin uçtan uca testi (lobi, soru/cevap, bitirme, XP, liderlik) |
 | `api-smoke.ts` | `src/lib/api.ts` (`QuizoraApi`) testi, abonelikler dahil |
-| `e2e-sim.ts [--oyuncu N] [--kategori ad]` | N sanal oyuncuyla tam yarış simülasyonu |
+| `e2e-sim.ts [--oyuncu N] [--kategori ad] [--hizli]` | N sanal oyuncuyla tam yarış simülasyonu |
 | `security-test.ts` | Yetkiler, RLS, XP hileleri, süre kuralı, eşzamanlılık, storage |
 | `soru-durumu.ts` | 24 tabloda soru sayıları; kategoriler hazır mı |
 | `import-questions.ts`, `aciklama-yukle.ts`, `seed-test-questions.ts`, `xp-ayarla.ts` | Soru yükleme, çözüm açıklaması yükleme, test sorusu, demo XP aracı (`docs/SORU-EKLEME.md`) |
@@ -120,6 +125,7 @@ export interface GameInfo {
   id: string; code: string; kategori: Kategori; sinav: Sinav; status: GameStatus; hostId: string; speedupBy: string | null;
   startedAt: string | null; speedupAt: string | null; speedupRemainingMs: number | null;
   durationMs: number; totalQuestions: number;
+  isPublic: boolean; autoStartAt: string | null;
 }
 export interface PlayerState {
   userId: string; displayName: string; avatarKey: string | null; photoUrl: string | null;
@@ -159,6 +165,9 @@ export interface QuizoraApi {
   joinGame(code: string): Promise<{ gameId: string }>;
   getGameByCode(code: string): Promise<GameSnapshot>;
   startGame(gameId: string): Promise<void>;
+  quickJoin(kategori: Kategori): Promise<{ gameId: string; code: string; created: boolean }>;
+  leaveGame(gameId: string): Promise<void>;
+  startIfReady(gameId: string): Promise<void>;
   getQuestion(gameId: string, position: number): Promise<Question>;
   submitAnswer(gameId: string, position: number, secenek: Secenek | null): Promise<AnswerResult>;
   finishGame(gameId: string): Promise<GameResult>;
