@@ -95,6 +95,16 @@ async function main() {
   const gbi = await B.client.rpc('get_game_by_id', { p_game_id: gameId })
   rapor('B get_game_by_id', !gbi.error && gbi.data?.players?.length === 2, gbi.error?.message)
 
+  // (d) game.sinav ve oyuncu rank alanları
+  rapor("YKS oyununda game.sinav 'yks'", gg.data?.game?.sinav === 'yks', gg.data?.game?.sinav)
+  const rankliOyuncular = (gg.data?.players ?? []) as Array<{ rank_key?: string; rank_label?: string }>
+  rapor(
+    "oyuncularda rank_key 'caylak' / rank_label 'Çaylak'",
+    rankliOyuncular.length === 2 &&
+      rankliOyuncular.every((p) => p.rank_key === 'caylak' && p.rank_label === 'Çaylak'),
+    JSON.stringify(rankliOyuncular.map((p) => [p.rank_key, p.rank_label])),
+  )
+
   // Üye olmayan görememeli
   const C = await kullaniciOlustur('C')
   const gc = await C.client.rpc('get_game', { p_code: code })
@@ -115,6 +125,124 @@ async function main() {
   const D = await kullaniciOlustur('D')
   const jd = await D.client.rpc('join_game', { p_code: code })
   rapor('başlamış oyuna yeni oyuncu alınmadı', jd.error?.message === 'Oyun başladı', jd.error?.message)
+
+  // ---- LGS ve XP/rank (0003_lgs_xp.sql) ----
+
+  // Bir oyunun sorularının tablo bazında dağılımı
+  const dagilim = async (id: string) => {
+    const { data } = await admin.from('game_questions').select('source_table').eq('game_id', id)
+    const sonuc: Record<string, number> = {}
+    for (const r of data ?? []) sonuc[r.source_table] = (sonuc[r.source_table] ?? 0) + 1
+    return sonuc
+  }
+  const ayni = (a: Record<string, number>, b: Record<string, number>) =>
+    Object.keys(a).length === Object.keys(b).length && Object.keys(b).every((k) => a[k] === b[k])
+
+  // (a) lgs_sozel: 10 soru, ders etiketlerinde '(LGS)', dağılım 4/2/2/2
+  const ls = await A.client.rpc('create_game', { p_kategori: 'lgs_sozel' })
+  if (ls.data?.game_id) oyunlar.push(ls.data.game_id)
+  rapor(
+    "create_game('lgs_sozel')",
+    !ls.error && !!ls.data?.game_id,
+    ls.error ? `${ls.error.message} — soru yoksa önce: npx tsx scripts/seed-test-questions.ts` : ls.data?.code,
+  )
+  if (ls.data?.game_id) {
+    const d = await dagilim(ls.data.game_id)
+    rapor('lgs_sozel 10 soru', Object.values(d).reduce((a, b) => a + b, 0) === 10, JSON.stringify(d))
+    rapor(
+      'lgs_sozel dağılımı 4/2/2/2',
+      ayni(d, { turkce_lgs: 4, inkilap_lgs: 2, din_kulturu_lgs: 2, ingilizce_lgs: 2 }),
+      JSON.stringify(d),
+    )
+    const etiketler = await Promise.all(
+      Object.keys(d).map((t) => admin.rpc('question_label', { source_table: t })),
+    )
+    rapor(
+      "lgs_sozel ders etiketlerinde '(LGS)' geçiyor",
+      etiketler.every((e) => !e.error && String(e.data).includes('(LGS)')),
+      etiketler.map((e) => e.error?.message ?? e.data).join(' | '),
+    )
+    const gl = await A.client.rpc('get_game', { p_code: ls.data.code })
+    rapor("LGS oyununda game.sinav 'lgs'", !gl.error && gl.data?.game?.sinav === 'lgs', gl.error?.message ?? gl.data?.game?.sinav)
+  }
+
+  // (b) lgs_sayisal: 5 Matematik + 5 Fen
+  const lsa = await A.client.rpc('create_game', { p_kategori: 'lgs_sayisal' })
+  if (lsa.data?.game_id) oyunlar.push(lsa.data.game_id)
+  rapor("create_game('lgs_sayisal')", !lsa.error && !!lsa.data?.game_id, lsa.error?.message)
+  if (lsa.data?.game_id) {
+    const d = await dagilim(lsa.data.game_id)
+    rapor('lgs_sayisal 5 Matematik + 5 Fen', ayni(d, { matematik_lgs: 5, fen_lgs: 5 }), JSON.stringify(d))
+  }
+
+  // (c) YKS gerilemesi: sayisal hâlâ çalışıyor, dağılım değişmedi
+  const ys = await A.client.rpc('create_game', { p_kategori: 'sayisal' })
+  if (ys.data?.game_id) oyunlar.push(ys.data.game_id)
+  rapor("YKS gerilemesi: create_game('sayisal')", !ys.error && !!ys.data?.game_id, ys.error?.message)
+  if (ys.data?.game_id) {
+    const d = await dagilim(ys.data.game_id)
+    rapor(
+      'sayisal dağılımı değişmedi',
+      ayni(d, { fizik_ayt: 2, kimya_ayt: 2, biyoloji_ayt: 2, matematik_ayt: 4 }),
+      JSON.stringify(d),
+    )
+  }
+
+  // (e) get_my_stats: yeni kullanıcı
+  const E = await kullaniciOlustur('E')
+  const ms = await E.client.rpc('get_my_stats')
+  const s = ms.data as
+    | { xp: number; rank_key: string; rank_label: string; next_rank_label: string | null; xp_to_next: number | null; progress_pct: number; wins: number; games_played: number }
+    | null
+  rapor(
+    "get_my_stats: yeni kullanıcı xp 0, 'Çaylak', sonraki 'Bronz I', 100 XP kaldı",
+    !ms.error &&
+      s?.xp === 0 &&
+      s.rank_label === 'Çaylak' &&
+      s.rank_key === 'caylak' &&
+      s.next_rank_label === 'Bronz I' &&
+      s.xp_to_next === 100 &&
+      s.progress_pct === 0 &&
+      s.wins === 0 &&
+      s.games_played === 0,
+    ms.error?.message ?? JSON.stringify(s),
+  )
+
+  // XP çubuğu hesabı: 125 XP → Bronz I (100) ile Bronz II (150) arası %50
+  await admin.from('player_stats').update({ xp: 125 }).eq('user_id', E.id)
+  const ms2 = await E.client.rpc('get_my_stats')
+  rapor(
+    "get_my_stats: 125 XP → 'Bronz I', ilerleme %50, 25 XP kaldı",
+    !ms2.error && ms2.data?.rank_label === 'Bronz I' && ms2.data?.progress_pct === 50 && ms2.data?.xp_to_next === 25,
+    ms2.error?.message ?? JSON.stringify(ms2.data),
+  )
+
+  // En üst rank: Efsane'de sonraki rank yok, ilerleme 100
+  await admin.from('player_stats').update({ xp: 1500 }).eq('user_id', E.id)
+  const ms3 = await E.client.rpc('get_my_stats')
+  rapor(
+    "get_my_stats: 1500 XP → 'Efsane', sonraki yok, ilerleme 100",
+    !ms3.error &&
+      ms3.data?.rank_label === 'Efsane' &&
+      ms3.data?.next_rank_label === null &&
+      ms3.data?.xp_to_next === null &&
+      ms3.data?.progress_pct === 100,
+    ms3.error?.message ?? JSON.stringify(ms3.data),
+  )
+
+  // Oyuncunun rank'ı get_game çıktısına da yansıyor
+  const rg = await E.client.rpc('create_game', { p_kategori: 'tyt' })
+  if (rg.data?.game_id) oyunlar.push(rg.data.game_id)
+  const rgg = rg.data?.code ? await E.client.rpc('get_game', { p_code: rg.data.code }) : null
+  rapor(
+    "get_game: 1500 XP'li oyuncu 'efsane' / 'Efsane'",
+    rgg?.data?.players?.[0]?.rank_key === 'efsane' && rgg?.data?.players?.[0]?.rank_label === 'Efsane',
+    rg.error?.message ?? rgg?.error?.message ?? JSON.stringify(rgg?.data?.players?.[0]),
+  )
+
+  // (f) geçersiz kategori (LGS eklendikten sonra da reddedilmeli)
+  const bad2 = await A.client.rpc('create_game', { p_kategori: 'lgs_xyz' })
+  rapor("geçersiz kategori 'Geçersiz kategori' der", bad2.error?.message === 'Geçersiz kategori', bad2.error?.message)
 }
 
 main()
