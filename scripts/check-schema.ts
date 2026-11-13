@@ -25,8 +25,15 @@ const SORU_TABLOLARI = [
   'tarih_tyt', 'cografya_tyt', 'felsefe_tyt', 'din_kulturu_tyt',
   'fizik_ayt', 'kimya_ayt', 'biyoloji_ayt', 'matematik_ayt', 'edebiyat_ayt',
   'tarih_ayt', 'cografya_ayt', 'felsefe_ayt', 'din_kulturu_ayt',
+  // LGS (0003_lgs_xp.sql)
+  'turkce_lgs', 'inkilap_lgs', 'din_kulturu_lgs',
+  'ingilizce_lgs', 'matematik_lgs', 'fen_lgs',
 ]
-const OYUN_TABLOLARI = ['profiles', 'games', 'game_players', 'game_questions', 'answers', 'global_scores']
+const LGS_TABLOLARI = ['turkce_lgs', 'inkilap_lgs', 'din_kulturu_lgs', 'ingilizce_lgs', 'matematik_lgs', 'fen_lgs']
+const OYUN_TABLOLARI = [
+  'profiles', 'games', 'game_players', 'game_questions', 'answers', 'global_scores',
+  'rank_tiers', 'player_stats',
+]
 
 let basarisiz = 0
 function rapor(ad: string, gecti: boolean, ayrinti = '') {
@@ -64,7 +71,7 @@ async function main() {
     const { data, error } = await anon.from(tablo).select(sutun).limit(1)
     return { sizdi: !error && (data?.length ?? 0) > 0, error }
   }
-  for (const t of ['matematik_tyt', 'fizik_ayt']) {
+  for (const t of ['matematik_tyt', 'fizik_ayt', ...LGS_TABLOLARI]) {
     const s = await sizdi(t, 'dogru_sik')
     rapor(`anon ${t} tablosundan dogru_sik okuyamıyor`, !s.sizdi, s.error ? 'hata verdi' : 'boş döndü')
   }
@@ -78,6 +85,32 @@ async function main() {
     .from('global_scores')
     .insert({ user_id: oturum.user?.id, total_points: 999 })
   rapor('anon global_scores tablosuna yazamıyor', !!yazmaHata)
+
+  // 5. XP/rank şeması (0003_lgs_xp.sql)
+  const { count: rankSayisi, error: rankHata } = await admin
+    .from('rank_tiers')
+    .select('*', { count: 'exact', head: true })
+  rapor('rank_tiers 14 satır', !rankHata && rankSayisi === 14, rankHata?.message ?? `${rankSayisi}`)
+
+  const { error: sinavHata } = await admin.from('games').select('sinav').limit(1)
+  rapor('games.sinav sütunu var', !sinavHata, sinavHata?.message)
+
+  const { error: rankYazmaHata } = await anon
+    .from('rank_tiers')
+    .insert({ min_xp: 99999, rank_key: 'test', rank_label: 'Test' })
+  rapor('anon rank_tiers tablosuna yazamıyor', !!rankYazmaHata)
+
+  const { error: statYazmaHata } = await anon
+    .from('player_stats')
+    .insert({ user_id: oturum.user?.id, xp: 99999 })
+  rapor('anon player_stats tablosuna yazamıyor', !!statYazmaHata)
+
+  // Yazma gerçekten engellendiyse tabloda iz kalmamalı
+  const { count: sizanRank } = await admin
+    .from('rank_tiers')
+    .select('*', { count: 'exact', head: true })
+    .eq('min_xp', 99999)
+  rapor('rank_tiers tablosunda test satırı kalmadı', sizanRank === 0)
 
   // Test kullanıcısını temizle
   if (oturum.user) await admin.auth.admin.deleteUser(oturum.user.id)
