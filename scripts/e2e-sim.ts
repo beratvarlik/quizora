@@ -208,10 +208,14 @@ async function coz(o: Oyuncu, gameId: string, siklar: Secenek[], d: Davranis): P
     const soru = await o.api.getQuestion(gameId, pos)
     const g1 = Date.now()
     const anahtarlar = Object.keys(soru).sort().join(',')
-    if (anahtarlar !== 'ders,imageUrl,options,position,text' || Object.keys(soru.options).sort().join('') !== 'ABCDE') {
-      sizinti = `beklenmeyen alanlar: ${anahtarlar}`
+    // LGS soruları 4 şıklı (A-D), YKS soruları 5 şıklı (A-E)
+    const beklenenSiklar = soru.ders.includes('(LGS)') ? 'ABCD' : 'ABCDE'
+    if (anahtarlar !== 'ders,imageUrl,options,position,text' || Object.keys(soru.options).sort().join('') !== beklenenSiklar) {
+      sizinti = `beklenmeyen alanlar: ${anahtarlar}; şıklar '${Object.keys(soru.options).sort().join('')}' (beklenen '${beklenenSiklar}', ders '${soru.ders}')`
     }
-    if (/dogru|aciklama|aktif|correct/i.test(JSON.stringify(soru))) sizinti = `doğru şık/açıklama sızdı: ${JSON.stringify(soru)}`
+    // Yasaklı alan ADLARI aranır; soru metninin içeriğine bakılmaz (gerçek sorularda "radyoaktif" gibi sözcükler geçer)
+    const yasakli = [...Object.keys(soru), ...Object.keys(soru.options)].filter((k) => /dogru|aciklama|aktif|correct/i.test(k))
+    if (yasakli.length > 0) sizinti = `doğru şık/açıklama alanı sızdı: ${yasakli.join(', ')}`
 
     const beklemeMs = d.tur === 'hizli' ? 0 : d.tur === 'yavas' ? rastgele(2000, 3000) : rastgele(300, 1500)
     if (beklemeMs > 0) await bekle(beklemeMs)
@@ -354,6 +358,12 @@ async function tur(n: number, kategori: Kategori, tam: boolean): Promise<void> {
     kontrol(!sizan, sizan?.sizinti ?? '')
   })
 
+  await adim(`${e} 4a2. şık sayısı: ${beklenenSinav === 'lgs' ? 'LGS soruları 4 şıklı (A-D)' : 'YKS soruları 5 şıklı (A-E)'}`, async () => {
+    const izinli = beklenenSinav === 'lgs' ? 'ABCD' : 'ABCDE'
+    kontrol(siklar.length === 10 && siklar.every((s) => izinli.includes(s)), `doğru şıklar: ${siklar.join('')} (izinli ${izinli})`)
+    return `doğru şıklar ${siklar.join('')}`
+  })
+
   await adim(`${e} 4b. hızlı oyuncunun puanı ≥ 1800`, async () => {
     const puan = toplamPuan(cozumler[0])
     kontrol(puan >= 1800, `${puan} puan (sunucu süreleri: ${cozumler[0].kayitlar.map((k) => k.sunucuSnTahmini.toFixed(1)).join(' ')})`)
@@ -394,8 +404,11 @@ async function tur(n: number, kategori: Kategori, tam: boolean): Promise<void> {
     kontrol(!!h, 'hız ölçümü alınamadı')
     const fark = h!.r1 - h!.r2
     kontrol(h!.r1 > 0 && h!.r2 > 0, `kalan süre ${h!.r1} / ${h!.r2}`)
-    kontrol(Math.abs(fark - 2000) <= 300, `fark ${Math.round(fark)} ms (ölçüm aralığı ${h!.aralikMs} ms)`)
-    return `fark ${Math.round(fark)} ms (aralık ${h!.aralikMs} ms)`
+    // 2× kuralı: kalan süre, gerçek süre geçtikçe 2 kat hızlı azalır → fark ≈ 2 × ölçüm aralığı.
+    // (Ağ gecikmesi ölçüm aralığını 1 sn'den biraz saptırabilir; bu yüzden mutlak 2000 ms değil oran sınanır.)
+    kontrol(h!.aralikMs >= 700 && h!.aralikMs <= 1600, `ölçüm aralığı 1 sn'den çok saptı: ${h!.aralikMs} ms`)
+    kontrol(Math.abs(fark - 2 * h!.aralikMs) <= 300, `fark ${Math.round(fark)} ms, beklenen 2 × ${h!.aralikMs} = ${2 * h!.aralikMs} ms (±300)`)
+    return `fark ${Math.round(fark)} ms (aralık ${h!.aralikMs} ms, oran ${(fark / h!.aralikMs).toFixed(2)})`
   })
 
   // 6. Yarışı bitir: önce biri, sonra aynı anda birden çok istemci
