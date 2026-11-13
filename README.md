@@ -28,6 +28,8 @@ Hepsi `.env.local` okur ve `SUPABASE_SERVICE_ROLE_KEY` gerektirir (anahtar yaln�
 - `npx tsx scripts/check-schema.ts` — şema ve güvenlik kontrolü.
 - `npx tsx scripts/rpc-smoke.ts` — RPC'lerin uçtan uca testi.
 - `npx tsx scripts/api-smoke.ts` — `src/lib/api.ts` (QuizoraApi) testi.
+- `npx tsx scripts/import-questions.ts <dosya.csv> [--dry-run] [--gorsel-klasor <klasör>]` — CSV'den soru yükler. Ayrıntı: [docs/SORU-EKLEME.md](docs/SORU-EKLEME.md) (şablon: `scripts/soru-sablonu.csv`).
+- `npx tsx scripts/soru-durumu.ts` — 24 tablodaki soru sayıları ve hangi kategorilerin hazır olduğu.
 - `npx tsx scripts/e2e-sim.ts [--oyuncu N] [--kategori ad]` — N sanal oyuncuyla tam yarış simülasyonu (varsayılan: 2 oyuncu, `sayisal` + `lgs_sozel` + `lgs_sayisal`; N en çok 5).
 
 ## Demo hazırlığı: XP aracı
