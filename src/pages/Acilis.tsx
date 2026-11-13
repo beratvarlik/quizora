@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Avatar, { AVATAR_KEYS } from '../components/Avatar'
 import AvatarSecici from '../components/AvatarSecici'
 import Button from '../components/Button'
@@ -11,6 +12,7 @@ import { UstBar } from '../components/Logo'
 /** Geçici: B1 temel bileşen vitrini. Asıl açılış sayfası (W1) B6'da yapılacak. */
 export default function Acilis() {
   const [secili, setSecili] = useState<string | null>('avatar-3')
+  const git = useNavigate()
   return (
     <main className="sayfa pb-10">
       <DevreHatlari kose="sag-kenar" ust={120} boyut={200} />
@@ -22,7 +24,10 @@ export default function Acilis() {
           <br />
           düello<em>.</em>
         </h1>
-        <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--soluk)]">B1 bileşen vitrini. Açılış sayfası B6’da gelecek.</p>
+        <p className="mt-3 text-[15px] leading-relaxed text-[color:var(--soluk)]">Açılış sayfası B6’da gelecek. Şimdilik buradan oyuna gir.</p>
+        <div className="mt-6">
+          <Button onClick={() => git('/menu')}>Hemen oyna</Button>
+        </div>
 
         <section className="mt-8 flex flex-col gap-3">
           <span className="etiket">Button</span>

@@ -238,3 +238,5 @@
   .geri-sayim .sayi, .soru-gir, .sik.dogru, .sik.yanlis, .bant, .sira-satir, .tac, .rutbe-atladi, .rozet-isik, .canli, .seg.su { animation: none !important; }
   .xp-cubuk i { transition: none; }
 }
+.kazanan .ust-bar { padding-left: 0; padding-right: 0; }
+.kazanan .logo { color: var(--cream); }
