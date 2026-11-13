@@ -32,7 +32,7 @@ export interface GlobalRow { userId: string; displayName: string; avatarKey: str
 export interface MyStats { xp: number; rankKey: string; rankLabel: string; nextRankLabel: string | null; xpToNext: number | null; progressPct: number; wins: number; gamesPlayed: number }
 export type ReviewOutcome = 'correct' | 'wrong' | 'blank';
 export interface ReviewItem {
-  position: number; ders: string; text: string; imageUrl: string | null;
+  position: number; ders: string; topic: string | null; text: string; imageUrl: string | null;
   options: Partial<Record<Secenek, string>>;
   selected: Secenek | null; correctOption: Secenek; outcome: ReviewOutcome;
   points: number; timeMs: number | null; explanation: string | null;
@@ -40,12 +40,22 @@ export interface ReviewItem {
 export interface GameReview { items: ReviewItem[]; addedToNotebook: number } // addedToNotebook: bu yarıştan Yanlışlarım defterine giren soru sayısı
 export interface MistakeSummary { total: number; resolvedTotal: number; bySubject: { exam: Sinav; subject: string; count: number }[] }
 export interface MistakeItem {
-  questionId: string; exam: Sinav; subject: string; text: string; imageUrl: string | null;
+  questionId: string; exam: Sinav; subject: string; topic: string | null; text: string; imageUrl: string | null;
   options: Partial<Record<Secenek, string>>; // LGS'de yalnızca A-D
   lastAnswer: Secenek | null; // null = boş bırakılmıştı
   wrongCount: number; lastWrongAt: string; // doğru şık ve açıklama BURADA yok
 }
 export interface PracticeResult { isCorrect: boolean; correctOption: Secenek; explanation: string | null; resolved: boolean }
+// Akıllı analiz / Performansım (yalnızca bitmiş oyunlar, çağıranın kendi verisi).
+// answered = correct + wrong (boş bırakılanlar hariç); accuracy = 100 * correct / answered (0-100, 1 ondalık; answered 0 ise 0);
+// avgTimeMs: cevaplanan sorularda ortalama süre (veri yoksa 0). topic boş olan sorular 'Diğer' sayılır.
+export interface PerformanceStats {
+  totals: { games: number; answered: number; correct: number; wrong: number; blank: number; avgTimeMs: number; accuracy: number };
+  bySubject: { exam: Sinav; subject: string; answered: number; correct: number; accuracy: number; avgTimeMs: number }[]; // answered > 0 olanlar, en çok çözülen önce
+  byTopic: { exam: Sinav; subject: string; topic: string; answered: number; correct: number; accuracy: number; lowSample: boolean }[]; // lowSample: answered < 3; önce yeterli örnekliler (doğruluk artan), sonra lowSample
+  daily: { date: string; answered: number; correct: number }[]; // son 7 gün (Europe/Istanbul, bugün dahil, eskiden yeniye), boş gün 0; 'YYYY-MM-DD'
+  streakDays: number; // üst üste yarışılan gün (bugün ya da dünden geriye)
+}
 export interface GameSnapshot { game: GameInfo; players: PlayerState[] }
 export interface QuizoraApi {
   ensureSession(): Promise<string>;
@@ -69,6 +79,7 @@ export interface QuizoraApi {
   getMistakes(opts?: { exam?: Sinav; subject?: string; limit?: number }): Promise<MistakeItem[]>;
   practiceAnswer(questionId: string, selected: Secenek): Promise<PracticeResult>;
   removeMistake(questionId: string): Promise<void>;
+  getPerformance(opts?: { exam?: Sinav; days?: number }): Promise<PerformanceStats>; // days: 1-365, varsayılan 30
   subscribeGame(gameId: string, cb: (s: GameSnapshot) => void): Unsubscribe;
   subscribeGlobalLeaderboard(cb: (rows: GlobalRow[]) => void): Unsubscribe;
 }
