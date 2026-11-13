@@ -604,6 +604,34 @@ async function tur(n: number, kategori: Kategori, tam: boolean): Promise<void> {
     return `${lb.length} satır`
   })
 
+  // Günlük görevler: ilerleme bu yarıştan hesaplanır; tamamlanan görevin ödülü alınır, XP ve rütbe tutarlı.
+  // NOT: ödül XP ekler, bu yüzden XP'nin yalnızca yarıştan geldiğini doğrulayan 6b ve 7'den SONRA çalışır.
+  await adim(`${e} 8b. getDailyTasks / claimDailyTask: 3 görev, ilerleme hedefle sınırlı, ödül yalnızca tamamlananda; XP getMyStats ile tutarlı`, async () => {
+    for (const o of oyuncular) {
+      const gt = await o.api.getDailyTasks()
+      kontrol(gt.tasks.length === 3 && new Set(gt.tasks.map((t) => t.id)).size === 3, `${o.ad}: görev sayısı ${gt.tasks.length}`)
+      kontrol(/^\d{4}-\d{2}-\d{2}$/.test(gt.date) && Date.parse(gt.resetsAt) > Date.now(), `${o.ad}: date/resetsAt ${gt.date} ${gt.resetsAt}`)
+      kontrol(gt.tasks.every((t) => t.progress >= 0 && t.progress <= t.target && t.completed === (t.progress >= t.target) && t.claimed === false), `${o.ad}: görev alanları tutarsız`)
+      kontrol(gt.bonus.xp === 50 && gt.bonus.completed === false && gt.bonus.claimed === false, `${o.ad}: bonus ${JSON.stringify(gt.bonus)}`)
+      // tamamlanmamış görev reddedilir
+      const tamam = gt.tasks.filter((t) => t.completed)
+      const eksik = gt.tasks.find((t) => !t.completed)
+      if (eksik) {
+        const m = await o.api.claimDailyTask(eksik.id).then(() => 'HATASIZ', (err: unknown) => (err instanceof Error ? err.message : String(err)))
+        kontrol(m === 'Görev henüz tamamlanmadı', `${o.ad}: tamamlanmamış görev mesajı '${m}'`)
+      }
+      if (tamam.length > 0) {
+        const once = await o.api.getMyStats()
+        const sonuc = await o.api.claimDailyTask(tamam[0].id)
+        kontrol(sonuc.xpGained === tamam[0].xp && sonuc.newXp === once.xp + tamam[0].xp, `${o.ad}: claim ${JSON.stringify(sonuc)} (önceki xp ${once.xp})`)
+        const sonra = await o.api.getMyStats()
+        kontrol(sonra.xp === sonuc.newXp && sonra.rankLabel === sonuc.tierAfter, `${o.ad}: getMyStats ${sonra.xp}/${sonra.rankLabel} ≠ ${sonuc.newXp}/${sonuc.tierAfter}`)
+        const m2 = await o.api.claimDailyTask(tamam[0].id).then(() => 'HATASIZ', (err: unknown) => (err instanceof Error ? err.message : String(err)))
+        kontrol(m2 === 'Ödül zaten alındı', `${o.ad}: ikinci alım '${m2}'`)
+      }
+    }
+  })
+
   if (!tam) return
 
   // 9. Rank atlama: oyuncu 1'in XP'si 95 → yeni yarışı kazanır

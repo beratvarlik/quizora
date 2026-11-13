@@ -49,6 +49,16 @@ export interface PracticeResult { isCorrect: boolean; correctOption: Secenek; ex
 // Akıllı analiz / Performansım (yalnızca bitmiş oyunlar, çağıranın kendi verisi).
 // answered = correct + wrong (boş bırakılanlar hariç); accuracy = 100 * correct / answered (0-100, 1 ondalık; answered 0 ise 0);
 // avgTimeMs: cevaplanan sorularda ortalama süre (veri yoksa 0). topic boş olan sorular 'Diğer' sayılır.
+// Günlük görevler: ilerleme o günün (Europe/Istanbul) bitmiş yarışlarından anlık hesaplanır; yalnızca ödül alımı saklanır.
+// Görev id'leri: math10, win1, correct5, friends2, notebook3, acc70, quick1, games3. Günün 3 görevi tarihe göre deterministik (herkes aynı).
+export interface DailyTask { id: string; title: string; target: number; progress: number; xp: number; completed: boolean; claimed: boolean } // progress target ile sınırlı
+export interface DailyTasks {
+  date: string; // 'YYYY-MM-DD' (Europe/Istanbul)
+  resetsAt: string; // bir sonraki İstanbul gece yarısı (ISO)
+  tasks: DailyTask[]; // 3 görev
+  bonus: { xp: number; completed: boolean; claimed: boolean }; // completed = 3 görevin ödülü de alındı
+}
+export interface ClaimResult { xpGained: number; newXp: number; tierBefore: string; tierAfter: string } // tier = rütbe etiketi ('Bronz I')
 export interface PerformanceStats {
   totals: { games: number; answered: number; correct: number; wrong: number; blank: number; avgTimeMs: number; accuracy: number };
   bySubject: { exam: Sinav; subject: string; answered: number; correct: number; accuracy: number; avgTimeMs: number }[]; // answered > 0 olanlar, en çok çözülen önce
@@ -80,6 +90,8 @@ export interface QuizoraApi {
   practiceAnswer(questionId: string, selected: Secenek): Promise<PracticeResult>;
   removeMistake(questionId: string): Promise<void>;
   getPerformance(opts?: { exam?: Sinav; days?: number }): Promise<PerformanceStats>; // days: 1-365, varsayılan 30
+  getDailyTasks(): Promise<DailyTasks>;
+  claimDailyTask(taskId: string): Promise<ClaimResult>; // taskId: günün görevi ya da 'bonus'
   subscribeGame(gameId: string, cb: (s: GameSnapshot) => void): Unsubscribe;
   subscribeGlobalLeaderboard(cb: (rows: GlobalRow[]) => void): Unsubscribe;
 }
