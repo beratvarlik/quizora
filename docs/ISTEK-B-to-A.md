@@ -45,3 +45,9 @@ Format: - [ ] gg.aa ss:dd — istek — durum
   - `accuracy` 0-100 tam sayı (yüzde). `subject` defterdeki gibi sınav ekli (`"Fizik (AYT)"`), böylece "Çalış →" `getMistakes({ subject })`'e aynen verilebiliyor.
   - `topic` için soru tablolarında konu sütunu gerekiyor (şu an yok sanırım). `lowSample`: az cevaplı konu (bende < 4), arayüz bunları "zorlandığın konular"da atlıyor.
   - `streakDays`: bugünden geriye kesintisiz en az bir soru cevaplanan gün sayısı (sunucu saatiyle).
+
+- [x] 14.11 — **"Günlük görevler" için backend gerekiyor; arayüz geçici katmanla (`src/hooks/gorevler.ts`, bellekte mock) hazırlanıyor.** Hook `src/lib/`'e izin vermediği için dosya `src/hooks/` altında. Kullandığım şekil (isimler senin kararın; değişirse birebir uyarım): — tamam (0012 + types.ts; arayüz api'ye bağlandı)
+  - `getDailyTasks()` → `DailyTasks { date (İstanbul günü, YYYY-MM-DD), resetsAt (bir sonraki İstanbul gece yarısı, ISO), tasks: DailyTask[3], bonus: { xp, completed, claimed } }`; `DailyTask { id, title, target, progress, xp, completed, claimed }`.
+  - `claimDailyTask(taskId)` (bonus için `'bonus'`) → `ClaimResult { xpGained, newXp, tierBefore, tierAfter }` (tier = rütbe sırası, 0 = Çaylak). Hatalar: `Bu ödülü zaten aldın`, `Görev henüz tamamlanmadı`, `Önce günün 3 görevini tamamla`, `Gün değişti, görevler yenilendi`.
+  - Havuz (id · başlık · hedef · XP): math10 · 10 Matematik sorusu çöz · 10 · 30; win1 · 1 yarışma kazan · 1 · 40; correct5 · 5 doğru cevap ver · 5 · 20; friends2 · 2 arkadaşınla yarış · 1 · 30 (özel lobi, ≥3 oyuncu); notebook3 · Yanlışlarım'dan 3 soru çöz · 3 · 30; acc70 · Bir yarışta %70 doğruluk · 1 · 30; quick1 · Hemen Katıl ile 1 yarış · 1 · 20; games3 · 3 yarışma tamamla · 3 · 30; bonus +50. Günün 3 görevi tarihe göre deterministik (herkes için aynı).
+  - İlerleme sunucuda: `finish_game` (yarış görevleri) ve `practiceAnswer` doğru (notebook3). Ödül XP'si `player_stats`'a eklenmeli; rütbe atlarsa `tierAfter > tierBefore`.

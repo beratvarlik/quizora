@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { config } from 'dotenv'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
@@ -1337,6 +1338,255 @@ async function performansTesti() {
   }
 }
 
+// ---- Günlük görevler (0012_gunluk_gorevler.sql) ----
+
+const HAVUZ: Record<string, { title: string; target: number; xp: number }> = {
+  math10: { title: '10 Matematik sorusu çöz', target: 10, xp: 30 },
+  win1: { title: '1 yarışma kazan', target: 1, xp: 40 },
+  correct5: { title: '5 doğru cevap ver', target: 5, xp: 20 },
+  friends2: { title: '2 arkadaşınla yarış (3+ kişilik)', target: 1, xp: 30 },
+  notebook3: { title: "Yanlışlarım'dan 3 soru çöz", target: 3, xp: 30 },
+  acc70: { title: 'Bir yarışta %70 doğruluk yakala', target: 1, xp: 30 },
+  quick1: { title: 'Hemen Katıl ile 1 yarış', target: 1, xp: 20 },
+  games3: { title: '3 yarışma tamamla', target: 3, xp: 30 },
+}
+const md5 = (s: string): string => createHash('md5').update(s).digest('hex')
+// Günün 3 görevi: md5(tarih + id) sırasının ilk üçü (sunucuyla aynı kural)
+const gununGorevleri = (gun: string): string[] => Object.keys(HAVUZ).sort((a, b) => (md5(gun + a) < md5(gun + b) ? -1 : 1)).slice(0, 3)
+const istanbulGunu = (iso: string): string => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul' }).format(new Date(iso))
+
+// İlerlemeyi veritabanındaki ham verilerden SUNUCUDAN BAĞIMSIZ hesaplar
+async function gorevBeklenen(u: Kullanici, gun: string): Promise<Record<string, number>> {
+  const sifir = { math10: 0, win1: 0, correct5: 0, friends2: 0, notebook3: 0, acc70: 0, quick1: 0, games3: 0 }
+  const { data: gps } = await admin.from('game_players').select('game_id, current_q, correct_count, wrong_count').eq('user_id', u.id)
+  const oyuncular = (gps ?? []) as Alan[]
+  const sonuc = { ...sifir }
+  const { data: pr } = await admin.from('mistake_book').select('practice_resolved_at').eq('user_id', u.id).not('practice_resolved_at', 'is', null)
+  sonuc.notebook3 = ((pr ?? []) as Alan[]).filter((x) => istanbulGunu(x.practice_resolved_at) === gun).length
+  if (oyuncular.length === 0) return sonuc
+  const { data: gms } = await admin.from('games').select('id, status, winner_id, is_public, finished_at').in('id', oyuncular.map((x) => x.game_id))
+  const uygun = ((gms ?? []) as Alan[]).filter(
+    (g) => g.status === 'finished' && g.finished_at && istanbulGunu(g.finished_at) === gun && oyuncular.find((p) => p.game_id === g.id)!.current_q >= 1,
+  )
+  if (uygun.length === 0) return sonuc
+  const idler = uygun.map((g) => g.id)
+  const { data: hepsi } = await admin.from('game_players').select('game_id').in('game_id', idler)
+  const oyuncuSayisi = (id: string) => ((hepsi ?? []) as Alan[]).filter((x) => x.game_id === id).length
+  const { data: cev } = await admin.from('answers').select('game_id, position, dogru').eq('user_id', u.id).in('game_id', idler).not('secenek', 'is', null)
+  const { data: gq } = await admin.from('game_questions').select('game_id, position, source_table').in('game_id', idler)
+  const tablo = (g: string, p: number) => ((gq ?? []) as Alan[]).find((x) => x.game_id === g && x.position === p)?.source_table as string
+  const cevaplar = (cev ?? []) as Alan[]
+  sonuc.math10 = cevaplar.filter((a) => ['matematik_tyt', 'matematik_ayt', 'matematik_lgs'].includes(tablo(a.game_id, a.position))).length
+  sonuc.correct5 = cevaplar.filter((a) => a.dogru === true).length
+  sonuc.win1 = uygun.filter((g) => g.winner_id === u.id).length
+  sonuc.friends2 = uygun.filter((g) => oyuncuSayisi(g.id) >= 3).length
+  sonuc.quick1 = uygun.filter((g) => g.is_public === true).length
+  sonuc.games3 = uygun.length
+  sonuc.acc70 = uygun.filter((g) => {
+    const p = oyuncular.find((x) => x.game_id === g.id)!
+    const c = p.correct_count as number
+    const w = p.wrong_count as number
+    return c + w >= 5 && c * 10 >= (c + w) * 7
+  }).length
+  return sonuc
+}
+
+async function gunlukGorevTesti() {
+  const U1 = await kullaniciOlustur('G1')
+  const U2 = await kullaniciOlustur('G2')
+  const U3 = await kullaniciOlustur('G3')
+  const PB = await kullaniciOlustur('G4') // hiç oynamayan
+  const bugun = bugunIstanbul()
+  const dun = gunEkle(bugun, -1)
+  const sizinti: string[] = []
+  const gorevler = (u: Kullanici) => u.client.rpc('get_daily_tasks')
+  const al = (u: Kullanici, id: string) => u.client.rpc('claim_daily_task', { p_task_id: id })
+  const ham = async (u: Kullanici, gun: string): Promise<Record<string, number>> => {
+    const r = await admin.rpc('_daily_progress', { p_uid: u.id, p_day: gun })
+    if (r.error) throw new Error(`_daily_progress: ${r.error.message}`)
+    return r.data as Record<string, number>
+  }
+  const bitir = async (oyun: string, kimler: Kullanici[]) => {
+    await sureyiBitir(oyun)
+    for (const u of kimler) {
+      const r = await u.client.rpc('finish_game', { p_game_id: oyun })
+      if (r.error) throw new Error(`finish_game: ${r.error.message}`)
+    }
+  }
+  const dogruSikSoru = async (tbl: string, qid: string): Promise<string> => {
+    const { data } = await admin.from(tbl).select('dogru_sik').eq('id', qid).single()
+    return String(data?.dogru_sik)
+  }
+
+  // ===== Hiç oynamayan oyuncu: yapı, deterministik seçim, hatalar =====
+  const beklenenIdler = gununGorevleri(bugun)
+  const r0 = await gorevler(PB)
+  const d0 = r0.data
+  const istanbulGeceYarisi = Date.parse(`${gunEkle(bugun, 1)}T00:00:00+03:00`)
+  rapor(
+    'get_daily_tasks (boş oyuncu): date bugün (İstanbul), resets_at bir sonraki İstanbul gece yarısı, 3 görev, ilerleme 0, bonus 50 XP',
+    !r0.error && d0.date === bugun && Date.parse(d0.resets_at) === istanbulGeceYarisi && d0.tasks.length === 3 &&
+      d0.tasks.every((t: Alan) => t.progress === 0 && t.completed === false && t.claimed === false) &&
+      d0.bonus.xp === 50 && d0.bonus.completed === false && d0.bonus.claimed === false,
+    r0.error?.message ?? JSON.stringify(d0),
+  )
+  rapor(
+    "günün 3 görevi md5(tarih+id) kuralıyla belirlenir; başlık/hedef/xp havuzla aynı; herkes için aynı sıra",
+    JSON.stringify(d0.tasks.map((t: Alan) => t.id)) === JSON.stringify(beklenenIdler) &&
+      d0.tasks.every((t: Alan) => HAVUZ[t.id].title === t.title && HAVUZ[t.id].target === t.target && HAVUZ[t.id].xp === t.xp),
+    `${JSON.stringify(d0.tasks.map((t: Alan) => t.id))} ≟ ${JSON.stringify(beklenenIdler)}`,
+  )
+  const hatalar0: string[] = []
+  for (const id of beklenenIdler) hatalar0.push((await al(PB, id)).error?.message ?? 'HATASIZ')
+  const bon0 = (await al(PB, 'bonus')).error?.message
+  const yabanci = Object.keys(HAVUZ).find((id) => !beklenenIdler.includes(id))!
+  const yab = (await al(PB, yabanci)).error?.message
+  const gec = (await al(PB, 'xyz')).error?.message
+  const bos = (await al(PB, '')).error?.message
+  rapor(
+    "ödül hataları: tamamlanmamış 'Görev henüz tamamlanmadı'; bonus 'Önce üç görevin ödülünü al'; bugünün olmayan/bilinmeyen 'Bu görev bugünün görevi değil'; boş 'Geçersiz görev'",
+    hatalar0.every((m) => m === 'Görev henüz tamamlanmadı') && bon0 === 'Önce üç görevin ödülünü al' &&
+      yab === 'Bu görev bugünün görevi değil' && gec === 'Bu görev bugünün görevi değil' && bos === 'Geçersiz görev',
+    JSON.stringify([hatalar0, bon0, yab, gec, bos]),
+  )
+  const { data: pst } = await admin.from('player_stats').select('xp').eq('user_id', PB.id)
+  rapor('hatalı alımlarda XP verilmez', (pst ?? []).length === 0 || pst![0].xp === 0, JSON.stringify(pst))
+
+  // ===== Yarışlar =====
+  // G1: lgs_sayisal, 3 oyuncu, herkese açık (Hemen Katıl sayılır). U1 7/10 (tam %70) ve kazanır.
+  const g1 = await oyunKur(U1, [U2, U3], 'lgs_sayisal')
+  await admin.from('games').update({ is_public: true }).eq('id', g1)
+  await Promise.all([planlaOyna(U1, g1, 'DDDDDDDYYY', sizinti), planlaOyna(U2, g1, 'DDYYYYYYYY', sizinti), planlaOyna(U3, g1, 'YYYYYYYYYY', sizinti)])
+  await bitir(g1, [U1, U2, U3])
+  // U1 3 yanlışını practice_answer ile doğru çözer. G2/G3 oynanmadan ÖNCE yapılır: sonraki yarışta aynı soru
+  // doğru cevaplanırsa finish_game soruyu zaten çözülmüş sayar ve practice_answer 'defterinde yok' derdi.
+  const gq1 = await gqOku(g1)
+  for (const pos of [7, 8, 9]) {
+    const r = await U1.client.rpc('practice_answer', { p_question_id: gq1[pos].question_id, p_selected: await dogruSik(g1, pos) })
+    if (r.error || !r.data.resolved) throw new Error(`practice_answer(${pos}): ${r.error?.message}`)
+  }
+  // G2: lgs_sayisal, 2 oyuncu
+  const g2 = await oyunKur(U1, [U2], 'lgs_sayisal')
+  await Promise.all([planlaOyna(U1, g2, 'DDDDDDDDDD', sizinti), planlaOyna(U2, g2, 'YYYYYYYYYY', sizinti)])
+  await bitir(g2, [U1, U2])
+  // G3: tyt, 2 oyuncu, yalnızca ilk 5 soru
+  const g3 = await oyunKur(U1, [U2], 'tyt')
+  await Promise.all([planlaOyna(U1, g3, 'DDDDD', sizinti), planlaOyna(U2, g3, 'DDDDD', sizinti)])
+  await bitir(g3, [U1, U2])
+
+  // Defter: U2 önce 3 soruyu ELLE çıkarır (sayılmaz), sonra 3'ünü practice_answer ile çözer
+  const aci = ((await U2.client.rpc('get_mistakes', { p_exam: null, p_subject: null, p_limit: 50 })).data?.items ?? []) as Alan[]
+  for (const it of aci.slice(0, 3)) {
+    const r = await U2.client.rpc('remove_mistake', { p_question_id: it.question_id })
+    if (r.error) throw new Error(`remove_mistake: ${r.error.message}`)
+  }
+  const u2Once = await ham(U2, bugun)
+  rapor("notebook3: remove_mistake (elle çıkarma) SAYILMAZ (U2: 0)", u2Once.notebook3 === 0, JSON.stringify(u2Once))
+  const { data: u2Satirlar } = await admin.from('mistake_book').select('question_id, source_table').eq('user_id', U2.id).is('resolved_at', null)
+  for (const s of ((u2Satirlar ?? []) as Alan[]).slice(0, 3)) {
+    const r = await U2.client.rpc('practice_answer', { p_question_id: s.question_id, p_selected: await dogruSikSoru(s.source_table, s.question_id) })
+    if (r.error || !r.data.resolved) throw new Error(`practice_answer(U2): ${r.error?.message}`)
+  }
+
+  // ===== İlerleme: sunucu = bağımsız hesap (8 görev, 3 oyuncu) =====
+  for (const [ad, u] of [['U1', U1], ['U2', U2], ['U3', U3]] as Array<[string, Kullanici]>) {
+    const s = await ham(u, bugun)
+    const b = await gorevBeklenen(u, bugun)
+    const tamam = Object.keys(HAVUZ).every((k) => Number(s[k]) === b[k])
+    rapor(`_daily_progress ${ad}: 8 görevin ilerlemesi ham verilerden bağımsız hesapla birebir aynı`, tamam, `${JSON.stringify(s)} ≟ ${JSON.stringify(b)}`)
+  }
+  const s1 = await ham(U1, bugun)
+  rapor(
+    'U1 senaryosu: math10 ≥ 10, win1 ≥ 1, correct5 ≥ 5, friends2 = 1 (yalnız 3 kişilik G1), notebook3 = 3 (yalnız practice), acc70 = 3 (G1 tam %70 dahil), quick1 = 1, games3 = 3',
+    s1.math10 >= 10 && s1.win1 >= 1 && s1.correct5 >= 5 && s1.friends2 === 1 && s1.notebook3 === 3 && s1.acc70 === 3 && s1.quick1 === 1 && s1.games3 === 3,
+    JSON.stringify(s1),
+  )
+  const s2 = await ham(U2, bugun)
+  // win1 kontrol edilmez: G3'te iki oyuncu da 5/5 yapar, kazananı hız belirler (U2 de kazanabilir); win1 yukarıda bağımsız hesapla doğrulandı
+  rapor('U2: notebook3 = 3 (3 çözüldü, 3 elle çıkarılan sayılmadı), acc70 = 1 (yalnız G3: 5/5), win1 ≤ 1 (G1/G2 kaybetti)', s2.notebook3 === 3 && s2.acc70 === 1 && s2.win1 <= 1, JSON.stringify(s2))
+  const sP = await ham(PB, bugun)
+  rapor('hiç oynamayan: tüm ilerlemeler 0 (başkalarının verisi karışmaz)', Object.values(sP).every((v) => Number(v) === 0), JSON.stringify(sP))
+
+  // ===== get_daily_tasks (U1) =====
+  const r1 = await gorevler(U1)
+  const t1 = r1.data
+  rapor(
+    'get_daily_tasks (U1): aynı 3 görev ve sıra; hepsi tamamlandı (progress = target), henüz alınmadı',
+    !r1.error && JSON.stringify(t1.tasks.map((t: Alan) => t.id)) === JSON.stringify(beklenenIdler) &&
+      t1.tasks.every((t: Alan) => t.completed === true && t.progress === t.target && t.claimed === false) && t1.bonus.completed === false,
+    r1.error?.message ?? JSON.stringify(t1.tasks),
+  )
+
+  // ===== Ödül alma (U1): XP, rütbe, eşzamanlılık, bonus =====
+  await statAyarla(U1, 95) // Çaylak, 5 XP sonra Bronz I
+  const [ta, tb, tc] = t1.tasks as Alan[]
+  const [c1, c2] = await Promise.all([al(U1, ta.id), al(U1, ta.id)])
+  const ok = [c1, c2].filter((x) => !x.error)
+  const hata = [c1, c2].filter((x) => x.error)
+  rapor(
+    "aynı görev AYNI anda iki kez alınınca yalnızca biri başarılı; diğeri 'Ödül zaten alındı'",
+    ok.length === 1 && hata.length === 1 && hata[0].error?.message === 'Ödül zaten alındı',
+    JSON.stringify([c1.error?.message ?? c1.data, c2.error?.message ?? c2.data]),
+  )
+  const a1 = ok[0].data
+  rapor(
+    'claim: xp_gained görev xp\'i, new_xp = 95 + xp, tier_before Çaylak → tier_after Bronz I',
+    a1.xp_gained === ta.xp && a1.new_xp === 95 + ta.xp && a1.tier_before === 'Çaylak' && a1.tier_after === 'Bronz I',
+    JSON.stringify(a1),
+  )
+  const tekrar = await al(U1, ta.id)
+  rapor("aynı görevi tekrar almak 'Ödül zaten alındı'", tekrar.error?.message === 'Ödül zaten alındı', tekrar.error?.message)
+  const bon1 = await al(U1, 'bonus')
+  rapor("bonus: 3 görevin ödülü alınmadan 'Önce üç görevin ödülünü al'", bon1.error?.message === 'Önce üç görevin ödülünü al', bon1.error?.message)
+  const cb = await al(U1, tb.id)
+  const bon2 = await al(U1, 'bonus')
+  rapor('bonus: 2 görev alınmışken de reddedilir', !cb.error && bon2.error?.message === 'Önce üç görevin ödülünü al', cb.error?.message ?? bon2.error?.message)
+  const cc = await al(U1, tc.id)
+  const r2 = await gorevler(U1)
+  rapor(
+    '3 görev alınınca: hepsi claimed, bonus.completed true / claimed false',
+    !cc.error && r2.data.tasks.every((t: Alan) => t.claimed === true) && r2.data.bonus.completed === true && r2.data.bonus.claimed === false,
+    cc.error?.message ?? JSON.stringify(r2.data.bonus),
+  )
+  const toplamXp = ta.xp + tb.xp + tc.xp
+  const bonus = await al(U1, 'bonus')
+  rapor(
+    'bonus alımı: +50 XP, new_xp = 95 + 3 görev + 50',
+    !bonus.error && bonus.data.xp_gained === 50 && bonus.data.new_xp === 95 + toplamXp + 50,
+    bonus.error?.message ?? JSON.stringify(bonus.data),
+  )
+  const bonusTekrar = await al(U1, 'bonus')
+  const r3 = await gorevler(U1)
+  rapor("bonus tekrar → 'Ödül zaten alındı'; get_daily_tasks bonus.claimed true", bonusTekrar.error?.message === 'Ödül zaten alındı' && r3.data.bonus.claimed === true, bonusTekrar.error?.message)
+  const { data: st } = await admin.from('player_stats').select('xp').eq('user_id', U1.id).single()
+  const { data: kayitlar } = await admin.from('daily_claims').select('date, task_id, xp_gained').eq('user_id', U1.id)
+  const sonEtiket = (await admin.rpc('rank_of', { p_xp: st!.xp })).data?.[0]?.rank_label
+  rapor(
+    'player_stats.xp doğru (95 + görevler + 50); daily_claims 4 satır (3 görev + bonus, bugünün tarihiyle); son rütbe etiketi tutarlı',
+    st?.xp === 95 + toplamXp + 50 && (kayitlar ?? []).length === 4 && (kayitlar ?? []).every((k) => k.date === bugun) &&
+      (kayitlar ?? []).some((k) => k.task_id === 'bonus' && k.xp_gained === 50) && bonus.data.tier_after === sonEtiket,
+    `xp ${st?.xp}, ${JSON.stringify(kayitlar)}, ${sonEtiket}`,
+  )
+  const r4 = await gorevler(U2)
+  rapor('herkes aynı gün aynı görevleri görür (U1, U2, hiç oynamayan: aynı id dizisi)', JSON.stringify(r4.data.tasks.map((t: Alan) => t.id)) === JSON.stringify(beklenenIdler), JSON.stringify(r4.data.tasks.map((t: Alan) => t.id)))
+
+  // ===== "Bugün" sınırı: G1 dün bitmiş sayılırsa bugünkü ilerleme düşer, ödül kaydı kalır =====
+  const { error: eKay } = await admin.from('games').update({ finished_at: new Date(Date.now() - 86_400_000).toISOString() }).eq('id', g1)
+  if (eKay) throw new Error(`finished_at: ${eKay.message}`)
+  const bugunSonra = await ham(U1, bugun)
+  const dunSonra = await ham(U1, dun)
+  const r5 = await gorevler(U1)
+  rapor(
+    'bugün sınırı: G1 dün bitmiş sayılınca bugünkü friends2 0, quick1 0, games3 2; dünkü friends2 1, quick1 1, games3 1; alınmış ödüller (claimed) korunur',
+    bugunSonra.friends2 === 0 && bugunSonra.quick1 === 0 && bugunSonra.games3 === 2 && dunSonra.friends2 === 1 && dunSonra.quick1 === 1 && dunSonra.games3 === 1 &&
+      r5.data.tasks.every((t: Alan) => t.claimed === true) && r5.data.bonus.claimed === true,
+    `${JSON.stringify(bugunSonra)} / ${JSON.stringify(dunSonra)}`,
+  )
+  const dunBeklenen = await gorevBeklenen(U1, dun)
+  rapor('dünkü ilerleme de bağımsız hesapla aynı', Object.keys(HAVUZ).every((k) => Number(dunSonra[k]) === dunBeklenen[k]), `${JSON.stringify(dunSonra)} ≟ ${JSON.stringify(dunBeklenen)}`)
+  rapor('sızıntı: görev testlerinde oyun yanıtlarında açıklama alan adı yok', sizinti.length === 0, [...new Set(sizinti)].join(','))
+}
+
 async function main() {
   const A = await kullaniciOlustur('A')
   const B = await kullaniciOlustur('B')
@@ -1551,6 +1801,9 @@ async function main() {
 
   // ---- Akıllı analiz / Performansım (0011_akilli_analiz.sql) ----
   await performansTesti()
+
+  // ---- Günlük görevler (0012_gunluk_gorevler.sql) ----
+  await gunlukGorevTesti()
 }
 
 main()

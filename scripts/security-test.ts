@@ -290,7 +290,7 @@ async function testler(): Promise<void> {
     return `${TUM_TABLOLAR.length} tablo`
   })
   await adim('1b. anon: games, game_players, answers, game_questions ve diğer tablolar okunamıyor', async () => {
-    const tablolar = ['games', 'game_players', 'answers', 'game_questions', 'profiles', 'player_stats', 'rank_tiers', 'global_scores', 'app_settings', 'mistake_book', 'mistake_games']
+    const tablolar = ['games', 'game_players', 'answers', 'game_questions', 'profiles', 'player_stats', 'rank_tiers', 'global_scores', 'app_settings', 'mistake_book', 'mistake_games', 'daily_claims']
     const sizan: string[] = []
     for (const t of tablolar) {
       const r = await anon.from(t).select('*').limit(1)
@@ -322,6 +322,11 @@ async function testler(): Promise<void> {
       ['_game_mistakes', { p_game_id: SIFIR_UUID }],
       ['_apply_mistakes', { p_game_id: SIFIR_UUID }],
       ['get_performance', { p_exam: null, p_days: 30 }],
+      ['get_daily_tasks', {}],
+      ['claim_daily_task', { p_task_id: 'games3' }],
+      ['_daily_pool', {}],
+      ['_daily_task_ids', { p_day: '2026-01-01' }],
+      ['_daily_progress', { p_uid: SIFIR_UUID, p_day: '2026-01-01' }],
       ['_perf_rows', { p_uid: SIFIR_UUID, p_since: '2000-01-01T00:00:00Z', p_exam: null }],
       ['get_global_leaderboard', {}],
       ['get_my_stats', {}],
@@ -447,6 +452,46 @@ async function testler(): Promise<void> {
     kontrol(kotu === 'Geçersiz sınav', `geçersiz exam mesajı: '${kotu}'`)
     const t = await C.client.from('matematik_tyt').select('topic').limit(1)
     kontrol(okumaEngellendi(t), `authenticated topic okuyabildi: ${JSON.stringify(t.data)}`)
+  })
+  await adim('2a6. Günlük görevler: ödül yalnızca tamamlanan görev için; XP istemciden verilemez; daily_claims/practice_resolved_at doğrudan yazılamaz; iç yardımcılar kapalı', async () => {
+    const gc = await C.client.rpc('get_daily_tasks')
+    kontrol(!gc.error && gc.data.tasks.length === 3 && gc.data.tasks.every((t: { progress: number; completed: boolean }) => t.progress === 0 && !t.completed), `C görevleri: ${gc.error?.message ?? JSON.stringify(gc.data?.tasks)}`)
+    // Hiçbir şey yapmamış C hiçbir görevin ödülünü ve bonusu alamaz
+    for (const t of gc.data.tasks as Array<{ id: string }>) {
+      const m = await mesaj(() => C.client.rpc('claim_daily_task', { p_task_id: t.id }).then((r) => { if (r.error) throw new Error(r.error.message) }))
+      kontrol(m === 'Görev henüz tamamlanmadı', `${t.id} için mesaj: '${m}'`)
+    }
+    const mb = await mesaj(() => C.client.rpc('claim_daily_task', { p_task_id: 'bonus' }).then((r) => { if (r.error) throw new Error(r.error.message) }))
+    kontrol(mb === 'Önce üç görevin ödülünü al', `bonus mesajı: '${mb}'`)
+    const { data: st } = await admin.from('player_stats').select('xp').eq('user_id', C.id)
+    kontrol((st ?? []).length === 0 || st![0].xp === 0, `C XP aldı: ${JSON.stringify(st)}`)
+    // daily_claims: istemci okuyamaz, yazamaz
+    const bugun = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul' }).format(new Date())
+    const ekle = await C.client.from('daily_claims').insert({ user_id: C.id, date: bugun, task_id: 'games3', xp_gained: 9999 }).select()
+    kontrol(!!ekle.error || (ekle.data ?? []).length === 0, 'C daily_claims tablosuna yazabildi!')
+    const oku = await C.client.from('daily_claims').select('*')
+    kontrol(okumaEngellendi(oku), `C daily_claims okuyabildi: ${JSON.stringify(oku.data)}`)
+    // practice_resolved_at istemciden değiştirilemez (görev ilerlemesi şişirilemez)
+    const { data: soru } = await admin.from('matematik_tyt').select('id').limit(1).single()
+    const qid = soru!.id as string
+    await admin.from('mistake_book').insert({ user_id: C.id, question_id: qid, source_table: 'matematik_tyt', wrong_count: 1 })
+    try {
+      const g = await C.client.from('mistake_book').update({ practice_resolved_at: new Date().toISOString() }).eq('question_id', qid).select()
+      kontrol(!!g.error || (g.data ?? []).length === 0, 'C practice_resolved_at alanını değiştirebildi!')
+      const { data: s2 } = await admin.from('mistake_book').select('practice_resolved_at').eq('user_id', C.id).eq('question_id', qid).single()
+      kontrol(s2?.practice_resolved_at === null, 'practice_resolved_at değişti')
+      // elle çıkarma görev ilerlemesini artırmaz
+      await C.client.rpc('remove_mistake', { p_question_id: qid })
+      const { data: s3 } = await admin.from('mistake_book').select('practice_resolved_at').eq('user_id', C.id).eq('question_id', qid).single()
+      kontrol(s3?.practice_resolved_at === null, 'remove_mistake practice_resolved_at doldurdu')
+    } finally {
+      await admin.from('mistake_book').delete().eq('user_id', C.id).eq('question_id', qid)
+    }
+    // İç yardımcılar kapalı (başkasının ilerlemesi okunamaz)
+    const i1 = await C.client.rpc('_daily_progress', { p_uid: A.id, p_day: bugun })
+    const i2 = await C.client.rpc('_daily_pool')
+    const i3 = await C.client.rpc('_daily_task_ids', { p_day: bugun })
+    kontrol(!!i1.error && !!i2.error && !!i3.error, '_daily_* iç yardımcıları istemciden çağrılabildi!')
   })
   await adim('2b. C: başkasının oyununu start_game ile başlatamıyor', async () => {
     const m = await mesaj(() => C.api.startGame(g1))

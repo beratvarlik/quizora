@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { dersAdi, getMistakeSummary, practiceAnswer, type MistakeItem, type PracticeResult } from '../hooks/defter'
+import { getDailyTasks, ilerleyenler, type DailyTask, type DailyTasks } from '../hooks/gorevler'
 import { hataMesaji } from '../hooks/hata'
 import { useSes } from '../hooks/useSes'
 import type { Secenek } from '../types'
 import Button from './Button'
+import { GorevBandi } from './Gorevler'
 import { IkAmpul, IkCarpi, IkTik } from './Ikon'
 
 const HARFLER: Secenek[] = ['A', 'B', 'C', 'D', 'E']
@@ -12,7 +14,7 @@ const azHareket = () => typeof window !== 'undefined' && window.matchMedia?.('(p
 const RENKLER = ['#F15A24', '#702B3A', '#13805A', '#FFB15C']
 
 /** Küçük konfeti (hepsi doğruysa). Azaltılmış harekette hiç çizilmez. */
-function Konfeti() {
+export function Konfeti() {
   const parcalar = useMemo(
     () =>
       Array.from({ length: 30 }, (_, i) => ({
@@ -103,6 +105,8 @@ export default function CalismaPaneli({ sorular, onKapat, onDeftereDon, onYenide
   const [kayitlar, setKayitlar] = useState<Kayit[]>([])
   const [bitti, setBitti] = useState(false)
   const [kalanToplam, setKalanToplam] = useState<number | null>(null)
+  const gorevOnce = useRef<DailyTasks | null>(null)
+  const [gorevIlerledi, setGorevIlerledi] = useState<DailyTask | null>(null)
   const sonucKutu = useRef<HTMLDivElement>(null)
   const govde = useRef<HTMLDivElement>(null)
 
@@ -110,9 +114,21 @@ export default function CalismaPaneli({ sorular, onKapat, onDeftereDon, onYenide
   const q = sorular[i] as MistakeItem | undefined
   const harfler = q ? HARFLER.filter(h => q.options[h]?.trim()) : []
 
+  // Günlük görev "Yanlışlarım'dan 3 soru çöz": oturum başı ile sonu karşılaştırılır
+  useEffect(() => {
+    getDailyTasks().then(
+      t => (gorevOnce.current = t),
+      () => {},
+    )
+  }, [])
+
   useEffect(() => {
     if (!bitti) return
     getMistakeSummary().then(s => setKalanToplam(s.total), () => setKalanToplam(null))
+    getDailyTasks().then(
+      t => setGorevIlerledi(ilerleyenler(gorevOnce.current, t).find(x => x.id === 'notebook3') ?? null),
+      () => {},
+    )
   }, [bitti])
 
   // Cevaptan sonra açıklama kutusunu görünür yap
@@ -186,6 +202,7 @@ export default function CalismaPaneli({ sorular, onKapat, onDeftereDon, onYenide
           <p className="cz-kalan">
             {kalanToplam === null ? ' ' : kalanToplam === 0 ? 'Defterin tertemiz!' : `Defterinde ${kalanToplam} soru kaldı`}
           </p>
+          {gorevIlerledi && <GorevBandi gorev={gorevIlerledi} onAl={() => git('/menu?gorevler=ac')} />}
           <div className="cz-bitis-btn">
             {kalanlar.length > 0 && <Button onClick={() => onYeniden(kalanlar)}>Kalanları tekrar çöz ({kalanlar.length})</Button>}
             <Button tur={kalanlar.length > 0 ? 'iki' : 'ana'} onClick={onDeftereDon}>

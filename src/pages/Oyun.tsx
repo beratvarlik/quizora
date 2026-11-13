@@ -11,6 +11,7 @@ import { IkCarpi, IkTik } from '../components/Ikon'
 import { sinavEtiketi, sinavHarfleri } from '../components/Kategoriler'
 import SesButonu from '../components/SesButonu'
 import SureHalkasi from '../components/SureHalkasi'
+import { gorevAnlikKaydet } from '../hooks/gorevler'
 import { hataMesaji } from '../hooks/hata'
 import { useBitir } from '../hooks/useBitir'
 import { useCountdown } from '../hooks/useCountdown'
@@ -77,6 +78,10 @@ export default function Oyun() {
   const herkesBitti = Boolean(snapshot && snapshot.players.length > 0 && snapshot.players.every(p => p.finished))
   const { bitir, bekliyor: sonucBekleniyor, hata: bitirHata } = useBitir(oyun?.id, oyun?.code)
   const oyunId = oyun?.id
+  // Günlük görevler: yarıştan önceki hâl (sonuç ekranı "Görev ilerledi" bandı için karşılaştırır)
+  useEffect(() => {
+    if (oyunId) void gorevAnlikKaydet(oyunId)
+  }, [oyunId])
   const durum = oyun?.status
   const oyunKodu = oyun?.code
   const sureBitti = sayac.phase === 'bitti'

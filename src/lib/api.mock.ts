@@ -2,6 +2,8 @@
 // oyunu baştan sona oynanabilir kılar. Kurallar docs/PROJE.md ile aynıdır.
 import type {
   AnswerResult,
+  ClaimResult,
+  DailyTasks,
   GameInfo,
   GameResult,
   GameReview,
@@ -393,6 +395,88 @@ let statBellek: Stat | null = null
 function benimStat(): Stat {
   if (!statBellek) statBellek = oku<Stat>(K_STAT) ?? { xp: 0, wins: 0, gamesPlayed: 0 }
   return statBellek
+}
+
+// ---------------------------------------------------------------------
+// Günlük görevler (bellekte; tanımlar 0012_gunluk_gorevler.sql ile aynı). Günün 3 görevi İstanbul
+// tarihine göre deterministik; ilerleme o günün bitmiş mock yarışlarından ve defterde doğru çözülen
+// sorulardan sayılır. ?gorev=dolu → görevler tamamlanmış ama alınmamış gelir (test).
+// ---------------------------------------------------------------------
+type GorevId = 'math10' | 'win1' | 'correct5' | 'friends2' | 'notebook3' | 'acc70' | 'quick1' | 'games3'
+const GOREV_HAVUZ: ReadonlyArray<{ id: GorevId; title: string; target: number; xp: number }> = [
+  { id: 'math10', title: '10 Matematik sorusu çöz', target: 10, xp: 30 },
+  { id: 'win1', title: '1 yarışma kazan', target: 1, xp: 40 },
+  { id: 'correct5', title: '5 doğru cevap ver', target: 5, xp: 20 },
+  { id: 'friends2', title: '2 arkadaşınla yarış (3+ kişilik)', target: 1, xp: 30 },
+  { id: 'notebook3', title: "Yanlışlarım'dan 3 soru çöz", target: 3, xp: 30 },
+  { id: 'acc70', title: 'Bir yarışta %70 doğruluk yakala', target: 1, xp: 30 },
+  { id: 'quick1', title: 'Hemen Katıl ile 1 yarış', target: 1, xp: 20 },
+  { id: 'games3', title: '3 yarışma tamamla', target: 3, xp: 30 },
+]
+const GOREV_BONUS_XP = 50
+const GUN_SAAT_MS = 3_600_000
+const IST_MS = 3 * GUN_SAAT_MS
+const istGunu = (t = Date.now()) => new Date(t + IST_MS).toISOString().slice(0, 10)
+const sonrakiIstGeceYarisi = () => new Date(Date.parse(`${istGunu()}T00:00:00Z`) + 24 * GUN_SAAT_MS - IST_MS).toISOString()
+
+/** Tarihe göre deterministik 3 görev (aynı gün → herkes için aynı görevler, aynı sıra). */
+function gununGorevleri(gun: string): GorevId[] {
+  let h = 2166136261
+  for (let i = 0; i < gun.length; i++) h = Math.imul(h ^ gun.charCodeAt(i), 16777619)
+  const l = GOREV_HAVUZ.map(g => g.id)
+  for (let i = l.length - 1; i > 0; i--) {
+    h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0
+    const j = h % (i + 1)
+    ;[l[i], l[j]] = [l[j], l[i]]
+  }
+  return l.slice(0, 3)
+}
+
+let gorevDoluIstendi = false
+try {
+  gorevDoluIstendi = new URLSearchParams(window.location.search).get('gorev') === 'dolu'
+} catch {
+  /* yok say */
+}
+let gorevDurum: { gun: string; ilerleme: Record<string, number>; alinan: Set<string> } | null = null
+function gorevGuncel() {
+  const gun = istGunu()
+  if (!gorevDurum || gorevDurum.gun !== gun) {
+    const ilerleme: Record<string, number> = {}
+    for (const id of gununGorevleri(gun)) ilerleme[id] = gorevDoluIstendi ? GOREV_HAVUZ.find(g => g.id === id)!.target : 0
+    gorevDurum = { gun, ilerleme, alinan: new Set() }
+  }
+  return gorevDurum
+}
+function gorevIlerlet(id: GorevId, n: number) {
+  const d = gorevGuncel()
+  if (n > 0 && id in d.ilerleme) d.ilerleme[id] += n
+}
+function gorevGorunum(): DailyTasks {
+  const d = gorevGuncel()
+  const tasks = gununGorevleri(d.gun).map(id => {
+    const h = GOREV_HAVUZ.find(g => g.id === id)!
+    const progress = Math.min(h.target, d.ilerleme[id] ?? 0)
+    return { id, title: h.title, target: h.target, progress, xp: h.xp, completed: progress >= h.target, claimed: d.alinan.has(id) }
+  })
+  return {
+    date: d.gun,
+    resetsAt: sonrakiIstGeceYarisi(),
+    tasks,
+    bonus: { xp: GOREV_BONUS_XP, completed: tasks.every(t => t.claimed), claimed: d.alinan.has('bonus') },
+  }
+}
+interface YarisOzeti { matematik: number; cevaplanan: number; dogru: number; kazandi: boolean; oyuncu: number; herkeseAcik: boolean }
+/** Bitmiş yarıştan görev ilerlemesi (en az 1 soru cevaplanmış yarışlar). */
+function gorevYarisBitti(o: YarisOzeti) {
+  if (o.cevaplanan < 1) return
+  gorevIlerlet('games3', 1)
+  gorevIlerlet('correct5', o.dogru)
+  gorevIlerlet('math10', o.matematik)
+  if (o.kazandi) gorevIlerlet('win1', 1)
+  if (o.cevaplanan >= 5 && o.dogru / o.cevaplanan >= 0.7) gorevIlerlet('acc70', 1)
+  if (o.herkeseAcik) gorevIlerlet('quick1', 1)
+  if (o.oyuncu >= 3) gorevIlerlet('friends2', 1)
 }
 
 function fotoKucult(dosya: File): Promise<string> {
@@ -842,6 +926,23 @@ function sonlandir(g: IcOyun) {
     }
   })
   g.sonuc = { ranking, xp }
+  // Günlük görevler (mock): insan oyuncunun yarış özeti
+  const insan = g.oyuncular.find(o => !o.bot)
+  if (insan) {
+    const sira = ranking.find(p => p.userId === insan.id)?.rank ?? 99
+    let matematik = 0
+    g.sorular.forEach((q, i) => {
+      if (q.ders.startsWith('Matematik') && insan.cevaplar.get(i)?.secenek) matematik++
+    })
+    gorevYarisBitti({
+      matematik,
+      cevaplanan: insan.correctCount + insan.wrongCount,
+      dogru: insan.correctCount,
+      kazandi: g.oyuncular.length >= 2 && sira === 1,
+      oyuncu: g.oyuncular.length,
+      herkeseAcik: g.info.isPublic,
+    })
+  }
   yayinla(g)
   liderlikYayinla()
 }
@@ -1164,13 +1265,48 @@ export const api: QuizoraApi = {
     if (!k || k.cozuldu) throw new Error('Bu soru defterinde yok')
     if (!k.item.options[selected]) throw new Error('Geçersiz şık')
     const isCorrect = selected === k.dogru
-    if (isCorrect) k.cozuldu = true
+    if (isCorrect) {
+      k.cozuldu = true
+      gorevIlerlet('notebook3', 1)
+    }
     else {
       k.item.wrongCount++
       k.item.lastAnswer = selected
       k.item.lastWrongAt = new Date().toISOString()
     }
     return { isCorrect, correctOption: k.dogru, explanation: k.aciklama, resolved: isCorrect }
+  },
+
+  async getDailyTasks(): Promise<DailyTasks> {
+    await ag()
+    return gorevGorunum()
+  },
+
+  /** Görev (ya da 'bonus') ödülü: XP eklenir; tier = rütbe etiketi. Hatalar 0012 ile aynı. */
+  async claimDailyTask(taskId): Promise<ClaimResult> {
+    await ag()
+    if (!taskId) throw new Error('Geçersiz görev')
+    const d = gorevGuncel()
+    const v = gorevGorunum()
+    let xpGained: number
+    if (taskId === 'bonus') {
+      if (v.bonus.claimed) throw new Error('Ödül zaten alındı')
+      if (!v.bonus.completed) throw new Error('Önce üç görevin ödülünü al')
+      xpGained = v.bonus.xp
+    } else {
+      const t = v.tasks.find(x => x.id === taskId)
+      if (!t) throw new Error('Bu görev bugünün görevi değil')
+      if (t.claimed) throw new Error('Ödül zaten alındı')
+      if (!t.completed) throw new Error('Görev henüz tamamlanmadı')
+      xpGained = t.xp
+    }
+    d.alinan.add(taskId)
+    const st = benimStat()
+    const once = st.xp
+    st.xp += xpGained
+    yaz(K_STAT, st)
+    liderlikYayinla()
+    return { xpGained, newXp: st.xp, tierBefore: kademe(once).simdiki.label, tierAfter: kademe(st.xp).simdiki.label }
   },
 
   async getPerformance(opts = {}): Promise<PerformanceStats> {

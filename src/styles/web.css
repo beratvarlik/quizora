@@ -84,10 +84,12 @@
   .mn-sayfa .aksiyon > .hk-btn { flex: 1 1 100%; }
   .mn-sayfa .aksiyon > .hk-ipucu { flex-basis: 100%; margin-top: -6px; }
   .mn-sayfa .ayrac { display: none; }
-  .mn-sayfa .ilerleme-kart { grid-column: 2; grid-row: 2; margin: 0 0 14px; align-self: start; }
-  .mn-sayfa .mn-kartlar { grid-column: 2; grid-row: 3; margin: 0 0 14px; }
-  .mn-sayfa .mn-kartlar .defter-kart { min-height: 84px; }
-  .mn-sayfa .lider { grid-column: 2; grid-row: 4 / -1; margin: 0; min-height: 0; overflow-y: auto; align-self: stretch; }
+  .mn-sayfa .mn-ust-kartlar { grid-column: 2; grid-row: 2 / 4; align-self: start; display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+  .mn-sayfa .ilerleme-kart { margin: 0; }
+  .mn-sayfa .gorev-kart { width: 100%; margin: 0; padding: 10px 12px; }
+  .mn-sayfa .mn-kartlar { grid-column: 2; grid-row: 4; align-self: start; height: 76px; margin: 0; }
+  .mn-sayfa .mn-kartlar .defter-kart { min-height: 0; height: 76px; flex-direction: row; align-items: center; padding: 10px 12px; }
+  .mn-sayfa .lider { grid-column: 2; grid-row: 4 / -1; margin: 88px 0 0; min-height: 0; overflow-y: auto; align-self: stretch; }
   .mn-sayfa .lider .kart-bant { position: sticky; top: 0; z-index: 1; }
 
   /* ---------- Lobi: solda QR + kod, sağda slotlar ---------- */
@@ -255,6 +257,14 @@
   .pr-dersler { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .pp-liste { margin-bottom: 8px; }
   .pr-sayfa .pr-bos { justify-content: center; }
+}
+
+/* ---------- Günlük görevler paneli (web): sağdan yan panel ---------- */
+@media (min-width: 1024px) {
+  .gp-panel { left: auto; top: 0; width: 440px; max-height: none; border-radius: 24px 0 0 24px; padding: 18px 0 24px; animation-name: gpSagdan; }
+  @keyframes gpSagdan { from { transform: translateX(100%); } }
+  .gp-tutamak { display: none; }
+  .df-tost { z-index: 95; }
 }
 
 /* Kısa pencereler (≤820px yükseklik, örn. 1366×768): biraz daha sıkı */

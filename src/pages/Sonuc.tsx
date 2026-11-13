@@ -12,9 +12,11 @@ import { hataMesaji } from '../hooks/hata'
 import { finishGameYeniden } from '../hooks/useBitir'
 import { useGame } from '../hooks/useGame'
 import { useSes } from '../hooks/useSes'
+import { GorevBandi } from '../components/Gorevler'
 import MacAnalizi from '../components/MacAnalizi'
 import SoruInceleme from '../components/SoruInceleme'
 import { useInceleme } from '../hooks/useInceleme'
+import { getDailyTasks, gorevAnlikOku, ilerleyenler, type DailyTask } from '../hooks/gorevler'
 import { api } from '../lib/client'
 import type { GameResult, MyStats } from '../types'
 
@@ -30,6 +32,26 @@ export default function Sonuc() {
   // Oyun ekranı finishGame'i çağırıp sonucu buraya taşır; yoksa (yenileme / bağlantı) burada alınır.
   const gelen = (konum.state as { sonuc?: GameResult } | null)?.sonuc ?? null
   const [sonuc, setSonuc] = useState<GameResult | null>(gelen)
+  const [gorevIlerledi, setGorevIlerledi] = useState<DailyTask | null>(null)
+  // Günlük görevler: yarıştan önceki hâlle karşılaştır; ödülü bekleyen görev önce gösterilir
+  const sonucVar = Boolean(sonuc)
+  useEffect(() => {
+    if (!sonucVar || !oyunId) return
+    const once = gorevAnlikOku(oyunId)
+    if (!once) return
+    let iptal = false
+    getDailyTasks().then(
+      sonra => {
+        if (iptal) return
+        const l = ilerleyenler(once, sonra)
+        setGorevIlerledi(l.find(t => t.completed && !t.claimed) ?? l[0] ?? null)
+      },
+      () => {},
+    )
+    return () => {
+      iptal = true
+    }
+  }, [sonucVar, oyunId])
   const [stat, setStat] = useState<MyStats | null>(null)
   const [hata, setHata] = useState<string | null>(null)
   const [bar, setBar] = useState(0)
@@ -167,6 +189,7 @@ export default function Sonuc() {
         </section>
 
         <div className="sn-panel">
+        {gorevIlerledi && <GorevBandi gorev={gorevIlerledi} onAl={() => git('/menu?gorevler=ac')} />}
         <h2 className="sn-baslik">Sonucum</h2>
         {ben && (
           <div className="puan-satir">
