@@ -191,6 +191,28 @@ async function incelemeAl(gameId: string): Promise<GameReview> {
 - Silinmiş bir soru varsa o pozisyon listede olmaz (10'dan az öğe gelebilir); hata vermez.
 - **Hatalar:** `Yarış henüz bitmedi` (yukarıdaki yeniden deneme), `Bu oyuna erişimin yok` (üye değil), `Oturum yok`, `Bağlantı hatası, tekrar dene`.
 
+## 8c. Yanlışlarım defteri
+Yarış bitince yanlış ve boş bırakılan sorular otomatik olarak oyuncunun **defterine** girer (`finishGame` içinde, yarış başına bir kez). Oyuncu defterini istediği zaman açıp o soruları tek tek yeniden çözebilir. Yarışta hiç **görmediği** sorular (yarışı erken bırakırsa) deftere girmez.
+
+```ts
+const ozet = await api.getMistakeSummary()
+// { total, resolvedTotal, bySubject: [{ exam: 'yks'|'lgs', subject: 'Fizik (AYT)', count }] }  (yalnızca çözülmemişler sayılır)
+
+const sorular = await api.getMistakes({ exam: 'yks', subject: 'Fizik (AYT)', limit: 50 }) // hepsi isteğe bağlı
+// MistakeItem[]: { questionId, exam, subject, text, imageUrl, options, lastAnswer, wrongCount, lastWrongAt }  (en yeni önce)
+
+const r = await api.practiceAnswer(soru.questionId, 'C')
+// { isCorrect, correctOption, explanation, resolved }
+await api.removeMistake(soru.questionId) // oyuncu "defterimden çıkar" derse
+```
+- **Sonuç ekranı:** `getGameReview(...).addedToNotebook` = bu yarıştan deftere giren soru sayısı ("N soru Yanlışlarım defterine eklendi" göster; 0 ise gösterme).
+- **`getMistakes` doğru şık ve açıklama içermez.** Önce oyuncu bir şık seçer, `practiceAnswer` doğru şıkkı ve çözüm açıklamasını (`explanation`, null olabilir → "açıklama henüz eklenmedi") döndürür.
+- `practiceAnswer`: doğruysa soru **çözüldü** sayılır (`resolved: true`, listeden ve sayımdan çıkar); yanlışsa `wrongCount` artar ve soru defterde kalır (aynı oturumda tekrar denenebilir; bir sonraki `getMistakes` çağrısı güncel `lastAnswer`'ı verir).
+- Soru sonraki bir **yarışta** doğru yapılırsa da otomatik çözülür; çözülmüş soru tekrar yanlış yapılırsa deftere geri döner.
+- `options`: YKS 5 şık, LGS 4 şık — yine **gelen anahtarlara göre** çiz. `lastAnswer` null = soru boş bırakılmıştı. `subject` hem görüntü hem filtre değeridir (`bySubject`'taki metni aynen `getMistakes({ subject })`'e ver).
+- `exam` yalnızca `'yks' | 'lgs'`. Liste boşsa "Defterin boş" ekranı göster.
+- **Hatalar:** `Bu soru defterinde yok` (soru zaten çözülmüş/çıkarılmış ya da başkasının), `Geçersiz şık`, `Geçersiz sınav`, `Soru bulunamadı` (soru yöneticiler tarafından silinmiş), `Oturum yok`, `Bağlantı hatası, tekrar dene`.
+
 ## 9. Abonelikler
 ```ts
 useEffect(() => {
@@ -226,6 +248,9 @@ Her hata `Error.message` içinde **Türkçe** gelir; olduğu gibi gösterebilirs
 | `Geçersiz şık` | A-E dışında bir şık, ya da soruda olmayan şık (LGS sorularında `E`) | Programlama hatası: yalnızca `soru.options`'ta bulunan anahtarlar gönderilmeli |
 | `Yarış henüz bitmedi` | Süre dolmadan/herkes bitmeden `finishGame` | 500 ms sonra yeniden dene (en çok 5) |
 | `Yarış henüz bitmedi` (`getGameReview`) | Oyun `finished` olmadan inceleme istendi | 500 ms sonra yeniden dene (en çok 5); bölüm 8b |
+| `Bu soru defterinde yok` | `practiceAnswer`/`removeMistake`: soru zaten çözülmüş, çıkarılmış ya da defterde değil | Listeyi yenile (`getMistakes`) |
+| `Geçersiz sınav` | `getMistakes({ exam })` değeri `'yks'`/`'lgs'` dışında | Programlama hatası |
+| `Soru bulunamadı` | `practiceAnswer`: soru veritabanından silinmiş | Listeyi yenile; soru zaten listede görünmez |
 | `Oyun bitti` | Biten oyunda `getQuestion`/`submitAnswer` | Sonuç ekranına git |
 | `Bu oyuna erişimin yok` | Üye olmayan biri oyun verisi ister | Menüye dön; kodla `joinGame` dene |
 | `Oyun bulunamadı` | Olmayan `gameId` | Menüye dön |
