@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import DevreHatlari from './DevreHatlari'
+import { UstBar } from './Logo'
 
 /** B3'te dolacak sayfaların geçici iskeleti: rota çalışıyor mu görmek için. */
 export default function YapimAsamasi({ baslik, children }: { baslik: string; children?: ReactNode }) {
@@ -9,9 +10,9 @@ export default function YapimAsamasi({ baslik, children }: { baslik: string; chi
     <main className="sayfa">
       <DevreHatlari kose="sag-kenar" ust={120} boyut={200} />
       <DevreHatlari kose="sol-alt" boyut={200} />
-      <div className="px-5 pt-14">
-        <span className="etiket">{code ? `${baslik} · ${code}` : baslik}</span>
-        <h1 className="baslik mt-3">
+      <UstBar sag={<span className="etiket">{code ? `${baslik} · ${code}` : baslik}</span>} />
+      <div className="px-5 pt-4">
+        <h1 className="baslik">
           {baslik}
           <em>.</em>
         </h1>
