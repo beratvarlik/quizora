@@ -11,6 +11,7 @@ import type {
   MistakeItem,
   MistakeSummary,
   MyStats,
+  PerformanceStats,
   PlayerState,
   PracticeResult,
   Profile,
@@ -304,7 +305,25 @@ const ACIKLAMA: Record<string, string> = {
   "√49 + √16 işleminin sonucu kaçtır?": "√49 = 7 ve √16 = 4'tür; toplamları 7 + 4 = 11. Kökler ayrı ayrı hesaplanır, √65 ile aynı değildir."
 }
 
-interface IcSoru { ders: string; text: string; options: Partial<Record<Secenek, string>>; dogru: Secenek; aciklama: string | null }
+interface IcSoru { ders: string; topic: string | null; text: string; options: Partial<Record<Secenek, string>>; dogru: Secenek; aciklama: string | null }
+
+// Konu atamaları: soru metnindeki ayırt edici parça → konu. Atanmayanlar (Din Kültürü, İngilizce, birkaç soru) null.
+const KONU: Array<[string, string]> = [
+  ['x + 3 = 2x', 'Denklemler'], ['%20', 'Yüzde Problemleri'], ['f(x)', 'Fonksiyonlar'], ['log₂', 'Logaritma'], ['İç açılarının', 'Çokgenler'],
+  ['Serbest düşme', 'Kuvvet ve Hareket'], ['Kuvvetin SI', 'Kuvvet ve Hareket'], ['Direnci 5', 'Elektrik'],
+  ['1A grubundaki', 'Periyodik Sistem'], ['pH değeri', 'Asitler ve Bazlar'], ['Atom numarası 8', 'Periyodik Sistem'],
+  ['ATP', 'Hücre'], ['Fotosentez', 'Hücre'], ['kromozom', 'Kalıtım'],
+  ['Malazgirt', 'Türk-İslam Tarihi'], ['fetheden', 'Osmanlı Tarihi'], ['Büyük Millet Meclisi', 'Kurtuluş Savaşı'],
+  ['akarsu', 'Türkiye’nin Fiziki Coğrafyası'], ['ekseni etrafında', 'Dünya’nın Hareketleri'], ['en yüksek dağı', 'Türkiye’nin Fiziki Coğrafyası'],
+  ['Bilginin kaynağını', 'Bilgi Felsefesi'],
+  ['Sinekli Bakkal', 'Cumhuriyet Dönemi Romanı'], ['Çalıkuşu', 'Cumhuriyet Dönemi Romanı'], ['Divan şairlerinin', 'Divan Edebiyatı'], ['ilk yerli romanı', 'Tanzimat Edebiyatı'],
+  ['yazımı yanlıştır', 'Yazım Kuralları'], ['soru ekinin', 'Yazım Kuralları'], ['mecaz anlamda', 'Sözcükte Anlam'], ['Ağaç yaşken', 'Sözcükte Anlam'], ['eş anlamlı', 'Sözcükte Anlam'],
+  ['2³ × 2²', 'Üslü Sayılar'], ['√49', 'Kareköklü İfadeler'], ['hipotenüsü', 'Üçgenler'], ['3x − 7', 'Denklemler'], ['zar atıldığında', 'Olasılık'],
+  ['DNA’nın', 'DNA ve Genetik Kod'], ['Bezelyede', 'DNA ve Genetik Kod'], ['Mevsimlerin', 'Mevsimler ve İklim'], ['Basıncın', 'Basınç'],
+  ['asidik', 'Asitler ve Bazlar'], ['soy gazlar', 'Periyodik Sistem'],
+  ['Samsun’a', 'Millî Uyanış'], ['Kurtuluş Savaşı’nda', 'Millî Mücadele'],
+]
+const konuBul = (metin: string): string | null => KONU.find(([k]) => metin.includes(k))?.[1] ?? null
 
 function sorulariHazirla(kategori: Kategori, sinav: Sinav): IcSoru[] {
   const havuz = sinav === 'lgs' ? LGS : YKS
@@ -319,7 +338,7 @@ function sorulariHazirla(kategori: Kategori, sinav: Sinav): IcSoru[] {
       // LGS 4 şıklı: E anahtarı hiç yok (types.ts: options kısmi)
       const options: Partial<Record<Secenek, string>> = {}
       harfler.forEach((h, j) => (options[h] = siklar[j]))
-      liste.push({ ders: ders + ek, text: ham.metin, options, dogru: harfler[siklar.indexOf(ham.dogru)], aciklama: ACIKLAMA[ham.metin] ?? null })
+      liste.push({ ders: ders + ek, topic: konuBul(ham.metin), text: ham.metin, options, dogru: harfler[siklar.indexOf(ham.dogru)], aciklama: ACIKLAMA[ham.metin] ?? null })
     }
   }
   return karistir(liste).slice(0, SORU_SAYISI)
@@ -606,33 +625,33 @@ const SAAT_MS = 3_600_000
 const soruKimligi = (ders: string, text: string) => `mq:${ders}|${text}`
 
 function ornekKayit(
-  exam: Sinav, subject: string, text: string, options: Partial<Record<Secenek, string>>, dogru: Secenek,
+  exam: Sinav, subject: string, topic: string | null, text: string, options: Partial<Record<Secenek, string>>, dogru: Secenek,
   lastAnswer: Secenek | null, wrongCount: number, onceMs: number, aciklama: string | null,
 ) {
   const questionId = soruKimligi(subject, text)
   defter.set(questionId, {
-    item: { questionId, exam, subject, text, imageUrl: null, options, lastAnswer, wrongCount, lastWrongAt: new Date(Date.now() - onceMs).toISOString() },
+    item: { questionId, exam, subject, topic, text, imageUrl: null, options, lastAnswer, wrongCount, lastWrongAt: new Date(Date.now() - onceMs).toISOString() },
     dogru, aciklama, cozuldu: false,
   })
 }
-ornekKayit('yks', 'Matematik (TYT)', 'x² − 5x + 6 = 0 denkleminin kökleri toplamı kaçtır?',
+ornekKayit('yks', 'Matematik (TYT)', 'Denklemler', 'x² − 5x + 6 = 0 denkleminin kökleri toplamı kaçtır?',
   { A: '2', B: '3', C: '5', D: '6', E: '−5' }, 'C', 'D', 3, 2 * 24 * SAAT_MS,
   'Kökler toplamı −b/a = −(−5)/1 = 5. Kökler 2 ve 3 olduğundan toplam 5.')
-ornekKayit('yks', 'Matematik (AYT)', 'log₂ 32 ifadesinin değeri kaçtır?',
+ornekKayit('yks', 'Matematik (AYT)', 'Logaritma', 'log₂ 32 ifadesinin değeri kaçtır?',
   { A: '4', B: '5', C: '6', D: '8', E: '16' }, 'B', null, 1, 5 * SAAT_MS, '2⁵ = 32 olduğundan log₂ 32 = 5.')
-ornekKayit('yks', 'Fizik (AYT)', 'Sürtünmesiz yatay düzlemde duran 2 kg kütleli cisme 10 N büyüklüğünde yatay kuvvet uygulanıyor. Cismin ivmesi kaç m/s² olur?',
+ornekKayit('yks', 'Fizik (AYT)', 'Kuvvet ve Hareket', 'Sürtünmesiz yatay düzlemde duran 2 kg kütleli cisme 10 N büyüklüğünde yatay kuvvet uygulanıyor. Cismin ivmesi kaç m/s² olur?',
   { A: '2', B: '4', C: '5', D: '10', E: '20' }, 'C', 'A', 2, 26 * SAAT_MS, 'Newton’un ikinci yasası: F = m·a → a = 10 / 2 = 5 m/s².')
-ornekKayit('yks', 'Tarih (TYT)', 'Osmanlı Devleti’nde ilk düzenli ordu hangi padişah döneminde kurulmuştur?',
+ornekKayit('yks', 'Tarih (TYT)', 'Osmanlı Tarihi', 'Osmanlı Devleti’nde ilk düzenli ordu hangi padişah döneminde kurulmuştur?',
   { A: 'Osman Bey', B: 'Orhan Bey', C: 'I. Murat', D: 'Yıldırım Bayezid', E: 'Fatih Sultan Mehmet' }, 'B', 'C', 1, 3 * 24 * SAAT_MS,
   null) // bilerek boş: "açıklama henüz yok" durumu
-ornekKayit('yks', 'Edebiyat (AYT)', '“Sefiller” romanının yazarı kimdir?',
+ornekKayit('yks', 'Edebiyat (AYT)', null, '“Sefiller” romanının yazarı kimdir?',
   { A: 'Honoré de Balzac', B: 'Victor Hugo', C: 'Gustave Flaubert', D: 'Émile Zola', E: 'Stendhal' }, 'B', 'A', 1, 6 * 24 * SAAT_MS,
   'Sefiller (Les Misérables), Victor Hugo’nun 1862’de yayımlanan romanıdır.')
-ornekKayit('yks', 'Kimya (TYT)', 'Suyun (H₂O) mol kütlesi kaç g/mol’dür? (H: 1, O: 16)',
+ornekKayit('yks', 'Kimya (TYT)', 'Mol Kavramı', 'Suyun (H₂O) mol kütlesi kaç g/mol’dür? (H: 1, O: 16)',
   { A: '16', B: '17', C: '18', D: '20', E: '34' }, 'C', 'E', 1, 2 * SAAT_MS, '2 · 1 + 16 = 18 g/mol.')
-ornekKayit('lgs', 'Matematik (LGS)', '√49 + √16 işleminin sonucu kaçtır?',
+ornekKayit('lgs', 'Matematik (LGS)', 'Kareköklü İfadeler', '√49 + √16 işleminin sonucu kaçtır?',
   { A: '9', B: '11', C: '13', D: '65' }, 'B', 'C', 2, 4 * 24 * SAAT_MS, '√49 = 7 ve √16 = 4; 7 + 4 = 11.')
-ornekKayit('lgs', 'Fen Bilimleri (LGS)', 'Bir besin zincirinde aşağıdakilerden hangisi üretici konumundadır?',
+ornekKayit('lgs', 'Fen Bilimleri (LGS)', null, 'Bir besin zincirinde aşağıdakilerden hangisi üretici konumundadır?',
   { A: 'Tavşan', B: 'Kartal', C: 'Ot', D: 'Mantar' }, 'C', null, 1, 24 * SAAT_MS,
   'Üreticiler fotosentezle kendi besinini üretir; ot bir üreticidir. Mantar ayrıştırıcıdır.')
 
@@ -666,7 +685,7 @@ function defteriYaz(g: IcOyun) {
       k.cozuldu = false
     } else {
       defter.set(id, {
-        item: { questionId: id, exam: g.info.sinav, subject: s.ders, text: s.text, imageUrl: null, options: { ...s.options }, lastAnswer, wrongCount: 1, lastWrongAt: simdi },
+        item: { questionId: id, exam: g.info.sinav, subject: s.ders, topic: s.topic, text: s.text, imageUrl: null, options: { ...s.options }, lastAnswer, wrongCount: 1, lastWrongAt: simdi },
         dogru: s.dogru,
         aciklama: s.aciklama,
         cozuldu: false,
@@ -676,6 +695,95 @@ function defteriYaz(g: IcOyun) {
   defterOyun.set(g.info.id, eklenen)
 }
 const defterAcik = () => [...defter.values()].filter(k => !k.cozuldu)
+
+// ---------------------------------------------------------------------
+// Akıllı analiz / Performansım (sabit örnek veri; tanımlar 0011_akilli_analiz.sql ile aynı):
+// answered = correct + wrong (boşlar ayrı), accuracy 0-100 bir ondalık, lowSample = answered < 3,
+// byTopic: önce yeterli örnekliler (doğruluk artan), sonra lowSample; bySubject en çok çözülen önce;
+// daily her zaman son 7 gün; streakDays filtrelerden bağımsız.
+// ---------------------------------------------------------------------
+type PerfHam = [subject: string, topic: string, correct: number, wrong: number, blank: number]
+const PERF_KONU: Record<Sinav, PerfHam[]> = {
+  yks: [
+    ['Matematik (AYT)', 'Türev', 9, 5, 1],
+    ['Matematik (AYT)', 'Logaritma', 4, 6, 2],
+    ['Matematik (AYT)', 'Fonksiyonlar', 10, 2, 0],
+    ['Fizik (AYT)', 'Kuvvet ve Hareket', 3, 6, 2],
+    ['Fizik (AYT)', 'Elektrik', 3, 3, 1],
+    ['Fizik (AYT)', 'Optik', 1, 1, 0],
+    ['Kimya (TYT)', 'Mol Kavramı', 6, 2, 1],
+    ['Kimya (TYT)', 'Asitler ve Bazlar', 6, 1, 0],
+    ['Türkçe (TYT)', 'Sözcükte Anlam', 9, 6, 2],
+    ['Tarih (TYT)', 'Osmanlı Tarihi', 2, 0, 0],
+  ],
+  lgs: [
+    ['Matematik (LGS)', 'Üslü Sayılar', 7, 3, 1],
+    ['Matematik (LGS)', 'Kareköklü İfadeler', 3, 5, 2],
+    ['Fen Bilimleri (LGS)', 'DNA ve Genetik Kod', 6, 3, 0],
+    ['Fen Bilimleri (LGS)', 'Basınç', 2, 4, 1],
+    ['Türkçe (LGS)', 'Sözcükte Anlam', 8, 4, 1],
+  ],
+}
+const PERF_SURE: Record<string, number> = {
+  'Matematik (AYT)': 9800, 'Fizik (AYT)': 8700, 'Kimya (TYT)': 6900, 'Türkçe (TYT)': 7400, 'Tarih (TYT)': 5200,
+  'Matematik (LGS)': 8300, 'Fen Bilimleri (LGS)': 6600, 'Türkçe (LGS)': 7100,
+}
+/** Son 7 gün (eskiden yeniye): inişli çıkışlı; 2. gün boş → seri 5 gün. */
+const PERF_GUN: Record<Sinav, number[]> = { yks: [0.12, 0, 0.14, 0.21, 0.08, 0.17, 0.28], lgs: [0, 0, 0.2, 0.25, 0, 0.25, 0.3] }
+const PERF_ISABET = [0.55, 0, 0.62, 0.7, 0.5, 0.68, 0.74]
+const oran1 = (d: number, t: number) => (t ? Math.round((1000 * d) / t) / 10 : 0)
+function istanbulGunu(onceGun: number): string {
+  // Europe/Istanbul = UTC+3 (yaz saati yok)
+  const d = new Date(Date.now() + 3 * SAAT_MS - onceGun * 24 * SAAT_MS)
+  return d.toISOString().slice(0, 10)
+}
+function performansHesapla(exams: Sinav[], days: number): PerformanceStats {
+  const kat = days <= 7 ? 1 : days <= 30 ? 3 : 6
+  const byTopic = exams.flatMap(exam =>
+    PERF_KONU[exam].map(([subject, topic, c, w]) => {
+      const az = c + w < 3 // az örnekli konular pencereyle büyümez (örnek veri: lowSample kalsın)
+      const correct = az ? c : c * kat
+      const answered = az ? c + w : (c + w) * kat
+      return { exam, subject, topic, answered, correct, accuracy: oran1(correct, answered), lowSample: answered < 3 }
+    }),
+  )
+  byTopic.sort((a, b) => Number(a.lowSample) - Number(b.lowSample) || a.accuracy - b.accuracy || a.topic.localeCompare(b.topic, 'tr'))
+  const dersler = new Map<string, PerformanceStats['bySubject'][number]>()
+  for (const t of byTopic) {
+    const d = dersler.get(t.subject) ?? { exam: t.exam, subject: t.subject, answered: 0, correct: 0, accuracy: 0, avgTimeMs: PERF_SURE[t.subject] ?? 8000 }
+    d.answered += t.answered
+    d.correct += t.correct
+    dersler.set(t.subject, d)
+  }
+  const bySubject = [...dersler.values()].map(d => ({ ...d, accuracy: oran1(d.correct, d.answered) })).sort((a, b) => b.answered - a.answered)
+  const answered = bySubject.reduce((t, d) => t + d.answered, 0)
+  const correct = bySubject.reduce((t, d) => t + d.correct, 0)
+  const blank = exams.flatMap(e => PERF_KONU[e]).reduce((t, [, , , , b]) => t + b * kat, 0)
+  const avgTimeMs = answered ? Math.round(bySubject.reduce((t, d) => t + d.avgTimeMs * d.answered, 0) / answered) : 0
+
+  const haftalik = (e: Sinav) => PERF_KONU[e].reduce((t, [, , c, w, b]) => t + c + w + b, 0)
+  const daily = Array.from({ length: 7 }, (_, i) => {
+    let a = 0
+    let c = 0
+    for (const e of exams) {
+      const n = Math.round(haftalik(e) * PERF_GUN[e][i])
+      a += n
+      c += Math.min(n, Math.round(n * PERF_ISABET[i]))
+    }
+    return { date: istanbulGunu(6 - i), answered: a, correct: c }
+  })
+  // Seri filtrelerden bağımsız: iki sınavın günleri birlikte
+  let streakDays = 0
+  for (let i = 6; i >= 0 && (PERF_GUN.yks[i] > 0 || PERF_GUN.lgs[i] > 0); i--) streakDays++
+
+  return {
+    totals: { games: Math.max(1, Math.round((answered + blank) / 10)), answered, correct, wrong: answered - correct, blank, avgTimeMs, accuracy: oran1(correct, answered) },
+    bySubject,
+    byTopic,
+    daily,
+    streakDays,
+  }
+}
 
 /** Yarışı kapatır: sıralama + XP bir kez hesaplanır (finish_game ile aynı kurallar). */
 function sonlandir(g: IcOyun) {
@@ -1006,6 +1114,7 @@ export const api: QuizoraApi = {
       return {
         position: i,
         ders: s.ders,
+        topic: s.topic,
         text: s.text,
         imageUrl: null,
         options: { ...s.options }, // LGS'de yalnızca A-D
@@ -1062,6 +1171,13 @@ export const api: QuizoraApi = {
       k.item.lastWrongAt = new Date().toISOString()
     }
     return { isCorrect, correctOption: k.dogru, explanation: k.aciklama, resolved: isCorrect }
+  },
+
+  async getPerformance(opts = {}): Promise<PerformanceStats> {
+    await ag()
+    if (opts.exam && opts.exam !== 'yks' && opts.exam !== 'lgs') throw new Error('Geçersiz sınav')
+    const days = Math.min(365, Math.max(1, Math.round(opts.days ?? 30)))
+    return performansHesapla(opts.exam ? [opts.exam] : ['yks', 'lgs'], days)
   },
 
   async removeMistake(questionId) {

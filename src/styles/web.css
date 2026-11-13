@@ -85,7 +85,8 @@
   .mn-sayfa .aksiyon > .hk-ipucu { flex-basis: 100%; margin-top: -6px; }
   .mn-sayfa .ayrac { display: none; }
   .mn-sayfa .ilerleme-kart { grid-column: 2; grid-row: 2; margin: 0 0 14px; align-self: start; }
-  .mn-sayfa .defter-kart { grid-column: 2; grid-row: 3; margin: 0 0 14px; min-height: 56px; }
+  .mn-sayfa .mn-kartlar { grid-column: 2; grid-row: 3; margin: 0 0 14px; }
+  .mn-sayfa .mn-kartlar .defter-kart { min-height: 84px; }
   .mn-sayfa .lider { grid-column: 2; grid-row: 4 / -1; margin: 0; min-height: 0; overflow-y: auto; align-self: stretch; }
   .mn-sayfa .lider .kart-bant { position: sticky; top: 0; z-index: 1; }
 
@@ -231,6 +232,29 @@
   .cz-panel .soru-kart { margin-left: 20px; margin-right: 20px; }
   .cz-sayfa .icerik { max-width: 760px; height: 100%; padding: clamp(12px, 3vh, 28px) 0; display: flex; }
   .cz-sayfa .cz-panel { border-radius: 22px; background: #fff; border: 1.5px solid var(--cizgi); box-shadow: var(--golge); overflow: hidden; }
+}
+
+/* ---------- Performansım (web): solda özet + grafik + dersler, sağda konular + program; ikisi de kendi içinde kayar ---------- */
+@media (min-width: 1024px) {
+  .pr-sayfa .icerik {
+    max-width: 1200px; height: 100%; padding: 0 48px clamp(12px, 2.5vh, 24px); display: grid; column-gap: 40px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr);
+  }
+  .pr-sayfa .ust-bar { grid-column: 1 / -1; grid-row: 1; padding-left: 0; padding-right: 0; }
+  .pr-sayfa .pr-bas { grid-column: 1; grid-row: 2; padding: 0; }
+  .pr-sayfa .pr-bas .alt-metin { margin-top: 6px; max-width: none; }
+  .pr-sayfa .pr-kontrol { grid-column: 2; grid-row: 2; align-self: end; justify-content: flex-end; padding: 0; margin-top: 0; }
+  .pr-sayfa .pr-kontrol .sinav-sec { flex: 0 1 280px; }
+  .pr-sayfa .pr-izgara, .pr-sayfa .pr-bos, .pr-sayfa .pr-iskelet, .pr-sayfa .icerik > .hata-kutu { grid-column: 1 / -1; grid-row: 3 / -1; min-height: 0; }
+  .pr-sayfa .pr-izgara { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 40px; margin-top: clamp(8px, 2vh, 18px); }
+  .pr-sol, .pr-sag { min-height: 0; overflow-y: auto; padding-right: 6px; }
+  .pr-sol .pr-ozet, .pr-sol .pr-bolum, .pr-sag .pr-bolum { padding-left: 0; padding-right: 0; }
+  .pr-sol .pr-ozet { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 0; }
+  .pr-sag > .pr-bolum:first-child, .pr-sol > .pr-bolum:first-child { margin-top: 0; }
+  .pr-bolum { margin-top: clamp(14px, 2.6vh, 24px); }
+  .pr-dersler { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pp-liste { margin-bottom: 8px; }
+  .pr-sayfa .pr-bos { justify-content: center; }
 }
 
 /* Kısa pencereler (≤820px yükseklik, örn. 1366×768): biraz daha sıkı */

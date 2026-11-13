@@ -213,6 +213,26 @@ await api.removeMistake(soru.questionId) // oyuncu "defterimden çıkar" derse
 - `exam` yalnızca `'yks' | 'lgs'`. Liste boşsa "Defterin boş" ekranı göster.
 - **Hatalar:** `Bu soru defterinde yok` (soru zaten çözülmüş/çıkarılmış ya da başkasının), `Geçersiz şık`, `Geçersiz sınav`, `Soru bulunamadı` (soru yöneticiler tarafından silinmiş), `Oturum yok`, `Bağlantı hatası, tekrar dene`.
 
+## 8d. Akıllı analiz / Performansım (`getPerformance`)
+Oyuncunun **bitmiş yarışlardaki** kendi performansı: toplamlar, ders ve konu kırılımı, son 7 gün ve seri. Yalnızca çağıranın verisi gelir.
+
+```ts
+const p = await api.getPerformance({ exam: 'yks', days: 30 }) // ikisi de isteğe bağlı (exam yoksa YKS+LGS birlikte; days 1-365, varsayılan 30)
+// p.totals   : { games, answered, correct, wrong, blank, avgTimeMs, accuracy }
+// p.bySubject: [{ exam, subject, answered, correct, accuracy, avgTimeMs }]
+// p.byTopic  : [{ exam, subject, topic, answered, correct, accuracy, lowSample }]
+// p.daily    : [{ date: '2026-11-14', answered, correct }]  // son 7 gün, eskiden yeniye, boş gün 0
+// p.streakDays: number
+```
+- **Tanımlar:** `answered = correct + wrong` (boş bırakılanlar hariç, `blank` ayrı). `accuracy = 100 × correct / answered`, **0-100 arası, 1 ondalık** (66.7); `answered` 0 ise 0. `avgTimeMs` yalnızca cevaplanan sorular üzerinden (veri yoksa 0). Yalnızca yarışta **görülen** sorular sayılır.
+- **`days`** yalnızca `totals`, `bySubject` ve `byTopic` penceresini belirler (son N gün içinde biten yarışlar). **`daily` her zaman son 7 gündür** (Europe/Istanbul takvim günü, bugün dahil), `days`'ten bağımsız; `exam` filtresi onu da etkiler.
+- **`streakDays`** = üst üste yarışılan gün sayısı; bugün ya da dün yarışıldıysa geriye doğru sayılır, ikisi de boşsa 0. `exam`/`days` filtrelerinden **bağımsızdır**.
+- **`byTopic`:** `lowSample: true` = o konuda 3'ten az cevaplanan soru var (güvenilir yorum yapılamaz; ekranda "az veri" etiketi göster, "zayıf konu" önerisinde kullanma). Sıra: önce yeterli örnekli konular (doğruluk **artan**: en zayıf önce), sonra `lowSample` olanlar. `topic` boş olan sorular `'Diğer'` altında toplanır. `bySubject`/`byTopic`'te yalnızca `answered > 0` olan gruplar gelir; `bySubject` en çok çözülen ders önce.
+- Konu adları **ders içinde** anlamlıdır: aynı ad iki dersde ayrı satır olur, (`subject`, `topic`) birlikte gösterilir. Konu listesi: `docs/SORU-EKLEME.md`.
+- **Topic diğer yerlerde:** `getGameReview` öğelerinde (`ReviewItem.topic`) ve `getMistakes` öğelerinde (`MistakeItem.topic`) `topic: string | null` gelir (null = konusu girilmemiş). Soru sırasında (`getQuestion`) konu **gönderilmez**.
+- Boş kullanıcı (hiç bitmiş yarış yok): `totals` sıfır, listeler boş, `daily` 7 gün sıfır, `streakDays` 0 → "Henüz veri yok, bir yarışa katıl" ekranı.
+- **Hatalar:** `Geçersiz sınav` (`exam` `'yks'`/`'lgs'` dışında), `Oturum yok`, `Bağlantı hatası, tekrar dene`.
+
 ## 9. Abonelikler
 ```ts
 useEffect(() => {
@@ -249,7 +269,7 @@ Her hata `Error.message` içinde **Türkçe** gelir; olduğu gibi gösterebilirs
 | `Yarış henüz bitmedi` | Süre dolmadan/herkes bitmeden `finishGame` | 500 ms sonra yeniden dene (en çok 5) |
 | `Yarış henüz bitmedi` (`getGameReview`) | Oyun `finished` olmadan inceleme istendi | 500 ms sonra yeniden dene (en çok 5); bölüm 8b |
 | `Bu soru defterinde yok` | `practiceAnswer`/`removeMistake`: soru zaten çözülmüş, çıkarılmış ya da defterde değil | Listeyi yenile (`getMistakes`) |
-| `Geçersiz sınav` | `getMistakes({ exam })` değeri `'yks'`/`'lgs'` dışında | Programlama hatası |
+| `Geçersiz sınav` | `getMistakes({ exam })` / `getPerformance({ exam })` değeri `'yks'`/`'lgs'` dışında | Programlama hatası |
 | `Soru bulunamadı` | `practiceAnswer`: soru veritabanından silinmiş | Listeyi yenile; soru zaten listede görünmez |
 | `Oyun bitti` | Biten oyunda `getQuestion`/`submitAnswer` | Sonuç ekranına git |
 | `Bu oyuna erişimin yok` | Üye olmayan biri oyun verisi ister | Menüye dön; kodla `joinGame` dene |

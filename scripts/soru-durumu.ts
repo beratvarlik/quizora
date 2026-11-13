@@ -29,6 +29,7 @@ interface Sayilar {
   test: number
   gercek: number
   eksikAciklama: number // gerçek (TEST olmayan) aktif sorulardan cozum_aciklamasi boş olanlar
+  eksikKonu: number // gerçek (TEST olmayan) aktif sorulardan topic boş olanlar
 }
 
 async function say(tablo: string): Promise<Sayilar> {
@@ -49,7 +50,14 @@ async function say(tablo: string): Promise<Sayilar> {
     .not('soru_metni', 'like', `${TEST_ETIKETI}%`)
     .is('cozum_aciklamasi', null)
   if (eksik.error) throw new Error(`${tablo}: ${eksik.error.message}`)
-  return { aktif, test: testSayisi, gercek: aktif - testSayisi, eksikAciklama: eksik.count ?? 0 }
+  const eksikKonu = await admin
+    .from(tablo)
+    .select('*', { count: 'exact', head: true })
+    .eq('aktif', true)
+    .not('soru_metni', 'like', `${TEST_ETIKETI}%`)
+    .is('topic', null)
+  if (eksikKonu.error) throw new Error(`${tablo}: ${eksikKonu.error.message}`)
+  return { aktif, test: testSayisi, gercek: aktif - testSayisi, eksikAciklama: eksik.count ?? 0, eksikKonu: eksikKonu.count ?? 0 }
 }
 
 // Kategori için eksik tablolar: "fizik_ayt (1 eksik)"; eksik yoksa boş dizi
@@ -69,19 +77,21 @@ async function main(): Promise<void> {
   for (const t of TUM_TABLOLAR) sonuc[t] = await say(t)
 
   const genislik = Math.max(5, ...TUM_TABLOLAR.map((t) => t.length))
-  console.log(`${'TABLO'.padEnd(genislik)}  ${'AKTİF'.padStart(6)}  ${'[TEST]'.padStart(6)}  ${'GERÇEK'.padStart(6)}  ${'AÇIKLAMASI EKSİK'.padStart(16)}`)
-  console.log(`${'-'.repeat(genislik)}  ${'-'.repeat(6)}  ${'-'.repeat(6)}  ${'-'.repeat(6)}  ${'-'.repeat(16)}`)
+  console.log(`${'TABLO'.padEnd(genislik)}  ${'AKTİF'.padStart(6)}  ${'[TEST]'.padStart(6)}  ${'GERÇEK'.padStart(6)}  ${'AÇIKLAMASI EKSİK'.padStart(16)}  ${'KONUSU EKSİK'.padStart(12)}`)
+  console.log(`${'-'.repeat(genislik)}  ${'-'.repeat(6)}  ${'-'.repeat(6)}  ${'-'.repeat(6)}  ${'-'.repeat(16)}  ${'-'.repeat(12)}`)
   let toplamAktif = 0
   let toplamTest = 0
   let toplamEksikAciklama = 0
+  let toplamEksikKonu = 0
   for (const t of TUM_TABLOLAR) {
     const s = sonuc[t]
     toplamAktif += s.aktif
     toplamTest += s.test
     toplamEksikAciklama += s.eksikAciklama
-    console.log(`${t.padEnd(genislik)}  ${String(s.aktif).padStart(6)}  ${String(s.test).padStart(6)}  ${String(s.gercek).padStart(6)}  ${String(s.eksikAciklama).padStart(16)}`)
+    toplamEksikKonu += s.eksikKonu
+    console.log(`${t.padEnd(genislik)}  ${String(s.aktif).padStart(6)}  ${String(s.test).padStart(6)}  ${String(s.gercek).padStart(6)}  ${String(s.eksikAciklama).padStart(16)}  ${String(s.eksikKonu).padStart(12)}`)
   }
-  console.log(`${'TOPLAM'.padEnd(genislik)}  ${String(toplamAktif).padStart(6)}  ${String(toplamTest).padStart(6)}  ${String(toplamAktif - toplamTest).padStart(6)}  ${String(toplamEksikAciklama).padStart(16)}`)
+  console.log(`${'TOPLAM'.padEnd(genislik)}  ${String(toplamAktif).padStart(6)}  ${String(toplamTest).padStart(6)}  ${String(toplamAktif - toplamTest).padStart(6)}  ${String(toplamEksikAciklama).padStart(16)}  ${String(toplamEksikKonu).padStart(12)}`)
 
   console.log('\nKATEGORİ DURUMU (gereken adetler docs/PROJE.md dağılımına göre)')
   const gercekHazir: string[] = []
@@ -99,6 +109,9 @@ async function main(): Promise<void> {
   if (toplamEksikAciklama > 0) {
     console.log(`
 Not: ${toplamEksikAciklama} gerçek sorunun çözüm açıklaması eksik (yarış sonrası incelemede "açıklama henüz eklenmedi" görünür). Yüklemek için: npx tsx scripts/aciklama-yukle.ts <dosya.csv>`)
+  }
+  if (toplamEksikKonu > 0) {
+    console.log(`\nNot: ${toplamEksikKonu} gerçek sorunun konusu (topic) eksik (Performansım analizinde "Diğer" görünür). Yüklemek için: npx tsx scripts/konu-yukle.ts scripts/konu-atamalari.csv`)
   }
   if (toplamTest > 0) {
     console.log(`\nNot: ${toplamTest} [TEST] sorusu var. Demo öncesi temizlemek için: npx tsx scripts/seed-test-questions.ts --temizle`)

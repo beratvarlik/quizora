@@ -208,7 +208,10 @@ export default function CalismaPaneli({ sorular, onKapat, onDeftereDon, onYenide
               <div className="soru-kart">
                 <div className="soru-ust">
                   <span className="ders-cip">{dersAdi(q.subject)}</span>
-                  <span className="sinav-yazi">{q.exam === 'lgs' ? 'LGS' : 'YKS'}</span>
+                  <span className="sinav-yazi">
+                    {q.topic ? `${q.topic} · ` : ''}
+                    {q.exam === 'lgs' ? 'LGS' : 'YKS'}
+                  </span>
                 </div>
                 {q.imageUrl && <img src={q.imageUrl} alt="" />}
                 <div className="metin">{q.text}</div>

@@ -5,7 +5,7 @@ import Button from '../components/Button'
 import Cip from '../components/Cip'
 import DevreHatlari from '../components/DevreHatlari'
 import { BaglantiBandi, Yukleniyor } from '../components/Durum'
-import { IkArti, IkDefter, IkSimsek } from '../components/Ikon'
+import { IkArti, IkDefter, IkGrafik, IkSimsek } from '../components/Ikon'
 import KademeRozet from '../components/KademeRozet'
 import SesButonu from '../components/SesButonu'
 import { KATEGORILER, KategoriIkon, kategoriBul } from '../components/Kategoriler'
@@ -37,11 +37,21 @@ function sinavOku(): Sinav {
   }
 }
 
+/** ?kategori=sayisal ile gelindiyse (Performansım → "Yarışa gir") o kategori seçili açılır. */
+function kategoriOku(sinav: Sinav): Kategori | null {
+  try {
+    const q = new URLSearchParams(window.location.search).get('kategori')
+    return KATEGORILER.find(c => c.k === q && c.sinav === sinav)?.k ?? null
+  } catch {
+    return null
+  }
+}
+
 export default function Menu() {
   const git = useNavigate()
   const { profile, userId, loading } = useSession()
   const [sinav, setSinav] = useState<Sinav>(sinavOku)
-  const [secili, setSecili] = useState<Kategori | null>(null)
+  const [secili, setSecili] = useState<Kategori | null>(() => kategoriOku(sinavOku()))
   const [kod, setKod] = useState('')
   const [stat, setStat] = useState<MyStats | null>(null)
   const [lider, setLider] = useState<GlobalRow[] | null>(null)
@@ -153,6 +163,9 @@ export default function Menu() {
                 <i style={{ width: `${stat.progressPct}%` }} />
               </div>
             </div>
+            <Link to="/performans" className="analiz-link">
+              Analizim <span aria-hidden="true">→</span>
+            </Link>
           </div>
         )}
 
@@ -194,6 +207,7 @@ export default function Menu() {
           {bilgi ? bilgi.dagilim.map(d => <Cip key={d}>{d}</Cip>) : <span className="ipucu">Bir alan seç: ders dağılımı burada görünür.</span>}
         </div>
 
+        <div className="mn-kartlar">
         <Link to="/yanlislarim" className="defter-kart" aria-label={defterSayi ? `Yanlışlarım: ${defterSayi} soru` : 'Yanlışlarım'}>
           <span className="defter-ikon">
             <IkDefter />
@@ -205,6 +219,17 @@ export default function Menu() {
           {defterSayi !== null && defterSayi > 0 && <span className="defter-rozet">{defterSayi}</span>}
           <span className="defter-ok" aria-hidden="true">›</span>
         </Link>
+        <Link to="/performans" className="defter-kart perf-kart" aria-label="Performansım: akıllı analiz">
+          <span className="defter-ikon">
+            <IkGrafik />
+          </span>
+          <span className="defter-metin">
+            <b>Performansım</b>
+            <small>Akıllı analiz</small>
+          </span>
+          <span className="defter-ok" aria-hidden="true">›</span>
+        </Link>
+        </div>
 
         <div className="aksiyon">
           <Button

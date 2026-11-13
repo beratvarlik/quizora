@@ -85,6 +85,7 @@ function DefterSatir({ m, aktif, onAc, onCikar }: { m: MistakeItem; aktif: boole
         </span>
         <span className="df-metin">{m.text}</span>
         <small className="df-alt">
+          {m.topic ? `${m.topic} · ` : ''}
           {m.wrongCount} kez yanlış · {neZaman(m.lastWrongAt)}
         </small>
       </button>

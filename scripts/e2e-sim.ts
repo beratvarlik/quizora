@@ -528,6 +528,28 @@ async function tur(n: number, kategori: Kategori, tam: boolean): Promise<void> {
     }
   })
 
+  // Akıllı analiz: getPerformance, yarış incelemesiyle tutarlı olmalı; incelemede topic alanı var
+  await adim(`${e} 6a3. getPerformance: totals incelemeyle tutarlı, byTopic/bySubject toplamları, daily bugün, streak 1; review'da topic alanı`, async () => {
+    for (const o of oyuncular) {
+      const inc = await o.api.getGameReview(gameId)
+      kontrol(inc.items.every((x) => 'topic' in x && (x.topic === null || typeof x.topic === 'string')), `${o.ad}: review topic alanı yok`)
+      const say = (t: string) => inc.items.filter((x) => x.outcome === t).length
+      const pf = await o.api.getPerformance({ days: 30 })
+      kontrol(pf.totals.games === 1, `${o.ad}: games ${pf.totals.games}`)
+      kontrol(pf.totals.correct === say('correct') && pf.totals.wrong === say('wrong') && pf.totals.blank === say('blank') && pf.totals.answered === say('correct') + say('wrong'),
+        `${o.ad}: totals ${JSON.stringify(pf.totals)} ≠ ${say('correct')}/${say('wrong')}/${say('blank')}`)
+      const acc = pf.totals.answered > 0 ? Math.round((1000 * pf.totals.correct) / pf.totals.answered) / 10 : 0
+      kontrol(pf.totals.accuracy === acc, `${o.ad}: accuracy ${pf.totals.accuracy} ≠ ${acc}`)
+      kontrol(pf.bySubject.reduce((t, x) => t + x.answered, 0) === pf.totals.answered && pf.byTopic.reduce((t, x) => t + x.answered, 0) === pf.totals.answered,
+        `${o.ad}: bySubject/byTopic toplamı answered ile aynı değil`)
+      kontrol(pf.byTopic.every((x) => x.exam === beklenenSinav && x.lowSample === x.answered < 3), `${o.ad}: byTopic exam/lowSample hatalı`)
+      kontrol(pf.daily.length === 7 && pf.daily[6].answered === pf.totals.answered && pf.daily[6].correct === pf.totals.correct, `${o.ad}: daily bugün ${JSON.stringify(pf.daily[6])}`)
+      kontrol(pf.streakDays === 1, `${o.ad}: streakDays ${pf.streakDays}`)
+      const lg = await o.api.getPerformance({ exam: beklenenSinav === 'lgs' ? 'yks' : 'lgs' })
+      kontrol(lg.totals.games === 0 && lg.byTopic.length === 0, `${o.ad}: karşı sınav filtresi boş olmalı`)
+    }
+  })
+
   await adim(`${e} 6b. XP yalnızca BİR kez arttı (player_stats ve getMyStats), wins/gamesPlayed doğru`, async () => {
     const stat = await statOku(oyuncular.map((o) => o.id))
     for (const o of oyuncular) {

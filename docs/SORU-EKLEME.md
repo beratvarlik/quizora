@@ -12,6 +12,7 @@ Sorular bir E-Tablo'da hazırlanır, CSV olarak indirilir ve tek komutla veritab
 | `secenek_a` … `secenek_d` | evet | Dört şık dolu olmalı |
 | `secenek_e` | YKS: evet, LGS: hayır | **YKS sorularında 5 şık (A-E) zorunludur. LGS soruları 4 şıklıdır (A-D): LGS tablolarında `secenek_e` boş bırakılır.** |
 | `dogru_sik` | evet | YKS: `A`-`E`; **LGS: yalnızca `A`-`D`** (küçük harf ve boşluk sorun değil) |
+| `topic` | evet | **Dersin alt konusu** (1-60 karakter; kısa ve tutarlı isim, örn. `Türev`, `Paragraf`, `Friendship`). Akıllı analizde "hangi konuda zayıfım" bu alanla hesaplanır. Aşağıdaki konu listesindeki adı AYNEN kullan; yeni konu gerekiyorsa listeye ekle |
 | `gorsel_dosya` | hayır | Görselli soruda görselin dosya adı (örn. `sekil-1.png`) |
 | `aciklama` | hayır | **Dahili not** (örn. "KONTROL: şık C doğrulandı"); öğrenciye HİÇ gösterilmez |
 | `cozum_aciklamasi` | hayır | **Öğrenciye gösterilen çözüm** (1-2 cümle, en çok 400 karakter); yarış bittikten sonra sonuç ekranında görünür. Boşsa "açıklama henüz eklenmedi" gösterilir |
@@ -45,6 +46,41 @@ npx tsx scripts/aciklama-yukle.ts aciklamalar.csv --dry-run
 npx tsx scripts/aciklama-yukle.ts aciklamalar.csv
 ```
 Eşleşmeyen, boş ya da 400 karakteri aşan satırlar satır numarasıyla Türkçe olarak raporlanır ve diğerlerini durdurmaz. Hangi tabloda kaç sorunun açıklaması eksik: `npx tsx scripts/soru-durumu.ts` ("AÇIKLAMASI EKSİK" sütunu, [TEST] hariç). Yeni soru yüklerken de aynı CSV'ye `cozum_aciklamasi` sütunu ekleyebilirsin (`import-questions.ts` kabul eder; şablonda var).
+
+## 2c. Konu (`topic`) kuralları ve mevcut konu listesi
+- Her soru bir konu taşır. Yeni soru yüklerken `topic` sütunu **zorunludur** (boşsa satır reddedilir). Konu adı kısa, tek biçimli ve **ders içinde** tutarlı olmalı: "Türev" her yerde "Türev" (ne "türev", ne "Türev Konusu", ne "Türevler"). Büyük/küçük harf ve yazım farkı ayrı konu sayılır.
+- LGS İngilizce'de konu = müfredat ünite adı (Friendship, Teen Life, In The Kitchen, On The Phone, The Internet, Adventures, Tourism, Chores, Science, Natural Forces). LGS Fen ve İnkılap'ta da ünite adları kullanılır.
+- Mevcut sorulara konu eklemek için: `npx tsx scripts/konu-yukle.ts konular.csv --dry-run`, sonra aynı komut `--dry-run`'sız. Sütunlar: `tablo`, `id` (ya da `soru_metni`), `topic`. Hazır dosya: `scripts/konu-atamalari.csv` (ilk 94 gerçek soru). `konu-yukle.ts` ayrıca [TEST] sorularının boş konusunu 'Test Konusu 1' yapar.
+- Hangi sorularda konu eksik: `npx tsx scripts/soru-durumu.ts` ("KONUSU EKSİK" sütunu).
+
+Şu an kullanılan konular (yeni soru eklerken önce buradan seç):
+
+| Tablo | Konular |
+|---|---|
+| `matematik_tyt` | Denklemler, Problemler, Temel Kavramlar |
+| `turkce_tyt` | Cümlede Anlam, Sözcükte Anlam |
+| `kimya_tyt` | Bileşikler, Kimya Bilimi |
+| `fizik_tyt` | Elektrik Devreleri, Madde ve Özellikleri |
+| `biyoloji_tyt` | Hücre, Ekosistem |
+| `tarih_tyt` | İlk Çağ Uygarlıkları, Tarih Bilimi |
+| `cografya_tyt` | Harita Bilgisi |
+| `felsefe_tyt` | Varlık Felsefesi, Ahlak Felsefesi |
+| `din_kulturu_tyt` | Bilgi ve İnanç, Allah-İnsan İlişkisi |
+| `fizik_ayt` | Newton'un Hareket Yasaları, Modern Fizik, Işık ve Optik |
+| `kimya_ayt` | Kimyasal Tepkimelerde Enerji, Modern Atom Teorisi, Kimyasal Hesaplamalar, Periyodik Sistem |
+| `biyoloji_ayt` | Kan Grupları, Bağışıklık, Ekoloji, Boşaltım Sistemi |
+| `matematik_ayt` | Özdeşlikler, Fonksiyonlar, Logaritma, Trigonometri |
+| `edebiyat_ayt` | Tanzimat Edebiyatı, Divan Edebiyatı, Halk Edebiyatı, İslamiyet Öncesi Türk Edebiyatı, Anlam Bilgisi, Paragraf |
+| `tarih_ayt` | İlk Türk Devletleri, Orta Çağ'da Dünya |
+| `cografya_ayt` | Çevre ve Toplum, Ekonomik Faaliyetler |
+| `felsefe_ayt` | Felsefeye Giriş, Psikoloji |
+| `din_kulturu_ayt` | Din ve Özgürlük, Allah-İnsan İlişkisi |
+| `turkce_lgs` | Cümlede Anlam, Sözcükte Anlam, Fiilde Çatı, Fiilimsiler, Cümlenin Ögeleri, Cümle Türleri |
+| `inkilap_lgs` | Bir Kahraman Doğuyor, Milli Uyanış, Atatürkçülük ve Çağdaşlaşan Türkiye |
+| `din_kulturu_lgs` | Zekât ve Sadaka, Kader İnancı |
+| `ingilizce_lgs` | Friendship, The Internet |
+| `matematik_lgs` | Çarpanlar ve Katlar, Üslü İfadeler, Kareköklü İfadeler, Rasyonel Sayılar, Denklemler |
+| `fen_lgs` | Mevsimler ve İklim, DNA ve Genetik Kod, Basınç, Basit Makineler, Periyodik Sistem |
 
 ## 3. CSV'ye çevirme
 - **Google E-Tablolar:** Dosya → İndir → Virgülle ayrılmış değerler (.csv)
@@ -85,6 +121,7 @@ npx tsx scripts/seed-test-questions.ts --temizle
 | `secenek_c boş` / `secenek_e boş` | Şıklardan biri boş bırakılmış (YKS tablosunda `secenek_e` de zorunlu; LGS tablosunda yalnızca A-D zorunlu) |
 | `dogru_sik A-E olmalı` | Doğru şık harfi yazılmamış ya da A-E dışında (`F`, `1`, boş) |
 | `dogru_sik A-D (LGS soruları 4 şıklıdır) olmalı` | LGS tablosuna doğru şık olarak `E` yazılmış; LGS sorularında E şıkkı yoktur |
+| `topic boş (dersin alt konusu zorunludur)` / `topic en çok 60 karakter olmalı` | `topic` sütunu boş ya da çok uzun; konu listesinden (bölüm 2c) bir ad yaz |
 | `cozum_aciklamasi en çok 400 karakter olmalı` | Çözüm açıklaması çok uzun; 1-2 cümleye kısalt |
 | `gorsel_dosya klasörde yok` | Dosya adı yanlış ya da dosya klasörde değil |
 | `gorsel_dosya dolu ama --gorsel-klasor verilmedi` | Komuta `--gorsel-klasor` eklenmemiş |
