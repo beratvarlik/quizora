@@ -116,6 +116,12 @@ function kademe(xp: number) {
   while (i + 1 < KADEMELER.length && xp >= KADEMELER[i + 1].min) i++
   return { simdiki: KADEMELER[i], sonraki: KADEMELER[i + 1] ?? null }
 }
+/** Rütbe sırası (0 = Çaylak). Günlük görevler katmanı ödülde rütbe atlamayı bununla anlar. */
+export function kademeSirasi(xp: number): number {
+  let i = 0
+  while (i + 1 < KADEMELER.length && xp >= KADEMELER[i + 1].min) i++
+  return i
+}
 function istatistik(xp: number, wins: number, gamesPlayed: number): MyStats {
   const { simdiki, sonraki } = kademe(xp)
   return {
@@ -393,6 +399,29 @@ let statBellek: Stat | null = null
 function benimStat(): Stat {
   if (!statBellek) statBellek = oku<Stat>(K_STAT) ?? { xp: 0, wins: 0, gamesPlayed: 0 }
   return statBellek
+}
+
+/** YALNIZCA MOCK (geçici Günlük görevler katmanı için; api nesnesinde değil): XP ekler. */
+export function mockXpEkle(n: number): { once: number; sonra: number } {
+  const s = benimStat()
+  const once = s.xp
+  s.xp += n
+  yaz(K_STAT, s)
+  liderlikYayinla()
+  return { once, sonra: s.xp }
+}
+
+/** Mock olayları: geçici Günlük görevler katmanı dinler (gerçek backend bunu sunucuda sayar). */
+export const MOCK_OYUN_BITTI = 'quizora:mock-oyun-bitti'
+export const MOCK_DEFTER_COZULDU = 'quizora:mock-defter-cozuldu'
+export interface MockOyunOzeti { matematik: number; dogru: number; toplam: number; kazandi: boolean; oyuncu: number; herkeseAcik: boolean }
+function mockOlay(ad: string, detail?: unknown) {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return
+  try {
+    window.dispatchEvent(new CustomEvent(ad, { detail }))
+  } catch {
+    /* yok say */
+  }
 }
 
 function fotoKucult(dosya: File): Promise<string> {
@@ -842,6 +871,24 @@ function sonlandir(g: IcOyun) {
     }
   })
   g.sonuc = { ranking, xp }
+  // Günlük görevler (mock): insan oyuncunun yarış özeti
+  const insan = g.oyuncular.find(o => !o.bot)
+  if (insan) {
+    const sira = ranking.find(p => p.userId === insan.id)?.rank ?? 99
+    let matematik = 0
+    g.sorular.forEach((q, i) => {
+      if (q.ders.startsWith('Matematik') && insan.cevaplar.get(i)?.secenek) matematik++
+    })
+    const ozet: MockOyunOzeti = {
+      matematik,
+      dogru: insan.correctCount,
+      toplam: g.info.totalQuestions,
+      kazandi: xpUygula && sira === 1,
+      oyuncu: g.oyuncular.length,
+      herkeseAcik: g.info.isPublic,
+    }
+    mockOlay(MOCK_OYUN_BITTI, ozet)
+  }
   yayinla(g)
   liderlikYayinla()
 }
@@ -1164,7 +1211,10 @@ export const api: QuizoraApi = {
     if (!k || k.cozuldu) throw new Error('Bu soru defterinde yok')
     if (!k.item.options[selected]) throw new Error('Geçersiz şık')
     const isCorrect = selected === k.dogru
-    if (isCorrect) k.cozuldu = true
+    if (isCorrect) {
+      k.cozuldu = true
+      mockOlay(MOCK_DEFTER_COZULDU)
+    }
     else {
       k.item.wrongCount++
       k.item.lastAnswer = selected
