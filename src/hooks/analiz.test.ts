@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ReviewItem, ReviewOutcome, Secenek } from '../types'
-import { bulunma, macAnalizi, sayiEki } from './analiz'
+import { bulunma, dersKategorisi, gucluKonular, macAnalizi, miniProgram, sayiEki, zorlananKonular } from './analiz'
 
 function soru(position: number, ders: string, outcome: ReviewOutcome, timeMs: number | null = 8000): ReviewItem {
   return {
@@ -99,5 +99,46 @@ describe('maç analizi', () => {
     expect(a.oneriler[0].tur).toBe('kutlama')
     expect(macAnalizi(l).oneriler[0].metin).toBe(a.oneriler[0].metin)
     expect(a.enZayif).toBeNull()
+  })
+})
+
+describe('performans: konular ve mini program', () => {
+  const st = async () => {
+    const { getPerformance } = await import('./performans')
+    return getPerformance({ exam: 'yks' })
+  }
+
+  it('zorlanan konular: az örnekli atlanır, doğruluk artan', async () => {
+    const s = await st()
+    const z = zorlananKonular(s)
+    expect(z.length).toBeGreaterThanOrEqual(3)
+    expect(z.length).toBeLessThanOrEqual(5)
+    expect(z.some(t => t.lowSample)).toBe(false)
+    expect(z[0].topic).toBe('Kuvvet ve Hareket')
+    for (let i = 1; i < z.length; i++) expect(z[i].accuracy).toBeGreaterThanOrEqual(z[i - 1].accuracy)
+    const g = gucluKonular(s)
+    expect(g).toHaveLength(3)
+    expect(g.some(t => z.includes(t))).toBe(false)
+  })
+
+  it('mini program: 3 gün, deterministik, defter sayısına göre görev', async () => {
+    const s = await st()
+    const p1 = miniProgram(s, { 'Fizik (AYT)': 4 })
+    expect(p1.map(g => g.gun)).toEqual([1, 2, 3])
+    expect(p1[0].metin).toBe("Fizik · Kuvvet ve Hareket: Yanlışlarım'daki 4 soruyu çöz")
+    expect(p1[0].eylem).toMatchObject({ tur: 'defter', ders: 'Fizik (AYT)' })
+    expect(p1[1].metin).toMatch(/: 1 (Sayısal|TYT) yarış$/)
+    expect(p1[2].metin).toMatch(/10 soruluk yarışta %\d0 hedefle$/)
+    expect(miniProgram(s, { 'Fizik (AYT)': 4 })).toEqual(p1)
+    const p2 = miniProgram(s, {})
+    expect(p2[0].eylem.tur).toBe('yaris')
+  })
+
+  it('ders → kategori', () => {
+    expect(dersKategorisi('yks', 'Fizik (AYT)')).toBe('sayisal')
+    expect(dersKategorisi('yks', 'Türkçe (TYT)')).toBe('tyt')
+    expect(dersKategorisi('yks', 'Edebiyat (AYT)')).toBe('esit_agirlik')
+    expect(dersKategorisi('lgs', 'Fen Bilimleri (LGS)')).toBe('lgs_sayisal')
+    expect(dersKategorisi('lgs', 'Türkçe (LGS)')).toBe('lgs_sozel')
   })
 })

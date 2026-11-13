@@ -8,6 +8,7 @@ import Oyun from './pages/Oyun'
 import Sonuc from './pages/Sonuc'
 import Yanlislarim from './pages/Yanlislarim'
 import Coz from './pages/Coz'
+import Performans from './pages/Performans'
 import SesTestPaneli, { sesTestAcik } from './components/SesTestPaneli'
 import { useSes } from './hooks/useSes'
 
@@ -25,6 +26,7 @@ export default function App() {
       <Route path="/sonuc/:code" element={<Sonuc />} />
       <Route path="/yanlislarim" element={<Yanlislarim />} />
       <Route path="/yanlislarim/coz" element={<Coz />} />
+      <Route path="/performans" element={<Performans />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     {sesTestAcik() && <SesTestPaneli />}

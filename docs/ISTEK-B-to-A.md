@@ -38,3 +38,10 @@ Format: - [ ] gg.aa ss:dd — istek — durum
   - `PracticeResult { isCorrect, correctOption, explanation (null olabilir), resolved }`
   - `getMistakeSummary()`, `getMistakes({ exam?, subject?, limit? })` (lastWrongAt azalan), `practiceAnswer(questionId, selected)` (doğruysa defterden düşer, resolvedTotal artar; yanlışsa wrongCount++), `removeMistake(questionId)`.
   - Kural: `finish_game` sırasında oyuncunun yanlış ve boş soruları deftere eklensin (aynı soru tekrar gelirse wrongCount++). Mock bunu sonuç ekranında `getGameReview` verisinden yapıyor.
+
+- [ ] 14.11 — **"Akıllı analiz" / Performansım için backend gerekiyor; arayüz geçici katmanla (`src/hooks/performans.ts`, bellekte mock) hazır.** Hook `src/lib/`'e izin vermediği için dosya `src/hooks/` altında. Maç analizi (sonuç ekranı) backend istemiyor, `getGameReview` verisinden hesaplanıyor. Kullandığım şekil (isimler senin kararın; değişirse birebir uyarım): — bekliyor
+  - `getPerformance({ exam?, days? })` → `PerformanceStats` (`days`: 7 ya da 30; `exam` yoksa iki sınav birlikte).
+  - `PerformanceStats { totals: { games, answered, correct, wrong, blank, avgTimeMs, accuracy }, bySubject: [{ exam, subject, answered, correct, accuracy, avgTimeMs }], byTopic: [{ exam, subject, topic, answered, correct, accuracy, lowSample? }], daily: [{ date: 'YYYY-MM-DD', answered, correct }] (son 7 gün, eskiden yeniye, oynanmayan gün 0), streakDays }`.
+  - `accuracy` 0-100 tam sayı (yüzde). `subject` defterdeki gibi sınav ekli (`"Fizik (AYT)"`), böylece "Çalış →" `getMistakes({ subject })`'e aynen verilebiliyor.
+  - `topic` için soru tablolarında konu sütunu gerekiyor (şu an yok sanırım). `lowSample`: az cevaplı konu (bende < 4), arayüz bunları "zorlandığın konular"da atlıyor.
+  - `streakDays`: bugünden geriye kesintisiz en az bir soru cevaplanan gün sayısı (sunucu saatiyle).

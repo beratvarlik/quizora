@@ -1,6 +1,7 @@
 // Akıllı analiz: arayüzden bağımsız, saf fonksiyonlar (test: analiz.test.ts).
 // (Hook frontend'de src/lib/ altına yeni dosyaya izin vermediği için src/hooks/ altında.)
-import type { ReviewItem } from '../types'
+import type { Kategori, ReviewItem, Sinav } from '../types'
+import type { PerformanceStats } from './performans'
 
 // ---------------------------------------------------------------------
 // Türkçe yardımcılar
@@ -225,4 +226,94 @@ function oneriSec(items: ReviewItem[], a: MacAnalizi): Oneri[] {
           : `%${oran} doğruluk. Dersleri tek tek görmek için aşağıdaki çubuklara, kaçırdıkların için soru incelemesine bak.`,
     },
   ]
+}
+
+// ---------------------------------------------------------------------
+// B) Performansım: konular ve 3 günlük mini program (deterministik)
+// ---------------------------------------------------------------------
+type Konu = PerformanceStats['byTopic'][number]
+
+const KATEGORI_ADI: Record<Kategori, string> = {
+  sayisal: 'Sayısal', esit_agirlik: 'Eşit Ağırlık', sozel: 'Sözel', tyt: 'TYT', lgs_sozel: 'LGS Sözel', lgs_sayisal: 'LGS Sayısal',
+}
+
+/** Dersin en çok çıktığı yarış kategorisi (programdaki "1 Sayısal yarış" için). */
+export function dersKategorisi(exam: Sinav, subject: string): Kategori {
+  if (exam === 'lgs') return /Matematik|Fen/i.test(subject) ? 'lgs_sayisal' : 'lgs_sozel'
+  if (/\(TYT\)\s*$/.test(subject)) return 'tyt'
+  if (/Matematik|Fizik|Kimya|Biyoloji/i.test(subject)) return 'sayisal'
+  if (/Edebiyat/i.test(subject)) return 'esit_agirlik'
+  return 'sozel'
+}
+export const kategoriAdi = (k: Kategori) => KATEGORI_ADI[k]
+
+/** En düşük doğruluklu 3-5 konu (az örnekli konular atlanır). */
+export function zorlananKonular(s: PerformanceStats): Konu[] {
+  const l = s.byTopic.filter(t => !t.lowSample).sort((a, b) => a.accuracy - b.accuracy || b.answered - a.answered || a.topic.localeCompare(b.topic, 'tr'))
+  const zayif = l.filter(t => t.accuracy < 70).length
+  return l.slice(0, Math.min(5, Math.max(3, zayif)))
+}
+
+/** En iyi 3 konu (zorlananlarla çakışmaz). */
+export function gucluKonular(s: PerformanceStats): Konu[] {
+  const zor = new Set(zorlananKonular(s).map(t => `${t.subject}|${t.topic}`))
+  return s.byTopic
+    .filter(t => !t.lowSample && !zor.has(`${t.subject}|${t.topic}`))
+    .sort((a, b) => b.accuracy - a.accuracy || b.answered - a.answered || a.topic.localeCompare(b.topic, 'tr'))
+    .slice(0, 3)
+}
+
+export type ProgramEylemi =
+  | { tur: 'defter'; ders: string; etiket: string }
+  | { tur: 'yaris'; kategori: Kategori; sinav: Sinav; etiket: string }
+export interface ProgramGunu {
+  gun: 1 | 2 | 3
+  subject: string
+  topic: string
+  metin: string
+  eylem: ProgramEylemi
+}
+
+/**
+ * 3 günlük mini program: her gün en zayıf konulardan biri + somut görev. Aynı veri → aynı program.
+ * defterSayi: ders → Yanlışlarım'daki çözülmemiş soru sayısı (getMistakeSummary.bySubject).
+ */
+export function miniProgram(s: PerformanceStats, defterSayi: Record<string, number> = {}): ProgramGunu[] {
+  let zayif: Konu[] = zorlananKonular(s)
+  if (!zayif.length) {
+    // Konu verisi yoksa derslerden türet
+    zayif = [...s.bySubject]
+      .sort((a, b) => a.accuracy - b.accuracy || b.answered - a.answered)
+      .map(d => ({ exam: d.exam, subject: d.subject, topic: dersAdi(d.subject), answered: d.answered, correct: d.correct, accuracy: d.accuracy }))
+  }
+  if (!zayif.length) return []
+
+  const gunler: ProgramGunu[] = []
+  for (let i = 0; i < 3; i++) {
+    const k = zayif[i % zayif.length]
+    const kat = dersKategorisi(k.exam, k.subject)
+    const bas = `${dersAdi(k.subject)} · ${k.topic}`
+    const yaris: ProgramEylemi = { tur: 'yaris', kategori: kat, sinav: k.exam, etiket: 'Yarışa gir' }
+    const n = defterSayi[k.subject] ?? 0
+    let metin: string
+    let eylem: ProgramEylemi
+    if (i === 0) {
+      if (n > 0) {
+        metin = `${bas}: Yanlışlarım'daki ${n} soruyu çöz`
+        eylem = { tur: 'defter', ders: k.subject, etiket: 'Çöz' }
+      } else {
+        metin = `${bas}: 1 ${KATEGORI_ADI[kat]} yarışta bu konuya odaklan`
+        eylem = yaris
+      }
+    } else if (i === 1) {
+      metin = `${bas}: 1 ${KATEGORI_ADI[kat]} yarış`
+      eylem = yaris
+    } else {
+      const hedef = Math.min(90, Math.max(50, Math.ceil((k.accuracy + 15) / 10) * 10))
+      metin = `${bas}: 10 soruluk yarışta %${hedef} hedefle`
+      eylem = yaris
+    }
+    gunler.push({ gun: (i + 1) as 1 | 2 | 3, subject: k.subject, topic: k.topic, metin, eylem })
+  }
+  return gunler
 }
