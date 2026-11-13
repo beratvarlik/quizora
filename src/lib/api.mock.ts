@@ -19,6 +19,7 @@ import type {
   XpBreakdown,
 } from '../types'
 import { rankPlayers, remainingMs, scorePoints } from './scoring'
+import type { QuestionReview } from './client'
 
 // ---------------------------------------------------------------------
 // Yardımcılar
@@ -238,7 +239,67 @@ const DAGILIM: Record<Kategori, Array<[string, number]>> = {
   lgs_sayisal: [['Matematik', 5], ['Fen Bilimleri', 5]],
 }
 
-interface IcSoru { ders: string; text: string; options: Record<Secenek, string>; dogru: Secenek }
+// Her soru için “Neden doğru?” açıklaması (soru metnine göre)
+const ACIKLAMA: Record<string, string> = {
+  "0,25 ondalık sayısının en sade kesir hâli hangisidir?": "0,25 = 25/100 demektir. Pay ve paydayı 25'e bölünce 1/4 elde edilir; daha fazla sadeleşmez.",
+  "2³ × 2² işleminin sonucu kaçtır?": "Tabanları aynı üslü sayılar çarpılırken üsler toplanır: 2³ × 2² = 2⁵ = 32.",
+  "2’den 20’ye kadar olan çift sayıların toplamı kaçtır?": "2 + 4 + … + 20 = 2 × (1 + 2 + … + 10) = 2 × 55 = 110.",
+  "3x − 7 = 11 denkleminde x kaçtır?": "Her iki tarafa 7 eklenir: 3x = 18. İki taraf 3'e bölünür: x = 6.",
+  "Atom numarası 8 olan elementin sembolü hangisidir?": "Atom numarası 8 olan element oksijendir ve sembolü O'dur. N (7) azot, C (6) karbon, F (9) flordur.",
+  "Aşağıdaki sözcüklerden hangisinin yazımı yanlıştır?": "“Bir şey” her zaman ayrı yazılır. “Herkes, yalnız, yanlış, şoför” TDK yazım kılavuzuna uygundur.",
+  "Aşağıdakilerden hangisi asidik bir maddedir?": "Limon suyu sitrik asit içerir, pH'ı 7'den küçüktür. Sabunlu su, çamaşır suyu ve kireç suyu baziktir.",
+  "Aşağıdakilerden hangisi eş anlamlı bir sözcük çiftidir?": "Siyah ile kara aynı anlamı taşır. Diğer seçeneklerdeki çiftler (uzun – kısa, sıcak – soğuk, geniş – dar) zıt anlamlıdır.",
+  "Aşağıdakilerden hangisi İslam’ın beş şartından biri değildir?": "İslam'ın şartları: kelime-i şehadet, namaz, oruç, zekât ve hac. Kurban kesmek vacip bir ibadettir ama beş şart arasında yer almaz.",
+  "Basıncın SI birimi hangisidir?": "Basınç, birim yüzeye düşen dik kuvvettir (N/m²). Bu birime Pascal (Pa) denir. Newton kuvvetin, Joule enerjinin, Watt gücün birimidir.",
+  "Bezelyede sarı tohum (S), yeşil tohuma (s) baskındır. Ss × Ss çaprazlamasında yeşil tohumlu birey oluşma olasılığı nedir?": "Ss × Ss çaprazlamasında SS, Ss, Ss, ss oluşur. Yeşil tohum yalnızca ss genotipinde görülür: 4'te 1, yani 1/4.",
+  "Bilginin kaynağını, imkânını ve sınırlarını inceleyen felsefe dalı hangisidir?": "Bilgi felsefesine epistemoloji denir. Ontoloji varlığı, etik ahlakı, estetik güzeli, mantık doğru düşünmenin kurallarını inceler.",
+  "Bir sayının %20’si 36 ise bu sayı kaçtır?": "Sayının %20'si, yani 1/5'i 36 ise sayının tamamı 36 × 5 = 180'dir.",
+  "Bir zar atıldığında üst yüze asal sayı gelme olasılığı kaçtır?": "Zardaki asal sayılar 2, 3 ve 5'tir. 6 durumdan 3'ü istenen durumdur: 3/6 = 1/2.",
+  "Choose the correct option: She ___ to school every day.": "“Every day” geniş zaman (Simple Present) ister. Üçüncü tekil şahıs (she) ile fiil -s/-es alır: she goes.",
+  "Cumhuriyet hangi tarihte ilan edilmiştir?": "TBMM 29 Ekim 1923'te anayasada değişiklik yaparak Cumhuriyeti ilan etti; Mustafa Kemal ilk cumhurbaşkanı seçildi.",
+  "DNA’nın yapısında bulunan şeker hangisidir?": "DNA, “deoksiribonükleik asit” demektir; yapısındaki beş karbonlu şeker deoksiribozdur. Riboz RNA'da bulunur.",
+  "Dik kenarları 6 cm ve 8 cm olan dik üçgenin hipotenüsü kaç cm’dir?": "Pisagor bağıntısı: 6² + 8² = 36 + 64 = 100, hipotenüs √100 = 10 cm.",
+  "Direnci 5 Ω olan bir iletkenin uçlarına 20 V gerilim uygulanırsa iletkenden kaç A akım geçer?": "Ohm yasası: I = V / R = 20 V / 5 Ω = 4 A.",
+  "Divan şairlerinin şiirlerini bir araya topladıkları esere ne ad verilir?": "Divan şairleri şiirlerini nazım türlerine göre sıralayarak “divan” adlı eserde toplar. Mesnevi bir nazım şekli, tezkire şair biyografileri kitabıdır.",
+  "Dünya’nın kendi ekseni etrafında dönmesinin sonucu hangisidir?": "Dünya kendi ekseni etrafında 24 saatte döner ve bu dönüş gece ile gündüzü oluşturur. Mevsimler ise eksen eğikliği ve Güneş etrafındaki dolanma ile oluşur.",
+  "Fotosentez bitki hücresinin hangi organelinde gerçekleşir?": "Fotosentez, klorofil pigmentini taşıyan kloroplastlarda gerçekleşir. Mitokondri ise solunumla ATP üretir.",
+  "Hangi cümlede soru ekinin yazımı yanlıştır?": "Soru eki “mi” her zaman ayrı yazılır: “geliyor musun?” olmalıdır. Diğer cümlelerde ek doğru biçimde ayrı yazılmıştır.",
+  "Hangi cümlede “kırmak” sözcüğü mecaz anlamda kullanılmıştır?": "“Kalbini kırmak” birinin gönlünü incitmek anlamındadır, gerçek bir kırılma yoktur. Diğer cümlelerde nesneler gerçekten kırılmıştır.",
+  "Hz. Muhammed’in Mekke’den Medine’ye göçüne ne ad verilir?": "622 yılındaki bu göçe Hicret denir ve Hicri takvimin başlangıcı kabul edilir. Miraç bir yükseliş olayı, Bedir ise bir savaştır.",
+  "Hücrede ATP üretiminin büyük kısmından sorumlu organel hangisidir?": "Oksijenli solunumun büyük bölümü mitokondride gerçekleşir; bu yüzden mitokondri hücrenin enerji santrali olarak bilinir.",
+  "Kurtuluş Savaşı’nda düzenli ordunun kazandığı ilk zafer hangisidir?": "Düzenli ordu ilk zaferini Ocak 1921'de I. İnönü Muharebesi'nde kazandı. Bu zaferle Teşkilat-ı Esasiye kabul edildi ve İstiklal Marşı yazıldı.",
+  "Kur’an-ı Kerim’in ilk suresi hangisidir?": "Mushaf sıralamasında ilk sure Fâtiha'dır; “açan, başlatan” anlamına gelir. Bakara ikinci, Nâs son suredir.",
+  "Kuvvetin SI birimi aşağıdakilerden hangisidir?": "Kuvvet F = m × a ile hesaplanır; 1 kg kütleye 1 m/s² ivme kazandıran kuvvet 1 Newton'dur.",
+  "Malazgirt Meydan Muharebesi hangi yıl yapılmıştır?": "Sultan Alparslan komutasındaki Selçuklular 1071'de Bizans'ı yendi; bu zaferle Anadolu'nun kapıları Türklere açıldı.",
+  "Mevsimlerin oluşmasının temel nedeni hangisidir?": "Dünya'nın ekseni yaklaşık 23,5° eğiktir. Güneş etrafında dolanırken ışınların geliş açısı değişir ve mevsimler oluşur.",
+  "Mustafa Kemal Samsun’a hangi tarihte çıkmıştır?": "Mustafa Kemal 19 Mayıs 1919'da Samsun'a çıktı; bu tarih Millî Mücadele'nin başlangıcı kabul edilir.",
+  "Müslümanlar hangi ayda oruç tutar?": "Oruç, Hicri takvimin dokuzuncu ayı olan Ramazan'da tutulur. Ramazan'ın sonunda Ramazan Bayramı kutlanır.",
+  "Periyodik tabloda soy gazlar hangi grupta yer alır?": "Soy gazlar (He, Ne, Ar…) 8A grubundadır. Son katmanları dolu olduğu için kararlıdırlar ve zor tepkimeye girerler.",
+  "Periyodik tablonun 1A grubundaki metallere ne ad verilir?": "1A grubundaki Li, Na, K gibi elementler alkali metallerdir; suyla tepkimeye girip baz oluştururlar. Halojenler 7A, soy gazlar 8A grubundadır.",
+  "Serbest düşmeye bırakılan bir cisim 2 saniye sonra kaç m/s hıza ulaşır? (g = 10 m/s²)": "Serbest düşmede hız v = g × t ile bulunur: 10 m/s² × 2 s = 20 m/s.",
+  "Türk edebiyatının ilk yerli romanı kabul edilen eser hangisidir?": "Şemsettin Sami'nin 1872'de yayımladığı “Taaşşuk-ı Tal'at ve Fitnat” ilk yerli roman kabul edilir. İntibah ilk edebî roman sayılır.",
+  "Türkiye Büyük Millet Meclisi hangi tarihte açılmıştır?": "TBMM 23 Nisan 1920'de Ankara'da açıldı; bu tarih bugün Ulusal Egemenlik ve Çocuk Bayramı olarak kutlanır.",
+  "Türkiye sınırları içinde doğup denize dökülen en uzun akarsu hangisidir?": "Kızılırmak yaklaşık 1.355 km ile hem doğduğu hem de denize döküldüğü yer Türkiye'de olan en uzun akarsudur; Karadeniz'e dökülür. Fırat ve Dicle denize sınırlarımız dışında ulaşır.",
+  "Türkiye’nin en yüksek dağı hangisidir?": "Ağrı Dağı 5.137 m ile Türkiye'nin en yüksek noktasıdır; volkanik bir dağdır.",
+  "What is the opposite of “cheap”?": "“Cheap” ucuz demektir; zıt anlamlısı “expensive” (pahalı) sözcüğüdür.",
+  "f(x) = 2x² − 3 ise f(2) kaçtır?": "x yerine 2 yazılır: f(2) = 2 × 2² − 3 = 2 × 4 − 3 = 5.",
+  "log₂ 32 ifadesinin değeri kaçtır?": "2'nin kaçıncı kuvveti 32'dir? 2⁵ = 32 olduğundan log₂ 32 = 5.",
+  "pH değeri 7’den küçük olan bir çözelti için hangisi doğrudur?": "pH 7 nötrdür; 7'den küçük değerler asidik, büyük değerler baziktir. Asidik çözeltiler iyon içerdiği için elektriği iletebilir.",
+  "x + 3 = 2x − 5 ise x kaçtır?": "x'li terimler bir tarafa toplanır: 3 + 5 = 2x − x, yani x = 8.",
+  "İnsanın vücut (somatik) hücrelerinde kaç kromozom bulunur?": "İnsanın vücut hücreleri 2n = 46 kromozom taşır. Üreme hücreleri (sperm, yumurta) ise n = 23 kromozomludur.",
+  "İstanbul’u fetheden Osmanlı padişahı kimdir?": "İstanbul 29 Mayıs 1453'te II. Mehmed tarafından fethedildi; bu yüzden “Fatih” unvanıyla anılır.",
+  "İstiklal Marşı’nın şairi kimdir?": "İstiklal Marşı'nı Mehmet Akif Ersoy yazdı; 12 Mart 1921'de TBMM'de kabul edildi.",
+  "İç açılarının toplamı 720° olan çokgen kaç kenarlıdır?": "n kenarlı çokgenin iç açıları toplamı (n − 2) × 180°'dir. (n − 2) × 180 = 720 → n − 2 = 4 → n = 6.",
+  "“Ağaç yaşken eğilir.” atasözü hangi anlamda kullanılır?": "Genç ağaç kolay eğilir, yaşlanınca kırılır. Atasözü, eğitimin ve alışkanlık kazandırmanın küçük yaşta yapılması gerektiğini anlatır.",
+  "“Bildiğim tek şey, hiçbir şey bilmediğimdir.” sözü hangi filozofa aittir?": "Bu söz Sokrates'e aittir; bilgeliğin, bilmediğinin farkında olmakla başladığını vurgular.",
+  "“Düşünüyorum, öyleyse varım.” diyen filozof kimdir?": "“Cogito ergo sum” Descartes'ın sözüdür; şüphe ederken düşünen bir “ben”in var olduğundan emin olur.",
+  "“I’m really into photography.” This sentence shows that the speaker ___ photography.": "“Be into something” bir şeye çok ilgi duymak, sevmek demektir. Yani konuşan kişi fotoğrafçılıkla ilgilidir (is interested in).",
+  "“Sinekli Bakkal” romanının yazarı kimdir?": "Sinekli Bakkal Halide Edib Adıvar'ın romanıdır; önce İngilizce “The Clown and His Daughter” adıyla yayımlandı.",
+  "“Çalıkuşu” romanının yazarı kimdir?": "Çalıkuşu Reşat Nuri Güntekin'in romanıdır; öğretmen Feride'nin Anadolu'daki hayatını anlatır.",
+  "√49 + √16 işleminin sonucu kaçtır?": "√49 = 7 ve √16 = 4'tür; toplamları 7 + 4 = 11. Kökler ayrı ayrı hesaplanır, √65 ile aynı değildir."
+}
+
+interface IcSoru { ders: string; text: string; options: Partial<Record<Secenek, string>>; dogru: Secenek; aciklama: string | null }
 
 function sorulariHazirla(kategori: Kategori, sinav: Sinav): IcSoru[] {
   const havuz = sinav === 'lgs' ? LGS : YKS
@@ -250,9 +311,10 @@ function sorulariHazirla(kategori: Kategori, sinav: Sinav): IcSoru[] {
     for (let i = 0; i < adet && kaynak.length; i++) {
       const ham = kaynak[i % kaynak.length] // havuz küçükse başa dön
       const siklar = karistir([ham.dogru, ...ham.yanlis.slice(0, harfler.length - 1)])
-      const options = { A: '', B: '', C: '', D: '', E: '' } as Record<Secenek, string>
+      // LGS 4 şıklı: E anahtarı hiç yok (types.ts: options kısmi)
+      const options: Partial<Record<Secenek, string>> = {}
       harfler.forEach((h, j) => (options[h] = siklar[j]))
-      liste.push({ ders: ders + ek, text: ham.metin, options, dogru: harfler[siklar.indexOf(ham.dogru)] })
+      liste.push({ ders: ders + ek, text: ham.metin, options, dogru: harfler[siklar.indexOf(ham.dogru)], aciklama: ACIKLAMA[ham.metin] ?? null })
     }
   }
   return karistir(liste).slice(0, SORU_SAYISI)
@@ -790,4 +852,29 @@ function baslat(g: IcOyun) {
   yayinla(g)
   for (const o of g.oyuncular) if (o.bot) zamanla(g, 3000, () => botCevaplat(g, o))
   g.saat = window.setInterval(() => bitisKontrol(g), 250)
+}
+
+/** Sonuç ekranı soru incelemesi (çağıran oyuncunun cevaplarıyla). Yarış bitmeden çağrılırsa hata verir. */
+export async function getGameReview(gameId: string): Promise<QuestionReview[]> {
+  await ag()
+  const g = oyunBul(gameId)
+  const ben = benOyuncuyum(g)
+  if (g.info.status !== 'finished') throw new Error('Yarış henüz bitmedi')
+  return g.sorular.map((s, i) => {
+    const c = ben.cevaplar.get(i)
+    return {
+      index: i,
+      subject: s.ders,
+      exam: g.info.sinav,
+      text: s.text,
+      imageUrl: null,
+      options: { ...s.options },
+      correctOption: s.dogru,
+      myAnswer: c?.secenek ?? null,
+      isCorrect: c?.dogru === true,
+      pointsEarned: c?.puan ?? 0,
+      timeMs: c ? Math.round(c.sureMs) : null,
+      explanation: s.aciklama,
+    }
+  })
 }
