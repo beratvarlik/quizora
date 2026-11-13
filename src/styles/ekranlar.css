@@ -282,3 +282,28 @@
   .soru-sahne.cik { animation: none !important; opacity: 0; }
   .sik, .sik .sik-ikon { animation: none !important; }
 }
+
+/* ---------- 2× alevleri: sayfanın altına sabit; içeriğin altında, sayfa zemininin üstünde ---------- */
+.alev-kok { position: fixed; left: 0; right: 0; bottom: 0; height: calc(var(--alev-h) + var(--safe-alt)); z-index: 0; pointer-events: none; --alev-h: 101px; }
+.alevler { position: absolute; left: 0; right: 0; bottom: 0; height: 100%; isolation: isolate; transform-origin: 50% 100%; transition: transform .6s ease-out; --alev-hiz: 1; }
+.alev-kok.son10 .alevler { transform: scaleY(1.25); --alev-hiz: .6; }
+.alev-kat { position: absolute; left: 0; bottom: 0; width: 100%; height: 100%; overflow: visible; mix-blend-mode: screen; }
+.alev-kat.alev-arka { mix-blend-mode: normal; }
+.alev-kat.alev-on { opacity: .9; }
+.alev-kat .dil { transform-box: fill-box; transform-origin: 50% 100%; will-change: transform; animation: dil calc(var(--t) * var(--alev-hiz)) ease-in-out var(--g) infinite; }
+@keyframes dil { 0%, 100% { transform: scaleY(var(--y0)) skewX(var(--k0)); } 50% { transform: scaleY(var(--y1)) skewX(var(--k1)); } }
+.alev-parilti { position: absolute; left: -30px; right: -30px; bottom: 0; height: 120px; background: linear-gradient(to top, rgba(224, 38, 43, .45), rgba(241, 90, 36, .22) 45%, rgba(241, 90, 36, 0)); filter: blur(16px); mix-blend-mode: screen; animation: parilti 1.9s ease-in-out infinite; }
+@keyframes parilti { 50% { opacity: .65; } }
+.alev-taban { position: absolute; left: 0; right: 0; bottom: 0; height: calc(24px + var(--safe-alt)); background: linear-gradient(to top, #C8102E, rgba(200, 16, 46, 0)); }
+.kivilcimlar { position: absolute; left: 0; right: 0; bottom: 0; height: 100%; }
+.kivilcim { position: absolute; opacity: 0; will-change: transform, opacity; animation: kivUc var(--t) linear var(--g) infinite; }
+.kivilcim i { display: block; width: var(--r); height: var(--r); border-radius: 50%; background: var(--c); box-shadow: 0 0 6px 1px var(--c); animation: kivSal var(--s) ease-in-out var(--g) infinite alternate; }
+@keyframes kivUc { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: 1; } 70% { opacity: .85; } 100% { transform: translateY(var(--h)); opacity: 0; } }
+@keyframes kivSal { from { transform: translateX(calc(var(--x) * -1)); } to { transform: translateX(var(--x)); } }
+/* Hareketi azalt: alevler gizlenmez, sabit durur; kıvılcımlar yerinde hafifçe görünür. */
+@media (prefers-reduced-motion: reduce) {
+  .alev-kat .dil, .alev-parilti, .kivilcim, .kivilcim i { animation: none !important; }
+  .alev-kat .dil { transform: none; }
+  .kivilcim { opacity: .7; transform: translateY(calc(var(--h) * .3)); }
+  .alevler { transition: none; }
+}

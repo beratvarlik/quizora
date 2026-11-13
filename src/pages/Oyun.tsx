@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import Alevler from '../components/Alevler'
 import CanliSerit from '../components/CanliSerit'
 import DevreHatlari from '../components/DevreHatlari'
 import { BaglantiBandi, HataEkrani, Yukleniyor } from '../components/Durum'
@@ -164,6 +165,7 @@ export default function Oyun() {
       <BaglantiBandi />
       <DevreHatlari kose="sol-alt" boyut={180} soluk={!hizli} koyu={hizli} hiz={hizli ? 2.5 : 1} zemin={hizli ? '#1E0910' : undefined} />
       <DevreHatlari kose="sag-alt" boyut={180} soluk={!hizli} koyu={hizli} hiz={hizli ? 2.5 : 1} zemin={hizli ? '#1E0910' : undefined} />
+      {hizli && <Alevler son10={sayac.kalanMs <= 10000} />}
       <div className="icerik oyun-ust" ref={ekran}>
         <CanliSerit oyuncular={snapshot.players} benId={userId ?? ''} koyu={hizli} hizli={hizli} toplamSoru={toplam} />
 
