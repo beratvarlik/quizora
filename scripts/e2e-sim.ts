@@ -438,6 +438,22 @@ async function tur(n: number, kategori: Kategori, tam: boolean): Promise<void> {
     return s
   }
 
+  await adim(`${e} 6a. getGameReview: finishGame ile tutarlı (puan toplamı, doğru/yanlış/boş sayıları)`, async () => {
+    for (const [i, o] of oyuncular.entries()) {
+      const inc = await o.api.getGameReview(gameId)
+      kontrol(inc.items.length === 10 && inc.items.every((x, k) => x.position === k), `${o.ad}: ${inc.items.length} öğe / sıra bozuk`)
+      const bd = esZamanli[i].breakdown
+      const say = (t: string) => inc.items.filter((x) => x.outcome === t).length
+      kontrol(say('correct') === bd.correct && say('wrong') === bd.wrong && say('blank') === bd.blank,
+        `${o.ad}: ${say('correct')}/${say('wrong')}/${say('blank')} ≠ ${bd.correct}/${bd.wrong}/${bd.blank}`)
+      const top = inc.items.reduce((t, x) => t + x.points, 0)
+      kontrol(top === satir(o.id).score, `${o.ad}: puan toplamı ${top} ≠ skor ${satir(o.id).score}`)
+      const izinli = beklenenSinav === 'lgs' ? 'ABCD' : 'ABCDE'
+      kontrol(inc.items.every((x) => Object.keys(x.options).sort().join('') === izinli && x.correctOption in x.options),
+        `${o.ad}: options anahtarları ${Object.keys(inc.items[0]?.options ?? {}).join('')} (beklenen ${izinli})`)
+    }
+  })
+
   await adim(`${e} 6b. XP yalnızca BİR kez arttı (player_stats ve getMyStats), wins/gamesPlayed doğru`, async () => {
     const stat = await statOku(oyuncular.map((o) => o.id))
     for (const o of oyuncular) {
