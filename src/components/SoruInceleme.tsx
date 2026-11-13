@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { oyunHatalariniEkle } from '../hooks/defter'
 import { hataMesaji } from '../hooks/hata'
 import { api } from '../lib/client'
 import type { ReviewItem, Secenek } from '../types'
@@ -45,6 +47,7 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
   const [deneme, setDeneme] = useState(0)
   const [filtre, setFiltre] = useState<Filtre>('tumu')
   const [secili, setSecili] = useState<number | null>(null)
+  const [defter, setDefter] = useState(0)
   const [yon, setYon] = useState<'ileri' | 'geri'>('ileri')
   const serit = useRef<HTMLOListElement>(null)
   const kaydirma = useRef<{ x: number; y: number } | null>(null)
@@ -60,6 +63,7 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
           if (iptal) return
           const sirali = [...r.items].sort((a, b) => a.position - b.position)
           setListe(sirali)
+          setDefter(oyunHatalariniEkle(gameId, sirali)) // GEÇİCİ: gerçek backend bunu finish_game'de yapacak
           // İlk açılışta ilk YANLIŞ soru seçili (yoksa ilk soru)
           setSecili(sirali.find(q => durumu(q) === 'yanlis')?.position ?? sirali[0]?.position ?? null)
           return
@@ -187,6 +191,12 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
             })}
           </ol>
 
+          {defter > 0 && (
+            <Link to="/yanlislarim" className="inc-defter">
+              Yanlışlarım defterine {defter} soru eklendi <span aria-hidden="true">→</span>
+            </Link>
+          )}
+
           {!q ? (
             <p className="inc-bos">{filtre === 'yanlis' ? 'Hiç yanlışın yok. Harika!' : 'Boş bıraktığın soru yok.'}</p>
           ) : (
@@ -206,6 +216,7 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
             >
               <div className="inc-baslik">
                 <span className="ders-cip">{dersAdi(q.ders)}</span>
+                {q.outcome !== 'correct' && <span className="inc-defterde">Defterde</span>}
                 <span className="inc-sira">
                   Soru {q.position + 1}/{toplam}
                 </span>

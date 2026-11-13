@@ -561,3 +561,27 @@
   .bs-ic b, .bs-flas, .hk-uzun { animation: none; }
   .bs-ark { transition: none; }
 }
+
+/* ---------- Yanlışlarım: giriş noktaları ---------- */
+.defter-kart {
+  margin: 16px 20px 0; min-height: 60px; padding: 10px 14px; display: flex; align-items: center; gap: 12px;
+  border-radius: 16px; background: #fff; border: 1.5px solid var(--cizgi); color: var(--ink); text-decoration: none;
+  transition: border-color .2s, transform .15s; -webkit-tap-highlight-color: transparent;
+}
+.defter-kart:active { transform: scale(.98); }
+.defter-kart:focus-visible { outline: 3px solid rgba(241, 90, 36, .45); outline-offset: 2px; }
+.defter-ikon { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: rgba(112, 43, 58, .08); color: var(--burgundy); }
+.defter-metin { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.defter-metin b { font: 800 16px var(--font-baslik); }
+.defter-metin small { font: 500 13px var(--font-govde); color: var(--soluk); margin-top: 1px; }
+.defter-rozet { min-width: 28px; height: 28px; padding: 0 8px; display: grid; place-items: center; border-radius: 99px; background: var(--orange); color: var(--ink); font: 800 14px var(--font-baslik); font-variant-numeric: tabular-nums; }
+.defter-ok { font: 700 24px/1 var(--font-baslik); color: var(--soluk); margin-left: 2px; }
+@media (hover: hover) { .defter-kart:hover { border-color: var(--burgundy); } }
+
+.inc-defter {
+  display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; margin: 2px 20px 10px; padding: 0 14px;
+  border-radius: 14px; background: rgba(241, 90, 36, .1); color: var(--burgundy); font: 700 14px var(--font-baslik); text-decoration: none;
+}
+.inc-defter span { transition: transform .2s; }
+.inc-defter:active span { transform: translateX(4px); }
+.inc-defterde { padding: 3px 8px; border-radius: 99px; border: 1px solid rgba(112, 43, 58, .3); color: var(--burgundy); font: 700 11px var(--font-govde); letter-spacing: .02em; white-space: nowrap; }

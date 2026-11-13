@@ -85,7 +85,8 @@
   .mn-sayfa .aksiyon > .hk-ipucu { flex-basis: 100%; margin-top: -6px; }
   .mn-sayfa .ayrac { display: none; }
   .mn-sayfa .ilerleme-kart { grid-column: 2; grid-row: 2; margin: 0 0 14px; align-self: start; }
-  .mn-sayfa .lider { grid-column: 2; grid-row: 3 / -1; margin: 0; min-height: 0; overflow-y: auto; align-self: stretch; }
+  .mn-sayfa .defter-kart { grid-column: 2; grid-row: 3; margin: 0 0 14px; min-height: 56px; }
+  .mn-sayfa .lider { grid-column: 2; grid-row: 4 / -1; margin: 0; min-height: 0; overflow-y: auto; align-self: stretch; }
   .mn-sayfa .lider .kart-bant { position: sticky; top: 0; z-index: 1; }
 
   /* ---------- Lobi: solda QR + kod, sağda slotlar ---------- */
