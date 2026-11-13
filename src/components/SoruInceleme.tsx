@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { oyunHatalariniEkle } from '../hooks/defter'
 import { hataMesaji } from '../hooks/hata'
 import { api } from '../lib/client'
 import type { ReviewItem, Secenek } from '../types'
@@ -63,7 +62,7 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
           if (iptal) return
           const sirali = [...r.items].sort((a, b) => a.position - b.position)
           setListe(sirali)
-          setDefter(oyunHatalariniEkle(gameId, sirali)) // GEÇİCİ: gerçek backend bunu finish_game'de yapacak
+          setDefter(r.addedToNotebook ?? 0) // bu yarıştan Yanlışlarım defterine giren soru sayısı
           // İlk açılışta ilk YANLIŞ soru seçili (yoksa ilk soru)
           setSecili(sirali.find(q => durumu(q) === 'yanlis')?.position ?? sirali[0]?.position ?? null)
           return
@@ -126,6 +125,18 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
   }, [liste])
 
   const q = gorunen[konum] ?? null
+
+  // Hangi sorular deftere girdi? Yanlışların hepsi; boşlardan yalnızca görülenler. Görülmeyen boşlar
+  // (süre bitince açılmayanlar) sondadır, bu yüzden pozisyon sırasıyla ilk (eklenen − yanlış) boş girer.
+  const defterdekiler = useMemo(() => {
+    const k = new Set<number>()
+    if (!liste || defter <= 0) return k
+    const sirali = [...liste].sort((a, b) => a.position - b.position)
+    for (const x of sirali) if (durumu(x) === 'yanlis') k.add(x.position)
+    let bosHak = Math.max(0, defter - k.size)
+    for (const x of sirali) if (durumu(x) === 'bos' && bosHak > 0) (k.add(x.position), bosHak--)
+    return k
+  }, [liste, defter])
   const toplam = liste?.length ?? 10
 
   return (
@@ -216,7 +227,7 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
             >
               <div className="inc-baslik">
                 <span className="ders-cip">{dersAdi(q.ders)}</span>
-                {q.outcome !== 'correct' && <span className="inc-defterde">Defterde</span>}
+                {defterdekiler.has(q.position) && <span className="inc-defterde">Defterde</span>}
                 <span className="inc-sira">
                   Soru {q.position + 1}/{toplam}
                 </span>

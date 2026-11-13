@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getMistakeSummary, practiceAnswer, type MistakeItem, type PracticeResult } from '../hooks/defter'
+import { dersAdi, getMistakeSummary, practiceAnswer, type MistakeItem, type PracticeResult } from '../hooks/defter'
 import { hataMesaji } from '../hooks/hata'
 import { useSes } from '../hooks/useSes'
 import type { Secenek } from '../types'
@@ -207,7 +207,7 @@ export default function CalismaPaneli({ sorular, onKapat, onDeftereDon, onYenide
             <div key={q.questionId} className="soru-sahne soru-gir">
               <div className="soru-kart">
                 <div className="soru-ust">
-                  <span className="ders-cip">{q.subject}</span>
+                  <span className="ders-cip">{dersAdi(q.subject)}</span>
                   <span className="sinav-yazi">{q.exam === 'lgs' ? 'LGS' : 'YKS'}</span>
                 </div>
                 {q.imageUrl && <img src={q.imageUrl} alt="" />}

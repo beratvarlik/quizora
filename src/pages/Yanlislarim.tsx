@@ -6,6 +6,7 @@ import DevreHatlari from '../components/DevreHatlari'
 import { IkCarpi, IkDefter, IkGeri } from '../components/Ikon'
 import SesButonu from '../components/SesButonu'
 import {
+  dersAdi,
   getMistakeSummary,
   getMistakes,
   neZaman,
@@ -79,7 +80,7 @@ function DefterSatir({ m, aktif, onAc, onCikar }: { m: MistakeItem; aktif: boole
         }}
       >
         <span className="df-satir-ust">
-          <span className="ders-cip">{m.subject}</span>
+          <span className="ders-cip">{dersAdi(m.subject)}</span>
           <span className={`df-cevap ${m.lastAnswer ? 'y' : 'b'}`}>{m.lastAnswer ? `Senin: ${m.lastAnswer}` : 'Boş'}</span>
         </span>
         <span className="df-metin">{m.text}</span>
