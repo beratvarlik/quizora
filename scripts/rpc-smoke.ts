@@ -1502,7 +1502,7 @@ async function gunlukGorevTesti() {
     JSON.stringify(s1),
   )
   const s2 = await ham(U2, bugun)
-  rapor('U2: notebook3 = 3 (3 çözüldü, 3 elle çıkarılan sayılmadı), win1 0, acc70 0', s2.notebook3 === 3 && s2.acc70 === 0, JSON.stringify(s2))
+  rapor('U2: notebook3 = 3 (3 çözüldü, 3 elle çıkarılan sayılmadı), win1 0, acc70 1 (yalnız G3: 5/5)', s2.notebook3 === 3 && s2.win1 === 0 && s2.acc70 === 1, JSON.stringify(s2))
   const sP = await ham(PB, bugun)
   rapor('hiç oynamayan: tüm ilerlemeler 0 (başkalarının verisi karışmaz)', Object.values(sP).every((v) => Number(v) === 0), JSON.stringify(sP))
 
