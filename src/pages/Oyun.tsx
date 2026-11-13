@@ -6,6 +6,7 @@ import { BaglantiBandi, HataEkrani, Yukleniyor } from '../components/Durum'
 import HizBildirimi from '../components/HizBildirimi'
 import HizRozeti from '../components/HizRozeti'
 import { IkCarpi, IkTik } from '../components/Ikon'
+import { sinavEtiketi, sinavHarfleri } from '../components/Kategoriler'
 import SureHalkasi from '../components/SureHalkasi'
 import { hataMesaji } from '../hooks/hata'
 import { useCountdown } from '../hooks/useCountdown'
@@ -13,7 +14,6 @@ import { useGame } from '../hooks/useGame'
 import { api } from '../lib/client'
 import type { AnswerResult, PlayerState, Question, Secenek } from '../types'
 
-const HARFLER: Secenek[] = ['A', 'B', 'C', 'D', 'E']
 const GERI_BILDIRIM_MS = 1500
 
 type Sonuc = 'd' | 'y' | 'b'
@@ -148,7 +148,8 @@ export default function Oyun() {
   const hizli = sayac.hizli
   const benimPuan = puan ?? me.score
   const suAnki = pos ?? me.currentQ
-  const harfler = soru ? HARFLER.filter(h => soru.options[h]?.trim()) : []
+  // Şık sayısı sorudan gelir (boş/null şık gösterilmez); LGS'de E asla gösterilmez.
+  const harfler = soru ? sinavHarfleri(oyun.sinav).filter(h => soru.options[h]?.trim()) : []
   const bitiren = oyun.speedupBy ? snapshot.players.find(p => p.userId === oyun.speedupBy) : null
 
   return (
@@ -210,13 +211,13 @@ export default function Oyun() {
           <div key={soru.position} className="soru-gir">
             <div className="soru-kart kart">
               <div className="kart-bant">
-                {soru.ders}
-                <span className="sag">{suAnki + 1}. soru</span>
+                {sinavEtiketi(oyun.kategori)}
+                <span className="sag">{soru.ders.replace(/\s*\(LGS\)\s*$/, '')}</span>
               </div>
               {soru.imageUrl && <img src={soru.imageUrl} alt="" />}
               <div className="metin">{soru.text}</div>
             </div>
-            <div className="siklar" role="group" aria-label="Şıklar">
+            <div className={`siklar${harfler.length <= 4 ? ' siklar-4' : ''}`} role="group" aria-label="Şıklar">
               {harfler.map(h => {
                 let cls = ''
                 if (geri) {
@@ -260,7 +261,13 @@ export default function Oyun() {
           <span className="bant-ikon">{geri.sonuc.correct ? <IkTik boyut={22} /> : <IkCarpi boyut={22} />}</span>
           <div>
             <b>{geri.secenek === null ? 'Boş geçildi' : geri.sonuc.correct ? `Doğru! +${geri.sonuc.points}` : `Yanlış ${geri.sonuc.points}`}</b>
-            <small>{geri.sonuc.correct ? 'Hızlı cevap, fazla puan.' : `Doğru cevap: ${geri.sonuc.correctOption}`}</small>
+            <small>
+              {geri.sonuc.correct
+                ? 'Hızlı cevap, fazla puan.'
+                : harfler.includes(geri.sonuc.correctOption)
+                  ? `Doğru cevap: ${geri.sonuc.correctOption}`
+                  : 'Bir sonraki soruya geçiliyor.'}
+            </small>
           </div>
         </div>
       )}

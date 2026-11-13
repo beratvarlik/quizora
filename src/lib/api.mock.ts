@@ -698,6 +698,9 @@ export const api: QuizoraApi = {
     const simdi = Date.now()
     if (g.info.status === 'finished') throw new Error('Oyun bitti')
     if (g.info.status !== 'playing') throw new Error('Oyun başlamadı')
+    // LGS 4 şıklıdır (A–D); YKS 5 şıklı (A–E).
+    const gecerli: Secenek[] = g.info.sinav === 'lgs' ? ['A', 'B', 'C', 'D'] : ['A', 'B', 'C', 'D', 'E']
+    if (secenek !== null && !gecerli.includes(secenek)) throw new Error('Geçersiz şık')
     if (ben.cevaplar.has(position)) throw new Error('Bu soru zaten cevaplandı')
     if (position !== ben.currentQ) throw new Error('Sıra dışı soru')
     if (remainingMs(g.info, simdi) <= 0) throw new Error('Süre doldu')

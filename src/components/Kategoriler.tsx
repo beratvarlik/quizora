@@ -12,6 +12,20 @@ export const KATEGORILER: KategoriBilgi[] = [
 ]
 export const kategoriBul = (k: Kategori) => KATEGORILER.find(c => c.k === k) ?? KATEGORILER[0]
 
+const KISA_AD: Record<Kategori, string> = {
+  sayisal: 'Sayısal',
+  esit_agirlik: 'Eşit Ağırlık',
+  sozel: 'Sözel',
+  tyt: 'TYT',
+  lgs_sozel: 'Sözel',
+  lgs_sayisal: 'Sayısal',
+}
+/** "LGS · Sözel" / "YKS · Sayısal" */
+export const sinavEtiketi = (k: Kategori) => `${k.startsWith('lgs_') ? 'LGS' : 'YKS'} · ${KISA_AD[k] ?? k}`
+
+/** Sınava göre şık harfleri: LGS 4 şık (A–D), YKS 5 şık (A–E). */
+export const sinavHarfleri = (sinav: Sinav): Array<'A' | 'B' | 'C' | 'D' | 'E'> => (sinav === 'lgs' ? ['A', 'B', 'C', 'D'] : ['A', 'B', 'C', 'D', 'E'])
+
 // Çizgi ikonlar: aynı stil (stroke=currentColor, 2px, yuvarlak uç) → renk kartın CSS'inden gelir.
 function abakus(x0: number, y0: number, w: number, h: number, teller: Array<[number, number[]]>, r: number) {
   let d = `<rect x="${x0}" y="${y0}" width="${w}" height="${h}" rx="${r * 1.2}"/>`

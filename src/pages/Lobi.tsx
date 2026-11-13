@@ -8,7 +8,7 @@ import DevreHatlari from '../components/DevreHatlari'
 import { BaglantiBandi, HataEkrani, Yukleniyor } from '../components/Durum'
 import { IkGeri, IkKopya, IkTik } from '../components/Ikon'
 import KademeRozet from '../components/KademeRozet'
-import { kategoriBul } from '../components/Kategoriler'
+import { sinavEtiketi } from '../components/Kategoriler'
 import { hataMesaji } from '../hooks/hata'
 import { useCountdown } from '../hooks/useCountdown'
 import { useGame } from '../hooks/useGame'
@@ -91,7 +91,6 @@ export default function Lobi() {
 
   const host = oyun.hostId === userId
   const oyuncular = snapshot.players
-  const kat = kategoriBul(oyun.kategori)
   const yeterli = oyuncular.length >= 2
 
   return (
@@ -105,8 +104,7 @@ export default function Lobi() {
             <IkGeri />
           </button>
           <Cip>
-            {oyun.sinav === 'lgs' ? '' : 'YKS · '}
-            {kat.ad} · {oyun.totalQuestions} soru
+            {sinavEtiketi(oyun.kategori)} · {oyun.totalQuestions} soru
           </Cip>
         </header>
 

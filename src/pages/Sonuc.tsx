@@ -6,7 +6,7 @@ import DevreHatlari from '../components/DevreHatlari'
 import { BaglantiBandi, HataEkrani, Yukleniyor } from '../components/Durum'
 import { Tac } from '../components/Ikon'
 import KademeRozet from '../components/KademeRozet'
-import { kategoriBul } from '../components/Kategoriler'
+import { sinavEtiketi } from '../components/Kategoriler'
 import { UstBar } from '../components/Logo'
 import { hataMesaji } from '../hooks/hata'
 import { useGame } from '../hooks/useGame'
@@ -99,7 +99,6 @@ export default function Sonuc() {
   const benKazandim = kazanan?.userId === userId
   const b = sonuc.breakdown
   const xp = sonuc.xpBreakdown
-  const kat = kategoriBul(oyun.kategori)
 
   return (
     <main className="sayfa">
@@ -107,7 +106,7 @@ export default function Sonuc() {
       <div className="icerik">
         <section className="kazanan">
           <DevreHatlari kose="sag-ust" boyut={200} koyu zemin="#702B3A" />
-          <UstBar sag={<span className="etiket">{kat.ad} · sonuç</span>} />
+          <UstBar sag={<span className="etiket">{sinavEtiketi(oyun.kategori)} · sonuç</span>} />
           {kazanan && (
             <div className="sat">
               <span className="tac-av">

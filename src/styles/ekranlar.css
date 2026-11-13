@@ -240,3 +240,7 @@
 }
 .kazanan .ust-bar { padding-left: 0; padding-right: 0; }
 .kazanan .logo { color: var(--cream); }
+/* LGS: 4 şık — butonlar biraz büyür, boşluk dengeli dağılır */
+.siklar-4 { gap: 12px; }
+.siklar-4 .sik { min-height: 64px; padding: 11px 16px 11px 11px; font-size: 17px; }
+.siklar-4 .sik .harf { width: 42px; height: 42px; font-size: 17px; }
