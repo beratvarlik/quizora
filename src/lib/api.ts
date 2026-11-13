@@ -14,6 +14,8 @@ import type {
   MyStats,
   GameReview,
   MistakeItem,
+  ClaimResult,
+  DailyTasks,
   MistakeSummary,
   PerformanceStats,
   PracticeResult,
@@ -197,6 +199,20 @@ interface HamDefterSatir {
   last_answer: Secenek | null
   wrong_count: number
   last_wrong_at: string
+}
+
+interface HamGunluk {
+  date: string
+  resets_at: string
+  tasks: { id: string; title: string; target: number; progress: number; xp: number; completed: boolean; claimed: boolean }[]
+  bonus: { xp: number; completed: boolean; claimed: boolean }
+}
+
+interface HamOdul {
+  xp_gained: number
+  new_xp: number
+  tier_before: string
+  tier_after: string
 }
 
 interface HamPerformans {
@@ -691,6 +707,29 @@ export function createApi(client: Istemci): QuizoraApi {
 
     async removeMistake(questionId: string): Promise<void> {
       await rpc<unknown>(client, 'remove_mistake', { p_question_id: questionId })
+    },
+
+    async getDailyTasks(): Promise<DailyTasks> {
+      const h = await rpc<HamGunluk>(client, 'get_daily_tasks')
+      return {
+        date: h.date,
+        resetsAt: h.resets_at,
+        tasks: (h.tasks ?? []).map((t) => ({
+          id: t.id,
+          title: t.title,
+          target: t.target,
+          progress: t.progress,
+          xp: t.xp,
+          completed: t.completed,
+          claimed: t.claimed,
+        })),
+        bonus: { xp: h.bonus.xp, completed: h.bonus.completed, claimed: h.bonus.claimed },
+      }
+    },
+
+    async claimDailyTask(taskId: string): Promise<ClaimResult> {
+      const h = await rpc<HamOdul>(client, 'claim_daily_task', { p_task_id: taskId })
+      return { xpGained: h.xp_gained, newXp: h.new_xp, tierBefore: h.tier_before, tierAfter: h.tier_after }
     },
 
     async getPerformance(opts?: { exam?: Sinav; days?: number }): Promise<PerformanceStats> {
