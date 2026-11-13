@@ -6,6 +6,8 @@ import Lobi from './pages/Lobi'
 import Join from './pages/Join'
 import Oyun from './pages/Oyun'
 import Sonuc from './pages/Sonuc'
+import Yanlislarim from './pages/Yanlislarim'
+import Coz from './pages/Coz'
 import SesTestPaneli, { sesTestAcik } from './components/SesTestPaneli'
 import { useSes } from './hooks/useSes'
 
@@ -21,6 +23,8 @@ export default function App() {
       <Route path="/join/:code" element={<Join />} />
       <Route path="/oyun/:code" element={<Oyun />} />
       <Route path="/sonuc/:code" element={<Sonuc />} />
+      <Route path="/yanlislarim" element={<Yanlislarim />} />
+      <Route path="/yanlislarim/coz" element={<Coz />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     {sesTestAcik() && <SesTestPaneli />}

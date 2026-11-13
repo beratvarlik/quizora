@@ -5,10 +5,11 @@ import Button from '../components/Button'
 import Cip from '../components/Cip'
 import DevreHatlari from '../components/DevreHatlari'
 import { BaglantiBandi, Yukleniyor } from '../components/Durum'
-import { IkArti, IkSimsek } from '../components/Ikon'
+import { IkArti, IkDefter, IkSimsek } from '../components/Ikon'
 import KademeRozet from '../components/KademeRozet'
 import SesButonu from '../components/SesButonu'
 import { KATEGORILER, KategoriIkon, kategoriBul } from '../components/Kategoriler'
+import { getMistakeSummary } from '../hooks/defter'
 import { hataMesaji } from '../hooks/hata'
 import { useSes } from '../hooks/useSes'
 import { useSession } from '../hooks/useSession'
@@ -47,6 +48,7 @@ export default function Menu() {
   const [hata, setHata] = useState<string | null>(null)
   const [kuruluyor, setKuruluyor] = useState(false)
   const [araniyor, setAraniyor] = useState(false)
+  const [defterSayi, setDefterSayi] = useState<number | null>(null)
   const ses = useSes()
   const { muzikModu } = ses
   useEffect(() => muzikModu('sakin'), [muzikModu])
@@ -57,6 +59,7 @@ export default function Menu() {
 
   useEffect(() => {
     api.getMyStats().then(setStat, () => {})
+    getMistakeSummary().then(s => setDefterSayi(s.total), () => {})
     return api.subscribeGlobalLeaderboard(setLider)
   }, [])
 
@@ -190,6 +193,18 @@ export default function Menu() {
         <div className="dagilim" aria-live="polite" key={secili ?? 'bos'}>
           {bilgi ? bilgi.dagilim.map(d => <Cip key={d}>{d}</Cip>) : <span className="ipucu">Bir alan seç: ders dağılımı burada görünür.</span>}
         </div>
+
+        <Link to="/yanlislarim" className="defter-kart" aria-label={defterSayi ? `Yanlışlarım: ${defterSayi} soru` : 'Yanlışlarım'}>
+          <span className="defter-ikon">
+            <IkDefter />
+          </span>
+          <span className="defter-metin">
+            <b>Yanlışlarım</b>
+            <small>{defterSayi === null ? '…' : defterSayi === 0 ? 'Defterin temiz ✓' : 'Kaçırdıklarını tekrar çöz'}</small>
+          </span>
+          {defterSayi !== null && defterSayi > 0 && <span className="defter-rozet">{defterSayi}</span>}
+          <span className="defter-ok" aria-hidden="true">›</span>
+        </Link>
 
         <div className="aksiyon">
           <Button

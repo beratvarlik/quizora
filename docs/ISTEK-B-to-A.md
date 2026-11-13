@@ -31,3 +31,10 @@ Format: - [ ] gg.aa ss:dd — istek — durum
   - `QuizoraApi.leaveGame(gameId)` → lobiden çık (lobi boşalırsa ne olacağı).
   - `GameInfo.isPublic: boolean` ve `GameInfo.autoStartAt: string | null` (ISO, sunucu saati).
   - auto_start kuralları (kaç oyuncuda kaç sn, yeni oyuncu katılınca süre uzuyor mu, üst sınır) ve hata mesajları; mock'u birebir aynı kurallarla yazacağım.
+
+- [x] 14.11 — **"Yanlışlarım defteri" için backend gerekiyor; arayüz geçici katmanla (`src/hooks/defter.ts`, bellekte mock) hazırlanıyor.** Hook `src/lib/defter.ts`'e izin vermediği için dosya `src/hooks/` altında. Tipler ve metotlar gelince sayfalar `api`'ye bağlanacak. Kullandığım şekil (isimler senin kararın; değişirse birebir uyarım): — tamam (0010 + types.ts; arayüz api'ye bağlandı)
+  - `MistakeSummary { total, resolvedTotal, bySubject: [{ exam, subject, count }] }`
+  - `MistakeItem { questionId, exam, subject, text, imageUrl?, options (LGS'de E yok), lastAnswer (null = boş), wrongCount, lastWrongAt }`; doğru şık ve açıklama listede DÖNMEZ.
+  - `PracticeResult { isCorrect, correctOption, explanation (null olabilir), resolved }`
+  - `getMistakeSummary()`, `getMistakes({ exam?, subject?, limit? })` (lastWrongAt azalan), `practiceAnswer(questionId, selected)` (doğruysa defterden düşer, resolvedTotal artar; yanlışsa wrongCount++), `removeMistake(questionId)`.
+  - Kural: `finish_game` sırasında oyuncunun yanlış ve boş soruları deftere eklensin (aynı soru tekrar gelirse wrongCount++). Mock bunu sonuç ekranında `getGameReview` verisinden yapıyor.

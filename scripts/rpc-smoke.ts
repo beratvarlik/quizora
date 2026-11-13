@@ -851,6 +851,276 @@ async function hemenKatilTesti(A: Kullanici, B: Kullanici, C: Kullanici, D: Kull
   await oyunlariSil(gecici.splice(0))
 }
 
+// ---- Yanlışlarım defteri (0010_yanlislarim_defteri.sql) ----
+
+const DEFTER_SIZINTI = /^(explanation|cozum_aciklamasi|correct_option|dogru_sik|aciklama)$/i
+
+async function gqOku(oyun: string): Promise<Alan[]> {
+  const { data, error } = await admin.from('game_questions').select('position, source_table, question_id').eq('game_id', oyun).order('position')
+  if (error) throw new Error(`game_questions: ${error.message}`)
+  return (data ?? []) as Alan[]
+}
+
+// Oyunun `pos` sorusunu verilen soruyla değiştirir (soru başka pozisyondaysa onunla yer değiştirir; oyunda tekrar olmaz)
+async function soruZorla(oyun: string, pos: number, tbl: string, qid: string) {
+  const satirlar = await gqOku(oyun)
+  const hedef = satirlar.find((x) => x.position === pos)!
+  const var_ = satirlar.find((x) => x.question_id === qid)
+  if (var_ && var_.position !== pos) {
+    await admin.from('game_questions').update({ source_table: hedef.source_table, question_id: hedef.question_id }).eq('game_id', oyun).eq('position', var_.position)
+  }
+  await admin.from('game_questions').update({ source_table: tbl, question_id: qid }).eq('game_id', oyun).eq('position', pos)
+}
+
+async function defterTesti(A: Kullanici, B: Kullanici, D: Kullanici) {
+  await admin.from('mistake_book').delete().in('user_id', [A.id, B.id, D.id])
+
+  const defter = async (u: Kullanici): Promise<Alan[]> => {
+    const { data, error } = await admin.from('mistake_book').select('*').eq('user_id', u.id)
+    if (error) throw new Error(`mistake_book: ${error.message}`)
+    return (data ?? []) as Alan[]
+  }
+  const ozet = (u: Kullanici) => u.client.rpc('get_mistake_summary')
+  const liste = (u: Kullanici, a: { exam?: string | null; subject?: string | null; limit?: number } = {}) =>
+    u.client.rpc('get_mistakes', { p_exam: a.exam ?? null, p_subject: a.subject ?? null, p_limit: a.limit ?? 50 })
+  const ger = (u: Kullanici, id: string) => u.client.rpc('get_game_review', { p_game_id: id })
+  const bitir = async (oyun: string, kimler: Kullanici[]) => {
+    await sureyiBitir(oyun)
+    const s = await Promise.all(kimler.flatMap((u) => [u, u]).map((u) => u.client.rpc('finish_game', { p_game_id: oyun })))
+    const hata = s.find((r) => r.error)
+    if (hata) throw new Error(`finish_game: ${hata.error?.message}`)
+  }
+  const sizinti: string[] = []
+
+  // ===== Oyun 3 (önce, defterler boşken): yalnızca GÖRÜLEN sorular deftere girer =====
+  // A hepsini doğru yapar. D iki soruyu yanlış yapar, 3.yü görür ama cevaplamaz; 4-10. hiç görülmez.
+  const g3 = await oyunKur(A, [D])
+  await Promise.all([
+    planlaOyna(A, g3, 'DDDDDDDDDD', sizinti),
+    (async () => {
+      await planlaOyna(D, g3, 'YY', sizinti)
+      const gq = await D.client.rpc('get_question', { p_game_id: g3, p_position: 2 })
+      if (gq.error) throw new Error(`get_question(2): ${gq.error.message}`)
+    })(),
+  ])
+  await bitir(g3, [A, D])
+  const gq3 = await gqOku(g3)
+  const d3 = (await defter(D)).filter((r) => r.last_game_id === g3)
+  const d3Pos = d3.map((r) => gq3.find((x) => x.question_id === r.question_id)?.position).sort()
+  const bos3 = d3.find((r) => r.question_id === gq3[2].question_id)
+  rapor(
+    'görülmeyen sorular deftere girmez: D 2 yanlış + görüp cevaplamadığı 1 boş = 3 satır, A (hepsi doğru) 0',
+    d3.length === 3 && JSON.stringify(d3Pos) === '[0,1,2]' && bos3?.last_answer === null && (await defter(A)).length === 0,
+    `D pozisyonları ${JSON.stringify(d3Pos)}, A ${(await defter(A)).length} satır`,
+  )
+
+  // ===== Oyun 1: A 'DYBDDDDDDD' (pos1 yanlış, pos2 boş), B 'YDDDDDDDDD' (pos0 yanlış) =====
+  const g1 = await oyunKur(A, [B])
+  await Promise.all([planlaOyna(A, g1, 'DYBDDDDDDD', sizinti), planlaOyna(B, g1, 'YDDDDDDDDD', sizinti)])
+  await bitir(g1, [A, B]) // her biri iki kez (eşzamanlı): wrong_count yalnızca bir kez artmalı
+  const q1 = await gqOku(g1)
+  const dA = await defter(A)
+  const dB = await defter(B)
+  const aA = dA.find((r) => r.question_id === q1[1].question_id)
+  const bA = dA.find((r) => r.question_id === q1[2].question_id)
+  const d1 = await dogruSik(g1, 1)
+  rapor(
+    "finish_game (4 eşzamanlı çağrı): A'nın yanlışı ve boşu deftere girdi; wrong_count 1, resolved_at boş, last_game_id doğru",
+    dA.length === 2 && !!aA && !!bA && aA.wrong_count === 1 && bA.wrong_count === 1 && aA.resolved_at === null && bA.resolved_at === null &&
+      aA.last_game_id === g1 && bA.last_game_id === g1 && aA.source_table === q1[1].source_table,
+    JSON.stringify(dA.map((r) => [r.wrong_count, r.last_answer])),
+  )
+  rapor(
+    'last_answer: yanlışta seçilen şık (doğru şık değil), boşta NULL',
+    !!aA?.last_answer && aA.last_answer !== d1 && bA?.last_answer === null,
+    `${aA?.last_answer} / ${bA?.last_answer}`,
+  )
+  rapor(
+    "B'nin defterinde yalnızca kendi yanlışı var (pos0); doğru yaptığı sorular girmedi",
+    dB.length === 1 && dB[0].question_id === q1[0].question_id && dB[0].wrong_count === 1,
+    JSON.stringify(dB.map((r) => r.wrong_count)),
+  )
+  const fAgain = await Promise.all([A, B, A, B].map((u) => u.client.rpc('finish_game', { p_game_id: g1 })))
+  const dA2 = await defter(A)
+  rapor(
+    'finish_game tekrar çağrılınca wrong_count ARTMAZ',
+    fAgain.every((r) => !r.error) && dA2.length === 2 && dA2.every((r) => r.wrong_count === 1) && (await defter(B))[0].wrong_count === 1,
+    fAgain.find((r) => r.error)?.error?.message,
+  )
+
+  // GameReview.added_to_notebook
+  const ra = await ger(A, g1)
+  const rb = await ger(B, g1)
+  rapor(
+    'get_game_review: added_to_notebook A için 2, B için 1 (items hâlâ 10)',
+    !ra.error && !rb.error && ra.data.added_to_notebook === 2 && rb.data.added_to_notebook === 1 && ra.data.items.length === 10,
+    `${ra.data?.added_to_notebook}/${rb.data?.added_to_notebook}`,
+  )
+
+  // get_mistake_summary
+  const sa = await ozet(A)
+  const sb = await ozet(B)
+  const toplamSay = (s: Alan) => (s.by_subject as Alan[]).reduce((t, x) => t + x.count, 0)
+  rapor(
+    'get_mistake_summary: A total 2, resolved_total 0, by_subject toplamı 2, exam yks ve ders etiketi (TYT); B total 1',
+    !sa.error && sa.data.total === 2 && sa.data.resolved_total === 0 && toplamSay(sa.data) === 2 &&
+      (sa.data.by_subject as Alan[]).every((x) => x.exam === 'yks' && /\(TYT\)/.test(x.subject)) && sb.data.total === 1,
+    sa.error?.message ?? JSON.stringify(sa.data),
+  )
+
+  // get_mistakes: alanlar, sızıntı yok, filtreler
+  const la = await liste(A)
+  const itA = (la.data?.items ?? []) as Alan[]
+  const anahtarlar = tumAnahtarlar(la.data)
+  rapor(
+    'get_mistakes: 2 öğe; alanlar tam; doğru şık/açıklama alan adı YOK',
+    !la.error && itA.length === 2 &&
+      itA.every((x) => ['question_id', 'exam', 'subject', 'text', 'image_url', 'options', 'last_answer', 'wrong_count', 'last_wrong_at'].every((k) => k in x)) &&
+      !anahtarlar.some((k) => DEFTER_SIZINTI.test(k)),
+    la.error?.message ?? [...new Set(anahtarlar)].join(','),
+  )
+  rapor(
+    'get_mistakes: öğeler defterdeki satırlarla aynı, boş soruda last_answer null, yanlışta seçilen şık',
+    new Set(itA.map((x) => x.question_id)).size === 2 &&
+      itA.find((x) => x.question_id === q1[1].question_id)?.last_answer === aA?.last_answer &&
+      itA.find((x) => x.question_id === q1[2].question_id)?.last_answer === null,
+  )
+  const lb = await liste(B)
+  rapor("başkasının defteri görünmez: B yalnızca kendi 1 sorusunu görür", !lb.error && (lb.data.items as Alan[]).length === 1 && lb.data.items[0].question_id === q1[0].question_id)
+  const lLgs = await liste(A, { exam: 'lgs' })
+  const lYks = await liste(A, { exam: 'yks' })
+  const ders = itA[0].subject as string
+  const lDers = await liste(A, { subject: ders })
+  const l1 = await liste(A, { limit: 1 })
+  const lKotu = await liste(A, { exam: 'xyz' })
+  rapor(
+    'get_mistakes filtreleri: exam=lgs 0, exam=yks 2, subject yalnızca o ders, limit=1 → 1; geçersiz exam → hata',
+    (lLgs.data.items as Alan[]).length === 0 && (lYks.data.items as Alan[]).length === 2 &&
+      (lDers.data.items as Alan[]).length >= 1 && (lDers.data.items as Alan[]).every((x) => x.subject === ders) &&
+      (l1.data.items as Alan[]).length === 1 && lKotu.error?.message === 'Geçersiz sınav',
+    lKotu.error?.message,
+  )
+
+  // Silinmiş soru: sayımda ve listede atlanır; satır geri konunca döner
+  const sil = q1[2]
+  const { data: silSatir } = await admin.from(sil.source_table).select('*').eq('id', sil.question_id).single()
+  if (silSatir) {
+    try {
+      await admin.from(sil.source_table).delete().eq('id', sil.question_id)
+      const s1 = await ozet(A)
+      const l2 = await liste(A)
+      rapor('silinmiş soru: özet ve liste hata vermeden atlar (total 1, 1 öğe)', !s1.error && !l2.error && s1.data.total === 1 && l2.data.items.length === 1, s1.error?.message ?? l2.error?.message)
+    } finally {
+      const { error: geriE } = await admin.from(sil.source_table).insert(silSatir)
+      rapor('silinen soru geri yüklendi', !geriE, geriE?.message)
+    }
+  }
+
+  // ===== practice_answer =====
+  const rastgele = '00000000-0000-4000-8000-000000000000'
+  const p0 = await A.client.rpc('practice_answer', { p_question_id: q1[0].question_id, p_selected: 'A' })
+  const pr = await A.client.rpc('practice_answer', { p_question_id: rastgele, p_selected: 'A' })
+  rapor(
+    "defterde olmayan soru → 'Bu soru defterinde yok' (başkasının sorusu ve olmayan id)",
+    p0.error?.message === 'Bu soru defterinde yok' && pr.error?.message === 'Bu soru defterinde yok',
+    `${p0.error?.message} / ${pr.error?.message}`,
+  )
+  const pz = await A.client.rpc('practice_answer', { p_question_id: q1[1].question_id, p_selected: 'Z' })
+  rapor("geçersiz şık → 'Geçersiz şık'", pz.error?.message === 'Geçersiz şık', pz.error?.message)
+
+  const yanlisSik = SIKLAR.find((s) => s !== d1)!
+  const py = await A.client.rpc('practice_answer', { p_question_id: q1[1].question_id, p_selected: yanlisSik })
+  const satirY = (await defter(A)).find((r) => r.question_id === q1[1].question_id)
+  rapor(
+    'practice_answer yanlış: is_correct false, resolved false, doğru şık + açıklama döner; wrong_count 2, last_answer güncel',
+    !py.error && py.data.is_correct === false && py.data.resolved === false && py.data.correct_option === d1 &&
+      satirY?.wrong_count === 2 && satirY.last_answer === yanlisSik && satirY.resolved_at === null,
+    py.error?.message ?? JSON.stringify(py.data),
+  )
+  const { data: acik } = await admin.from(q1[1].source_table).select('cozum_aciklamasi').eq('id', q1[1].question_id).single()
+  const pd = await A.client.rpc('practice_answer', { p_question_id: q1[1].question_id, p_selected: d1 })
+  const satirD = (await defter(A)).find((r) => r.question_id === q1[1].question_id)
+  rapor(
+    'practice_answer doğru: is_correct true, resolved true, açıklama veritabanındakiyle aynı, resolved_at dolu',
+    !pd.error && pd.data.is_correct === true && pd.data.resolved === true && (pd.data.explanation ?? null) === (acik?.cozum_aciklamasi ?? null) && !!satirD?.resolved_at,
+    pd.error?.message ?? JSON.stringify(pd.data),
+  )
+  const sc = await ozet(A)
+  const lc = await liste(A)
+  const pTekrar = await A.client.rpc('practice_answer', { p_question_id: q1[1].question_id, p_selected: d1 })
+  rapor(
+    'çözülen soru listeden ve sayımdan çıkar (total 1, resolved_total 1); tekrar çözmek hata verir',
+    sc.data.total === 1 && sc.data.resolved_total === 1 && lc.data.items.length === 1 && pTekrar.error?.message === 'Bu soru defterinde yok',
+    pTekrar.error?.message,
+  )
+
+  // ===== remove_mistake =====
+  const rm = await A.client.rpc('remove_mistake', { p_question_id: q1[2].question_id })
+  const sr = await ozet(A)
+  const rm2 = await A.client.rpc('remove_mistake', { p_question_id: q1[2].question_id })
+  const rm3 = await A.client.rpc('remove_mistake', { p_question_id: rastgele })
+  rapor(
+    "remove_mistake: soru çıkar (total 0, resolved_total 2); tekrar çağrı sessiz; olmayan soru 'Bu soru defterinde yok'",
+    !rm.error && sr.data.total === 0 && sr.data.resolved_total === 2 && !rm2.error && rm3.error?.message === 'Bu soru defterinde yok',
+    rm.error?.message ?? rm3.error?.message,
+  )
+
+  // ===== Oyun 2: tekrar yanlış deftere geri döner; sonraki yarışta doğru yapılan soru çözülür =====
+  // A: pos0 = (çözülmüş) q1[1] soruyu YANLIŞ, pos1 = (elle çıkarılmış) q1[2] soruyu doğru.
+  // B: pos2 = (açık) q1[0] soruyu DOĞRU yapar.
+  const g2 = await oyunKur(A, [B])
+  await soruZorla(g2, 0, q1[1].source_table, q1[1].question_id)
+  await soruZorla(g2, 1, q1[2].source_table, q1[2].question_id)
+  await soruZorla(g2, 2, q1[0].source_table, q1[0].question_id)
+  await Promise.all([planlaOyna(A, g2, 'YDDDDDDDDD', sizinti), planlaOyna(B, g2, 'DDDDDDDDDD', sizinti)])
+  await bitir(g2, [A, B])
+  const e1 = (await defter(A)).find((r) => r.question_id === q1[1].question_id)
+  const e2 = (await defter(A)).find((r) => r.question_id === q1[2].question_id)
+  rapor(
+    'tekrar yanlış: çözülmüş soru deftere geri döner (resolved_at null, wrong_count 3, last_game_id yeni oyun)',
+    e1?.resolved_at === null && e1.wrong_count === 3 && e1.last_game_id === g2,
+    JSON.stringify([e1?.resolved_at, e1?.wrong_count]),
+  )
+  rapor('elle çıkarılmış soru sonraki yarışta doğru yapılınca çözülmüş KALIR, wrong_count artmaz', !!e2?.resolved_at && e2.wrong_count === 1)
+  const eB = (await defter(B)).find((r) => r.question_id === q1[0].question_id)
+  const sB2 = await ozet(B)
+  rapor(
+    "sonraki yarışta doğru yapılan soru çözüldü: B'nin q0 satırı resolved_at dolu, wrong_count 1; B total 0, resolved_total 1",
+    !!eB?.resolved_at && eB.wrong_count === 1 && sB2.data.total === 0 && sB2.data.resolved_total === 1,
+    JSON.stringify(sB2.data),
+  )
+  const r2a = await ger(A, g2)
+  const r2b = await ger(B, g2)
+  rapor('added_to_notebook: A 1, B 0', r2a.data?.added_to_notebook === 1 && r2b.data?.added_to_notebook === 0, `${r2a.data?.added_to_notebook}/${r2b.data?.added_to_notebook}`)
+
+  // ===== LGS: 4 şık, exam filtresi, sıralama (en yeni önce) =====
+  const g4 = await oyunKur(A, [B], 'lgs_sayisal')
+  await Promise.all([planlaOyna(A, g4, 'DYDDDDDDDD', sizinti), planlaOyna(B, g4, 'DDDDDDDDDD', sizinti)])
+  await bitir(g4, [A, B])
+  const q4 = await gqOku(g4)
+  const lAll = await liste(A)
+  const lL = await liste(A, { exam: 'lgs' })
+  const itL = (lL.data?.items ?? []) as Alan[]
+  const sL = await ozet(A)
+  rapor(
+    "LGS: exam=lgs 1 öğe, options yalnızca A-D ('E' yok); tüm liste 2 öğe, en yeni (LGS) önce",
+    !lL.error && itL.length === 1 && itL[0].question_id === q4[1].question_id && Object.keys(itL[0].options).sort().join('') === 'ABCD' &&
+      lAll.data.items.length === 2 && lAll.data.items[0].exam === 'lgs' && lAll.data.items[1].exam === 'yks',
+    lL.error?.message ?? JSON.stringify(Object.keys(itL[0]?.options ?? {})),
+  )
+  rapor(
+    'get_mistake_summary: yks ve lgs ayrı satırlar (total 2)',
+    sL.data.total === 2 && (sL.data.by_subject as Alan[]).some((x) => x.exam === 'lgs' && /\(LGS\)/.test(x.subject)) && (sL.data.by_subject as Alan[]).some((x) => x.exam === 'yks'),
+    JSON.stringify(sL.data.by_subject),
+  )
+  const wcOnce = (await defter(A)).find((r) => r.question_id === q4[1].question_id)?.wrong_count
+  const pE = await A.client.rpc('practice_answer', { p_question_id: q4[1].question_id, p_selected: 'E' })
+  const wcSonra = (await defter(A)).find((r) => r.question_id === q4[1].question_id)?.wrong_count
+  rapor("LGS sorusunda 'E' → 'Geçersiz şık' ve kayıt değişmez", pE.error?.message === 'Geçersiz şık' && wcOnce === wcSonra, pE.error?.message)
+
+  rapor('sızıntı: defter testlerinde oyun yanıtlarında açıklama alan adı yok', sizinti.length === 0, [...new Set(sizinti)].join(','))
+}
+
 async function main() {
   const A = await kullaniciOlustur('A')
   const B = await kullaniciOlustur('B')
@@ -1059,6 +1329,9 @@ async function main() {
 
   // ---- Hemen Katıl (0009_hemen_katil.sql) ----
   await hemenKatilTesti(A, B, C, D, E)
+
+  // ---- Yanlışlarım defteri (0010_yanlislarim_defteri.sql) ----
+  await defterTesti(A, B, D)
 }
 
 main()

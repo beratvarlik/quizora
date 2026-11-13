@@ -8,8 +8,11 @@ import type {
   GameSnapshot,
   GlobalRow,
   Kategori,
+  MistakeItem,
+  MistakeSummary,
   MyStats,
   PlayerState,
+  PracticeResult,
   Profile,
   Question,
   QuizoraApi,
@@ -592,6 +595,88 @@ function bitisKontrol(g: IcOyun) {
   if (kalan <= 0 || herkesBitti) sonlandir(g)
 }
 
+// ---------------------------------------------------------------------
+// Yanlışlarım defteri (bellekte). Yarış bitince (sonlandir) insan oyuncunun gördüğü yanlış/boş
+// soruları yazar; doğru yaptığı defter sorusunu çözer. Çözülmüş soru tekrar yanlışsa geri döner.
+// ---------------------------------------------------------------------
+interface DefterKaydi { item: MistakeItem; dogru: Secenek; aciklama: string | null; cozuldu: boolean }
+const defter = new Map<string, DefterKaydi>()
+const defterOyun = new Map<string, number>() // gameId → bu yarıştan deftere giren soru sayısı
+const SAAT_MS = 3_600_000
+const soruKimligi = (ders: string, text: string) => `mq:${ders}|${text}`
+
+function ornekKayit(
+  exam: Sinav, subject: string, text: string, options: Partial<Record<Secenek, string>>, dogru: Secenek,
+  lastAnswer: Secenek | null, wrongCount: number, onceMs: number, aciklama: string | null,
+) {
+  const questionId = soruKimligi(subject, text)
+  defter.set(questionId, {
+    item: { questionId, exam, subject, text, imageUrl: null, options, lastAnswer, wrongCount, lastWrongAt: new Date(Date.now() - onceMs).toISOString() },
+    dogru, aciklama, cozuldu: false,
+  })
+}
+ornekKayit('yks', 'Matematik (TYT)', 'x² − 5x + 6 = 0 denkleminin kökleri toplamı kaçtır?',
+  { A: '2', B: '3', C: '5', D: '6', E: '−5' }, 'C', 'D', 3, 2 * 24 * SAAT_MS,
+  'Kökler toplamı −b/a = −(−5)/1 = 5. Kökler 2 ve 3 olduğundan toplam 5.')
+ornekKayit('yks', 'Matematik (AYT)', 'log₂ 32 ifadesinin değeri kaçtır?',
+  { A: '4', B: '5', C: '6', D: '8', E: '16' }, 'B', null, 1, 5 * SAAT_MS, '2⁵ = 32 olduğundan log₂ 32 = 5.')
+ornekKayit('yks', 'Fizik (AYT)', 'Sürtünmesiz yatay düzlemde duran 2 kg kütleli cisme 10 N büyüklüğünde yatay kuvvet uygulanıyor. Cismin ivmesi kaç m/s² olur?',
+  { A: '2', B: '4', C: '5', D: '10', E: '20' }, 'C', 'A', 2, 26 * SAAT_MS, 'Newton’un ikinci yasası: F = m·a → a = 10 / 2 = 5 m/s².')
+ornekKayit('yks', 'Tarih (TYT)', 'Osmanlı Devleti’nde ilk düzenli ordu hangi padişah döneminde kurulmuştur?',
+  { A: 'Osman Bey', B: 'Orhan Bey', C: 'I. Murat', D: 'Yıldırım Bayezid', E: 'Fatih Sultan Mehmet' }, 'B', 'C', 1, 3 * 24 * SAAT_MS,
+  null) // bilerek boş: "açıklama henüz yok" durumu
+ornekKayit('yks', 'Edebiyat (AYT)', '“Sefiller” romanının yazarı kimdir?',
+  { A: 'Honoré de Balzac', B: 'Victor Hugo', C: 'Gustave Flaubert', D: 'Émile Zola', E: 'Stendhal' }, 'B', 'A', 1, 6 * 24 * SAAT_MS,
+  'Sefiller (Les Misérables), Victor Hugo’nun 1862’de yayımlanan romanıdır.')
+ornekKayit('yks', 'Kimya (TYT)', 'Suyun (H₂O) mol kütlesi kaç g/mol’dür? (H: 1, O: 16)',
+  { A: '16', B: '17', C: '18', D: '20', E: '34' }, 'C', 'E', 1, 2 * SAAT_MS, '2 · 1 + 16 = 18 g/mol.')
+ornekKayit('lgs', 'Matematik (LGS)', '√49 + √16 işleminin sonucu kaçtır?',
+  { A: '9', B: '11', C: '13', D: '65' }, 'B', 'C', 2, 4 * 24 * SAAT_MS, '√49 = 7 ve √16 = 4; 7 + 4 = 11.')
+ornekKayit('lgs', 'Fen Bilimleri (LGS)', 'Bir besin zincirinde aşağıdakilerden hangisi üretici konumundadır?',
+  { A: 'Tavşan', B: 'Kartal', C: 'Ot', D: 'Mantar' }, 'C', null, 1, 24 * SAAT_MS,
+  'Üreticiler fotosentezle kendi besinini üretir; ot bir üreticidir. Mantar ayrıştırıcıdır.')
+
+/** finish_game gibi: yarış başına bir kez. Hiç görülmeyen (süre bittiği için açılmayan) sorular girmez. */
+function defteriYaz(g: IcOyun) {
+  if (defterOyun.has(g.info.id)) return
+  const ben = g.oyuncular.find(o => !o.bot)
+  if (!ben) return
+  const simdi = new Date().toISOString()
+  let eklenen = 0
+  g.sorular.forEach((s, i) => {
+    const c = ben.cevaplar.get(i)
+    const gordu = c !== undefined || (i === ben.currentQ && ben.qStartedAt !== null)
+    if (!gordu) return
+    const id = soruKimligi(s.ders, s.text)
+    const k = defter.get(id)
+    if (c?.dogru) {
+      if (k) k.cozuldu = true // yarışta doğru yapınca defterden de çözülür
+      return
+    }
+    eklenen++
+    const lastAnswer = c?.secenek ?? null
+    if (k) {
+      k.item.wrongCount++
+      k.item.lastAnswer = lastAnswer
+      k.item.lastWrongAt = simdi
+      // Mock şıkları her yarışta karıştırır: son cevap harfi son yarıştaki sıraya göre, şıkları da güncelle
+      k.item.options = { ...s.options }
+      k.dogru = s.dogru
+      k.aciklama = s.aciklama ?? k.aciklama
+      k.cozuldu = false
+    } else {
+      defter.set(id, {
+        item: { questionId: id, exam: g.info.sinav, subject: s.ders, text: s.text, imageUrl: null, options: { ...s.options }, lastAnswer, wrongCount: 1, lastWrongAt: simdi },
+        dogru: s.dogru,
+        aciklama: s.aciklama,
+        cozuldu: false,
+      })
+    }
+  })
+  defterOyun.set(g.info.id, eklenen)
+}
+const defterAcik = () => [...defter.values()].filter(k => !k.cozuldu)
+
 /** Yarışı kapatır: sıralama + XP bir kez hesaplanır (finish_game ile aynı kurallar). */
 function sonlandir(g: IcOyun) {
   if (g.info.status === 'finished') return
@@ -600,6 +685,7 @@ function sonlandir(g: IcOyun) {
   g.saat = null
   g.zamanlayicilar.forEach(t => clearTimeout(t))
   g.zamanlayicilar = []
+  defteriYaz(g) // bitiş işaretinden önce: currentQ / qStartedAt ile "görüldü mü" belirlenir
   for (const o of g.oyuncular) o.finished = true
 
   const sirali = rankPlayers(g.oyuncular.map(disOyuncu))
@@ -932,7 +1018,57 @@ export const api: QuizoraApi = {
         explanation: i === g.sorular.length - 1 ? null : s.aciklama,
       }
     })
-    return { items }
+    return { items, addedToNotebook: defterOyun.get(g.info.id) ?? 0 }
+  },
+
+  async getMistakeSummary(): Promise<MistakeSummary> {
+    await ag()
+    const sayac = new Map<string, { exam: Sinav; subject: string; count: number }>()
+    const acik = defterAcik()
+    for (const { item } of acik) {
+      const a = `${item.exam}|${item.subject}`
+      const s = sayac.get(a) ?? { exam: item.exam, subject: item.subject, count: 0 }
+      s.count++
+      sayac.set(a, s)
+    }
+    return {
+      total: acik.length,
+      resolvedTotal: defter.size - acik.length,
+      bySubject: [...sayac.values()].sort((a, b) => b.count - a.count || a.subject.localeCompare(b.subject, 'tr')),
+    }
+  },
+
+  async getMistakes(opts = {}): Promise<MistakeItem[]> {
+    await ag()
+    if (opts.exam && opts.exam !== 'yks' && opts.exam !== 'lgs') throw new Error('Geçersiz sınav')
+    let l = defterAcik().map(k => k.item)
+    if (opts.exam) l = l.filter(m => m.exam === opts.exam)
+    if (opts.subject) l = l.filter(m => m.subject === opts.subject)
+    l.sort((a, b) => Date.parse(b.lastWrongAt) - Date.parse(a.lastWrongAt))
+    if (opts.limit) l = l.slice(0, opts.limit)
+    return l.map(m => ({ ...m, options: { ...m.options } })) // doğru şık ve açıklama YOK
+  },
+
+  async practiceAnswer(questionId, selected): Promise<PracticeResult> {
+    await ag()
+    const k = defter.get(questionId)
+    if (!k || k.cozuldu) throw new Error('Bu soru defterinde yok')
+    if (!k.item.options[selected]) throw new Error('Geçersiz şık')
+    const isCorrect = selected === k.dogru
+    if (isCorrect) k.cozuldu = true
+    else {
+      k.item.wrongCount++
+      k.item.lastAnswer = selected
+      k.item.lastWrongAt = new Date().toISOString()
+    }
+    return { isCorrect, correctOption: k.dogru, explanation: k.aciklama, resolved: isCorrect }
+  },
+
+  async removeMistake(questionId) {
+    await ag()
+    const k = defter.get(questionId)
+    if (!k || k.cozuldu) throw new Error('Bu soru defterinde yok')
+    k.cozuldu = true
   },
 
   async getMyStats() {

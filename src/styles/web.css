@@ -85,7 +85,8 @@
   .mn-sayfa .aksiyon > .hk-ipucu { flex-basis: 100%; margin-top: -6px; }
   .mn-sayfa .ayrac { display: none; }
   .mn-sayfa .ilerleme-kart { grid-column: 2; grid-row: 2; margin: 0 0 14px; align-self: start; }
-  .mn-sayfa .lider { grid-column: 2; grid-row: 3 / -1; margin: 0; min-height: 0; overflow-y: auto; align-self: stretch; }
+  .mn-sayfa .defter-kart { grid-column: 2; grid-row: 3; margin: 0 0 14px; min-height: 56px; }
+  .mn-sayfa .lider { grid-column: 2; grid-row: 4 / -1; margin: 0; min-height: 0; overflow-y: auto; align-self: stretch; }
   .mn-sayfa .lider .kart-bant { position: sticky; top: 0; z-index: 1; }
 
   /* ---------- Lobi: solda QR + kod, sağda slotlar ---------- */
@@ -191,6 +192,45 @@
   .sn-baslik { display: block; padding: 0 20px; font: 800 28px var(--font-baslik); letter-spacing: -.02em; color: var(--ink); }
   .sn-sayfa .alt-cta { right: 30px; width: 360px; }
   .sn-sayfa .alt-cta::before { content: ''; position: absolute; inset: -16px -30px -32px; z-index: -1; background: linear-gradient(to bottom, rgba(251, 248, 244, 0), #FBF8F4 30%); }
+}
+
+/* ---------- Yanlışlarım (web): solda filtre + liste (kendi içinde kayar), sağda çalışma paneli ---------- */
+@media (min-width: 1024px) {
+  .df-sayfa .icerik {
+    max-width: 1200px; height: 100%; padding: 0 48px clamp(16px, 3vh, 28px); display: grid; column-gap: 40px;
+    grid-template-columns: minmax(0, 460px) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr);
+  }
+  .df-sayfa .ust-bar { grid-column: 1 / -1; grid-row: 1; padding-left: 0; padding-right: 0; }
+  .df-sol { grid-column: 1; grid-row: 2; min-height: 0; display: flex; flex-direction: column; }
+  .df-sol .px-5, .df-sol .df-cipler, .df-sol .df-aksiyon { padding-left: 0; padding-right: 0; }
+  .df-sol .sinav-sec { margin-left: 0; margin-right: 0; margin-top: clamp(10px, 2vh, 16px); }
+  .df-sol .baslik br { display: none; }
+  .df-cipler { flex-wrap: wrap; overflow: visible; }
+  .df-liste { flex: 1; min-height: 0; overflow-y: auto; margin: 8px 0 0; padding-right: 6px; scrollbar-width: thin; scrollbar-color: rgba(112, 43, 58, .35) transparent; }
+  .df-satir { padding: 12px 44px 12px 12px; }
+  .df-satir:hover { background: #fff; }
+  .df-sil {
+    display: grid; place-items: center; position: absolute; right: 6px; top: 50%; z-index: 2; width: 36px; height: 36px; margin-top: -18px;
+    border-radius: 10px; color: var(--soluk); opacity: 0; transition: opacity .15s, background .15s, color .15s;
+  }
+  .df-satir-kap:hover .df-sil, .df-sil:focus-visible { opacity: 1; }
+  .df-sil:hover { background: rgba(200, 16, 46, .1); color: var(--yanlis); }
+  .df-sol .df-temiz { flex: 1; justify-content: center; }
+  .df-sag { grid-column: 2; grid-row: 2; min-height: 0; display: flex; flex-direction: column; border-radius: 22px; background: #fff; border: 1.5px solid var(--cizgi); box-shadow: var(--golge); overflow: hidden; }
+  .df-sag-bos { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 32px; gap: 10px; }
+  .df-sag-bos .defter-ikon { width: 64px; height: 64px; border-radius: 18px; }
+  .df-sag-bos b { font: 800 24px var(--font-baslik); }
+  .df-sag-bos p { max-width: 320px; font: 500 15px/1.45 var(--font-govde); color: var(--soluk); }
+  .df-tost { left: auto; right: max(48px, calc((100vw - 1200px) / 2 + 48px)); bottom: 32px; width: 380px; margin: 0; }
+
+  /* Çalışma paneli: başlık + ilerleme sabit, gövde kayar, alt düğme sabit */
+  .cz-panel { flex: 1; min-height: 0; height: 100%; }
+  .cz-panel .cz-govde { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(112, 43, 58, .35) transparent; }
+  .cz-panel .cz-alt { flex: none; padding: 12px 20px 18px; border-top: 1px solid var(--cizgi); background: #fff; }
+  .cz-panel .cz-bitis { justify-content: center; }
+  .cz-panel .soru-kart { margin-left: 20px; margin-right: 20px; }
+  .cz-sayfa .icerik { max-width: 760px; height: 100%; padding: clamp(12px, 3vh, 28px) 0; display: flex; }
+  .cz-sayfa .cz-panel { border-radius: 22px; background: #fff; border: 1.5px solid var(--cizgi); box-shadow: var(--golge); overflow: hidden; }
 }
 
 /* Kısa pencereler (≤820px yükseklik, örn. 1366×768): biraz daha sıkı */
