@@ -228,6 +228,205 @@ async function soruCevapTesti(A: Kullanici, B: Kullanici, id: string) {
   )
 }
 
+// ---- finish_game / get_global_leaderboard testleri (0005_rpc_finish.sql) ----
+
+const SIKLAR = ['A', 'B', 'C', 'D', 'E']
+
+// Oyun kur: host kurar, diğerleri katılır, host başlatır, geri sayım bitene kadar bekler
+async function oyunKur(host: Kullanici, digerleri: Kullanici[], kategori = 'tyt'): Promise<string> {
+  const cg = await host.client.rpc('create_game', { p_kategori: kategori })
+  if (cg.error || !cg.data?.game_id) throw new Error(`create_game(${kategori}): ${cg.error?.message}`)
+  oyunlar.push(cg.data.game_id)
+  for (const u of digerleri) {
+    const j = await u.client.rpc('join_game', { p_code: cg.data.code })
+    if (j.error) throw new Error(`join_game: ${j.error.message}`)
+  }
+  const s = await host.client.rpc('start_game', { p_game_id: cg.data.game_id })
+  if (s.error) throw new Error(`start_game: ${s.error.message}`)
+  await bekle(3500)
+  return cg.data.game_id as string
+}
+
+// İlk `dogruAdet` soruyu doğru, kalanını yanlış cevaplar; `adet` soru çözer. Toplam puanı döner.
+async function tamOyna(u: Kullanici, id: string, dogruAdet: number, adet = 10): Promise<number> {
+  let toplam = 0
+  for (let pos = 0; pos < adet; pos++) {
+    const g = await u.client.rpc('get_question', { p_game_id: id, p_position: pos })
+    if (g.error) throw new Error(`get_question(${pos}): ${g.error.message}`)
+    const d = await dogruSik(id, pos)
+    const secenek = pos < dogruAdet ? d : SIKLAR.find((s) => s !== d)!
+    const r = await u.client.rpc('submit_answer', { p_game_id: id, p_position: pos, p_secenek: secenek })
+    if (r.error) throw new Error(`submit_answer(${pos}): ${r.error.message}`)
+    toplam += Number(r.data.points)
+  }
+  return toplam
+}
+
+async function statAyarla(u: Kullanici, xp: number) {
+  const { error } = await admin.from('player_stats').upsert({ user_id: u.id, xp, wins: 0, games_played: 0 })
+  if (error) throw new Error(`player_stats ayarı: ${error.message}`)
+}
+
+async function statOku(ids: string[]) {
+  const { data } = await admin.from('player_stats').select('user_id, xp, wins, games_played').in('user_id', ids)
+  const harita: Record<string, { xp: number; wins: number; games_played: number }> = {}
+  for (const r of data ?? []) harita[r.user_id] = r
+  return harita
+}
+
+// Yarışı bitmiş say: süreyi geçmişe al (hız modu varsa onu da)
+async function sureyiBitir(id: string) {
+  const gecmis = new Date(Date.now() - 300_000).toISOString()
+  const { data: g } = await admin.from('games').select('speedup_at').eq('id', id).single()
+  await admin
+    .from('games')
+    .update(g?.speedup_at ? { started_at: gecmis, speedup_at: gecmis } : { started_at: gecmis })
+    .eq('id', id)
+}
+
+const beklenenXp = (score: number, yer: number, ilk: boolean) =>
+  20 + Math.max(0, Math.floor(score / 10)) + yer + (ilk ? 10 : 0)
+
+async function bitirmeTesti(A: Kullanici, B: Kullanici, C: Kullanici, D: Kullanici) {
+  // ===== Oyun 1: A (10 doğru), B (5 doğru + 5 yanlış), C (hiç cevap vermez) =====
+  await statAyarla(A, 0)
+  await statAyarla(B, 0)
+  await statAyarla(C, 0)
+  const g1 = await oyunKur(A, [B, C])
+  const [puanA, puanB] = await Promise.all([tamOyna(A, g1, 10), tamOyna(B, g1, 5)])
+
+  // (f) C bitirmedi ve süre dolmadı: yarış bitmedi
+  const erken = await A.client.rpc('finish_game', { p_game_id: g1 })
+  rapor("(f) yarış bitmeden finish_game 'Yarış henüz bitmedi' der", erken.error?.message === 'Yarış henüz bitmedi', erken.error?.message)
+
+  // Üye olmayan finish_game çağıramaz
+  const uye = await D.client.rpc('finish_game', { p_game_id: g1 })
+  rapor('üye olmayan finish_game çağıramıyor', uye.error?.message === 'Bu oyuna erişimin yok', uye.error?.message)
+
+  // Süre dolsun; A bitirir
+  await sureyiBitir(g1)
+  const r1 = await A.client.rpc('finish_game', { p_game_id: g1 })
+  rapor('A finish_game', !r1.error, r1.error?.message)
+  if (r1.error) return
+  const { data: oyun1 } = await admin.from('games').select('status, winner_id, speedup_by, xp_applied').eq('id', g1).single()
+  rapor('oyun finished, winner A, xp_applied true', oyun1?.status === 'finished' && oyun1?.winner_id === A.id && oyun1?.xp_applied === true, JSON.stringify(oyun1))
+
+  const sira = r1.data.ranking as Array<Record<string, any>>
+  const rA = sira.find((r) => r.user_id === A.id)!
+  const rB = sira.find((r) => r.user_id === B.id)!
+  const rC = sira.find((r) => r.user_id === C.id)!
+  rapor('kazanan A, 3 oyuncu sıralamada, puanlar sunucudakiyle aynı',
+    r1.data.winner_id === A.id && sira.length === 3 && sira[0].user_id === A.id && sira[0].rank === 1 &&
+      rA.score === puanA && rB.score === puanB && rB.rank === 2 && rC.rank === 3,
+    JSON.stringify(sira.map((r) => [r.rank, r.score])))
+
+  // (a) XP formülü
+  const eA = beklenenXp(puanA, 30, oyun1?.speedup_by === A.id)
+  const eB = beklenenXp(puanB, 15, oyun1?.speedup_by === B.id)
+  rapor('(a) kazanan xp_gained = 20 + floor(puan/10) + 30 (+10 ilk bitirense)', rA.xp_gained === eA && rA.xp_before === 0 && rA.xp_after === eA, `${rA.xp_gained} beklenen ${eA}`)
+  rapor('(a) ikinci xp_gained = 20 + floor(puan/10) + 15 (+10 ilk bitirense)', rB.xp_gained === eB && rB.xp_after === eB, `${rB.xp_gained} beklenen ${eB}`)
+  const st1 = await statOku([A.id, B.id, C.id])
+  rapor('(a) player_stats güncellendi; kazananın wins 1, games_played 1',
+    st1[A.id]?.xp === eA && st1[A.id]?.wins === 1 && st1[A.id]?.games_played === 1 &&
+      st1[B.id]?.xp === eB && st1[B.id]?.wins === 0 && st1[B.id]?.games_played === 1,
+    JSON.stringify(st1))
+
+  // (d) hiç cevap vermeyen C: 0 XP ama sıralamada
+  rapor('(d) hiç cevap vermeyen oyuncu 0 XP alır ama sıralamada yer alır',
+    rC.xp_gained === 0 && rC.current_q === 0 && rC.finished === true && st1[C.id]?.xp === 0 && st1[C.id]?.games_played === 0 && st1[C.id]?.wins === 0,
+    JSON.stringify([rC, st1[C.id]]))
+
+  // XP dökümü ve breakdown (çağıran oyuncu için)
+  rapor('xp_breakdown A: toplam = xp_gained, parçalar formüle uygun',
+    r1.data.xp_breakdown.participation === 20 && r1.data.xp_breakdown.points === Math.floor(puanA / 10) &&
+      r1.data.xp_breakdown.placement === 30 && r1.data.xp_breakdown.first_finisher === (oyun1?.speedup_by === A.id ? 10 : 0) &&
+      r1.data.xp_breakdown.total === eA,
+    JSON.stringify(r1.data.xp_breakdown))
+  rapor('breakdown A: 10 doğru, 0 yanlış, 0 boş',
+    r1.data.breakdown.correct === 10 && r1.data.breakdown.wrong === 0 && r1.data.breakdown.blank === 0 &&
+      r1.data.breakdown.base === 1000 && r1.data.breakdown.penalty === 0 && r1.data.breakdown.base + r1.data.breakdown.bonus === puanA,
+    JSON.stringify(r1.data.breakdown))
+
+  // (b) B'nin ikinci çağrısı: aynı sonuç, player_stats ikinci kez değişmez
+  const r2 = await B.client.rpc('finish_game', { p_game_id: g1 })
+  const st2 = await statOku([A.id, B.id, C.id])
+  rapor('(b) B finish_game aynı winner_id ve aynı sıralama/XP değerleri',
+    !r2.error && r2.data?.winner_id === r1.data.winner_id && JSON.stringify(r2.data?.ranking) === JSON.stringify(r1.data.ranking),
+    r2.error?.message)
+  rapor('(b) player_stats ikinci çağrıda DEĞİŞMEDİ', JSON.stringify(st2) === JSON.stringify(st1), JSON.stringify(st2))
+  rapor('(b) B için breakdown kendi cevaplarından: 5 doğru, 5 yanlış, ceza 125',
+    r2.data?.breakdown?.correct === 5 && r2.data?.breakdown?.wrong === 5 && r2.data?.breakdown?.blank === 0 &&
+      r2.data?.breakdown?.penalty === 125 && r2.data?.breakdown?.base === 500 && r2.data?.xp_breakdown?.total === eB,
+    JSON.stringify([r2.data?.breakdown, r2.data?.xp_breakdown]))
+  // Bitmiş oyuna bile üçüncü kez: A tekrar çağırınca yine aynı
+  const r3 = await A.client.rpc('finish_game', { p_game_id: g1 })
+  rapor('A tekrar finish_game: XP tekrar eklenmedi', !r3.error && JSON.stringify((await statOku([A.id, B.id, C.id]))) === JSON.stringify(st1), r3.error?.message)
+
+  // ===== Oyun 2 (c): rank atlama. A'nın XP'si 95 (Çaylak), yeni yarışta Bronz I veya üstü =====
+  await statAyarla(A, 95)
+  await statAyarla(B, 0)
+  const g2 = await oyunKur(A, [B])
+  const [pA2] = await Promise.all([tamOyna(A, g2, 10), tamOyna(B, g2, 3)])
+  const f2 = await A.client.rpc('finish_game', { p_game_id: g2 })
+  rapor('(c) rank atlama oyunu bitti', !f2.error, f2.error?.message)
+  if (!f2.error) {
+    const a2 = (f2.data.ranking as Array<Record<string, any>>).find((r) => r.user_id === A.id)!
+    const { data: tiers } = await admin.from('rank_tiers').select('min_xp, rank_label').order('min_xp', { ascending: false })
+    const beklenenRank = tiers?.find((t) => t.min_xp <= a2.xp_after)?.rank_label
+    rapor(
+      "(c) rank_label_before 'Çaylak', rank_label_after hak edilen rank, ranked_up true",
+      a2.xp_before === 95 && a2.rank_label_before === 'Çaylak' && a2.rank_label_after === beklenenRank &&
+        a2.rank_label_after !== 'Çaylak' && a2.ranked_up === true && a2.rank_label === beklenenRank,
+      `${a2.xp_before}→${a2.xp_after} ${a2.rank_label_before}→${a2.rank_label_after} (beklenen ${beklenenRank}, puan ${pA2})`,
+    )
+    const b2 = (f2.data.ranking as Array<Record<string, any>>).find((r) => r.user_id === B.id)!
+    rapor('(c) rank atlamayan oyuncuda ranked_up false', b2.ranked_up === false, `${b2.rank_label_before}→${b2.rank_label_after}`)
+  }
+
+  // ===== Oyun 3 (e): tek oyunculu oyun XP VERMEZ =====
+  const { data: eski } = await admin.from('app_settings').select('value').eq('key', 'min_players').single()
+  try {
+    await admin.from('app_settings').update({ value: '1' }).eq('key', 'min_players')
+    await statAyarla(D, 40)
+    const g3 = await oyunKur(D, [])
+    await tamOyna(D, g3, 2, 2) // 2 soru çözer (cevap vermiş sayılır)
+    await sureyiBitir(g3)
+    const f3 = await D.client.rpc('finish_game', { p_game_id: g3 })
+    rapor('(e) tek oyunculu oyun bitti', !f3.error, f3.error?.message)
+    if (!f3.error) {
+      const d3 = f3.data.ranking[0]
+      const st3 = await statOku([D.id])
+      const { data: o3 } = await admin.from('games').select('xp_applied, status').eq('id', g3).single()
+      rapor(
+        '(e) tek oyunculu oyun XP VERMEZ (xp 40 kaldı, games_played 0), xp_applied true',
+        d3.xp_gained === 0 && d3.xp_before === 40 && d3.xp_after === 40 && st3[D.id]?.xp === 40 &&
+          st3[D.id]?.games_played === 0 && st3[D.id]?.wins === 0 && o3?.xp_applied === true && o3?.status === 'finished' &&
+          f3.data.xp_breakdown.total === 0,
+        JSON.stringify([d3, st3[D.id], o3]),
+      )
+    }
+  } finally {
+    // min_players'ı testten önceki değerine (varsayılan 2) geri al
+    await admin.from('app_settings').update({ value: eski?.value ?? '2' }).eq('key', 'min_players')
+  }
+  const { data: son } = await admin.from('app_settings').select('value').eq('key', 'min_players').single()
+  rapor("min_players eski değerine döndü", son?.value === (eski?.value ?? '2'), son?.value)
+
+  // ===== (g) get_global_leaderboard =====
+  await statAyarla(A, 999_999)
+  await statAyarla(B, 500_000)
+  const lb = await A.client.rpc('get_global_leaderboard')
+  const satirlar = (lb.data ?? []) as Array<Record<string, any>>
+  const sirali = satirlar.every((r, i) => i === 0 || satirlar[i - 1].xp > r.xp || (satirlar[i - 1].xp === r.xp && satirlar[i - 1].wins >= r.wins))
+  rapor(
+    '(g) get_global_leaderboard XP sırasına göre, rank etiketi içeriyor, en fazla 20 satır',
+    !lb.error && satirlar.length >= 2 && satirlar.length <= 20 && sirali &&
+      satirlar[0].user_id === A.id && satirlar[0].xp === 999_999 && satirlar[0].rank_label === 'Efsane' &&
+      satirlar[1].user_id === B.id && satirlar[1].rank_key === 'efsane' && satirlar.every((r) => !!r.rank_label && !!r.display_name),
+    lb.error?.message ?? JSON.stringify(satirlar.slice(0, 2)),
+  )
+}
+
 async function main() {
   const A = await kullaniciOlustur('A')
   const B = await kullaniciOlustur('B')
@@ -427,6 +626,9 @@ async function main() {
 
   // ---- get_question / submit_answer (0004_rpc_game.sql): ilk oyun (A + B, playing) ----
   await soruCevapTesti(A, B, gameId)
+
+  // ---- finish_game / get_global_leaderboard (0005_rpc_finish.sql): A, B, C oyuncu; D üye olmayan ----
+  await bitirmeTesti(A, B, C, D)
 }
 
 main()
