@@ -1,5 +1,23 @@
-function App() {
-  return <h1>Quizora</h1>
-}
+import { Navigate, Route, Routes } from 'react-router-dom'
+import Acilis from './pages/Acilis'
+import Profil from './pages/Profil'
+import Menu from './pages/Menu'
+import Lobi from './pages/Lobi'
+import Join from './pages/Join'
+import Oyun from './pages/Oyun'
+import Sonuc from './pages/Sonuc'
 
-export default App
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Acilis />} />
+      <Route path="/profil" element={<Profil />} />
+      <Route path="/menu" element={<Menu />} />
+      <Route path="/lobi/:code" element={<Lobi />} />
+      <Route path="/join/:code" element={<Join />} />
+      <Route path="/oyun/:code" element={<Oyun />} />
+      <Route path="/sonuc/:code" element={<Sonuc />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  )
+}
