@@ -1,81 +1,65 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
-// Tarayıcı ortamı yerine küçük taklitler (mock API localStorage / window kullanır)
+// Tarayıcı ortamı yerine küçük taklitler. ?gorev=dolu: görevler tamamlanmış ama alınmamış gelir.
 const depo = () => {
   const m = new Map<string, string>()
   return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) }
 }
 const g = globalThis as Record<string, unknown>
-if (typeof g.window === 'undefined') {
-  const et = new EventTarget()
-  g.window = Object.assign(globalThis, {
-    addEventListener: et.addEventListener.bind(et),
-    removeEventListener: et.removeEventListener.bind(et),
-    dispatchEvent: et.dispatchEvent.bind(et),
-  })
-  g.localStorage = depo()
-  g.sessionStorage = depo()
-  g.location = { search: '' }
-}
+g.window = globalThis
+g.localStorage = depo()
+g.sessionStorage = depo()
+g.location = { search: '?gorev=dolu' }
 
-vi.mock('../lib/client', async () => {
-  const m = await import('../lib/api.mock')
-  return { api: m.api, isMock: true }
-})
-
-type Modul = typeof import('./gorevler')
 type Mock = typeof import('../lib/api.mock')
+type Modul = typeof import('./gorevler')
+let api: Mock['api']
 let G: Modul
-let M: Mock
 beforeAll(async () => {
+  api = (await import('../lib/api.mock')).api
   G = await import('./gorevler')
-  M = await import('../lib/api.mock')
 })
 
-describe('günlük görevler (mock)', () => {
-  it('günün 3 görevi deterministik ve farklı', () => {
-    const a = G.gununGorevleri('2026-11-14')
-    expect(a).toHaveLength(3)
-    expect(new Set(a).size).toBe(3)
-    expect(G.gununGorevleri('2026-11-14')).toEqual(a)
-    const farkli = ['2026-11-15', '2026-11-16', '2026-11-17'].some(d => G.gununGorevleri(d).join() !== a.join())
-    expect(farkli).toBe(true)
-  })
-
-  it('resetsAt bir sonraki İstanbul gece yarısı', async () => {
-    const t = await G.getDailyTasks()
-    expect(t.date).toBe(G.istanbulGunu())
-    const kalan = Date.parse(t.resetsAt) - Date.now()
+describe('günlük görevler (mock api, ?gorev=dolu)', () => {
+  it('günün 3 görevi deterministik; resetsAt İstanbul gece yarısı', async () => {
+    const a = await api.getDailyTasks()
+    const b = await api.getDailyTasks()
+    expect(a.tasks).toHaveLength(3)
+    expect(new Set(a.tasks.map(t => t.id)).size).toBe(3)
+    expect(b.tasks.map(t => t.id)).toEqual(a.tasks.map(t => t.id))
+    expect(a.tasks.every(t => t.completed && !t.claimed && t.progress === t.target)).toBe(true)
+    const kalan = Date.parse(a.resetsAt) - Date.now()
     expect(kalan).toBeGreaterThan(0)
     expect(kalan).toBeLessThanOrEqual(24 * 3_600_000)
-    expect(new Date(t.resetsAt).getUTCHours()).toBe(21) // 00:00 İstanbul = 21:00 UTC
+    expect(new Date(a.resetsAt).getUTCHours()).toBe(21) // 00:00 İstanbul = 21:00 UTC
+    expect(a.bonus).toEqual({ xp: 50, completed: false, claimed: false })
   })
 
-  it('mock olaylarıyla ilerler, ödül alınır, bonus açılır', async () => {
-    const ozet: import('../lib/api.mock').MockOyunOzeti = { matematik: 10, dogru: 8, toplam: 10, kazandi: true, oyuncu: 3, herkeseAcik: false }
-    for (let i = 0; i < 3; i++) window.dispatchEvent(new CustomEvent(M.MOCK_OYUN_BITTI, { detail: { ...ozet, herkeseAcik: i === 0 } }))
-    for (let i = 0; i < 3; i++) window.dispatchEvent(new CustomEvent(M.MOCK_DEFTER_COZULDU))
-    const t = await G.getDailyTasks()
-    expect(t.tasks.every(x => x.completed)).toBe(true)
-    expect(t.bonus.completed).toBe(false)
+  it('ödül, hata metinleri (0012) ve bonus', async () => {
+    const t = await api.getDailyTasks()
+    expect(await api.claimDailyTask('').catch(e => e.message)).toBe('Geçersiz görev')
+    expect(await api.claimDailyTask('yok_boyle').catch(e => e.message)).toBe('Bu görev bugünün görevi değil')
+    expect(await api.claimDailyTask('bonus').catch(e => e.message)).toBe('Önce üç görevin ödülünü al')
 
-    const hata = await G.claimDailyTask(G.BONUS_ID).catch(e => e.message)
-    expect(hata).toBe('Önce günün 3 görevini tamamla')
-    let xp = 0
+    let xp = (await api.getMyStats()).xp
     for (const x of t.tasks) {
-      const r = await G.claimDailyTask(x.id)
+      const r = await api.claimDailyTask(x.id)
       expect(r.xpGained).toBe(x.xp)
       expect(r.newXp).toBe(xp + x.xp)
+      expect(typeof r.tierBefore).toBe('string')
       xp = r.newXp
     }
-    expect(await G.claimDailyTask(t.tasks[0].id).catch(e => e.message)).toBe('Bu ödülü zaten aldın')
-    const b = await G.claimDailyTask(G.BONUS_ID)
-    expect(b.xpGained).toBe(50)
-    expect((await G.getDailyTasks()).bonus.claimed).toBe(true)
-    expect(b.tierAfter).toBeGreaterThanOrEqual(b.tierBefore)
+    expect(await api.claimDailyTask(t.tasks[0].id).catch(e => e.message)).toBe('Ödül zaten alındı')
+    expect((await api.getDailyTasks()).bonus.completed).toBe(true)
+    const b = await api.claimDailyTask(G.BONUS_ID)
+    expect(b).toMatchObject({ xpGained: 50, newXp: xp + 50 })
+    expect((await api.getMyStats()).xp).toBe(xp + 50)
+    expect((await api.getDailyTasks()).bonus.claimed).toBe(true)
   })
+})
 
-  it('kalan süre ve ilerleme karşılaştırması', () => {
+describe('görev yardımcıları', () => {
+  it('kalan süre, ilerleme karşılaştırması, hata metinleri', () => {
     expect(G.kalanYaz((6 * 60 + 12) * 60_000 + 30_000)).toBe('6s 12dk')
     expect(G.kalanYaz(12 * 60_000)).toBe('12dk')
     expect(G.kalanYaz(45_000)).toBe('45sn')
@@ -83,5 +67,7 @@ describe('günlük görevler (mock)', () => {
     const sonra = { ...once, tasks: [{ ...once.tasks[0], progress: 3 }] }
     expect(G.ilerleyenler(once, sonra).map(t => t.id)).toEqual(['a'])
     expect(G.ilerleyenler({ ...once, date: 'y' }, sonra)).toEqual([])
+    expect(G.sessizHata('Ödül zaten alındı')).toBe(true)
+    expect(G.gorevHataMetni('Bu görev bugünün görevi değil')).toBe('Gün değişti, görevler yenilendi.')
   })
 })

@@ -11,7 +11,7 @@ import KademeRozet from '../components/KademeRozet'
 import SesButonu from '../components/SesButonu'
 import { KATEGORILER, KategoriIkon, kategoriBul } from '../components/Kategoriler'
 import { getMistakeSummary } from '../hooks/defter'
-import { BONUS_ID, claimDailyTask } from '../hooks/gorevler'
+import { BONUS_ID, claimDailyTask, gorevHataMetni, sessizHata } from '../hooks/gorevler'
 import { hataMesaji } from '../hooks/hata'
 import { useGorevler } from '../hooks/useGorevler'
 import { useSes } from '../hooks/useSes'
@@ -151,10 +151,11 @@ export default function Menu() {
       const yeni = await api.getMyStats().catch(() => null)
       // Gerçek backend henüz ödül XP'sini yazmıyorsa göstergede yeni XP kalsın
       setStat(s => (yeni && yeni.xp >= r.newXp ? yeni : s ? { ...s, xp: r.newXp } : s))
-      if (r.tierAfter > r.tierBefore && yeni) setRutbeAtladi(yeni)
+      if (r.tierAfter !== r.tierBefore) setRutbeAtladi(yeni ?? (stat ? { ...stat, rankLabel: r.tierAfter } : null))
       if (id === BONUS_ID) setKutlama(true)
     } catch (e) {
-      setTost(hataMesaji(e))
+      const m = hataMesaji(e)
+      if (!sessizHata(m)) setTost(gorevHataMetni(m))
       gorev.yenile()
     } finally {
       setAliniyor(null)
