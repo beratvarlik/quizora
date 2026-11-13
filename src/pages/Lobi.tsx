@@ -1,5 +1,5 @@
 import { QRCodeSVG } from 'qrcode.react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import Button from '../components/Button'
@@ -8,10 +8,12 @@ import DevreHatlari from '../components/DevreHatlari'
 import { BaglantiBandi, HataEkrani, Yukleniyor } from '../components/Durum'
 import { IkGeri, IkKopya, IkTik } from '../components/Ikon'
 import KademeRozet from '../components/KademeRozet'
+import SesButonu from '../components/SesButonu'
 import { sinavEtiketi } from '../components/Kategoriler'
 import { hataMesaji } from '../hooks/hata'
 import { useCountdown } from '../hooks/useCountdown'
 import { useGame } from '../hooks/useGame'
+import { useSes } from '../hooks/useSes'
 import { api } from '../lib/client'
 
 const LOBI_SINIRI = 5
@@ -53,6 +55,23 @@ export default function Lobi() {
   const [basliyor, setBasliyor] = useState(false)
 
   const oyun = snapshot?.game
+  const ses = useSes()
+  const { muzikModu, baslangicPlanla, efekt } = ses
+
+  // Lobide sakin müzik; geri sayım başlayınca 3-2-1 bipleri + başlama kornası planlanır.
+  useEffect(() => muzikModu('sakin'), [muzikModu])
+  const oyunId = oyun?.id
+  const baslangicZamani = oyun?.startedAt
+  useEffect(() => {
+    if (oyunId && baslangicZamani && sayac.phase === 'gerisayim') baslangicPlanla(oyunId, new Date(baslangicZamani).getTime(), offsetMs)
+  }, [oyunId, baslangicZamani, sayac.phase, offsetMs, baslangicPlanla])
+  // Lobiye oyuncu katılınca "pop"
+  const oyuncuSayisi = snapshot?.players.length ?? 0
+  const oncekiSayi = useRef<number | null>(null)
+  useEffect(() => {
+    if (oncekiSayi.current !== null && oyuncuSayisi > oncekiSayi.current) efekt('pop')
+    oncekiSayi.current = oyuncuSayisi
+  }, [oyuncuSayisi, efekt])
   const katilmaLinki = `${window.location.origin}/join/${oyun?.code ?? code}`
 
   // Geri sayım bitince oyuna, oyun bitmişse sonuca geç.
@@ -64,6 +83,7 @@ export default function Lobi() {
 
   async function kopyala() {
     const ok = await panoyaYaz(katilmaLinki)
+    if (ok) efekt('kopya')
     if (!ok && navigator.share) {
       navigator.share({ title: 'Quizora', text: `Lobi kodu: ${oyun?.code}`, url: katilmaLinki }).catch(() => {})
       return
@@ -103,9 +123,12 @@ export default function Lobi() {
           <button type="button" className="geri-btn" aria-label="Ana menüye dön" onClick={() => git('/menu')}>
             <IkGeri />
           </button>
-          <Cip>
-            {sinavEtiketi(oyun.kategori)} · {oyun.totalQuestions} soru
-          </Cip>
+          <div className="ust-sag">
+            <Cip>
+              {sinavEtiketi(oyun.kategori)} · {oyun.totalQuestions} soru
+            </Cip>
+            <SesButonu />
+          </div>
         </header>
 
         <div className="kod-blok">

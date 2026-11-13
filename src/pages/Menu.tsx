@@ -7,8 +7,10 @@ import DevreHatlari from '../components/DevreHatlari'
 import { BaglantiBandi, Yukleniyor } from '../components/Durum'
 import { IkArti } from '../components/Ikon'
 import KademeRozet from '../components/KademeRozet'
+import SesButonu from '../components/SesButonu'
 import { KATEGORILER, KategoriIkon, kategoriBul } from '../components/Kategoriler'
 import { hataMesaji } from '../hooks/hata'
+import { useSes } from '../hooks/useSes'
 import { useSession } from '../hooks/useSession'
 import { api } from '../lib/client'
 import type { GlobalRow, Kategori, MyStats, Sinav } from '../types'
@@ -34,6 +36,9 @@ export default function Menu() {
   const [lider, setLider] = useState<GlobalRow[] | null>(null)
   const [hata, setHata] = useState<string | null>(null)
   const [kuruluyor, setKuruluyor] = useState(false)
+  const ses = useSes()
+  const { muzikModu } = ses
+  useEffect(() => muzikModu('sakin'), [muzikModu])
 
   useEffect(() => {
     if (!loading && !profile) git('/profil', { replace: true })
@@ -94,12 +99,15 @@ export default function Menu() {
               <div className="ben-alt">Profili düzenle</div>
             </div>
           </Link>
+          <div className="ust-sag">
           {stat && (
             <span className="rank-cip" aria-label={`Rütbe: ${stat.rankLabel}, ${stat.xp} XP`}>
               <KademeRozet rankKey={stat.rankKey} label={stat.rankLabel} />
               {stat.rankLabel} · {stat.xp} XP
             </span>
           )}
+          <SesButonu />
+          </div>
         </header>
 
         {stat && (

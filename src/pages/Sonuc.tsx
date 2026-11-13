@@ -11,6 +11,7 @@ import { UstBar } from '../components/Logo'
 import { hataMesaji } from '../hooks/hata'
 import { finishGameYeniden } from '../hooks/useBitir'
 import { useGame } from '../hooks/useGame'
+import { useSes } from '../hooks/useSes'
 import { api } from '../lib/client'
 import type { GameResult, MyStats } from '../types'
 
@@ -29,6 +30,9 @@ export default function Sonuc() {
   const [bar, setBar] = useState(0)
   const [kuruluyor, setKuruluyor] = useState(false)
   const [deneme, setDeneme] = useState(0)
+  const [isilti, setIsilti] = useState(0)
+  const ses = useSes()
+  const { toren, efekt } = ses
   const kilit = useRef(false)
   const bagli = useRef(true)
   useEffect(() => {
@@ -57,6 +61,13 @@ export default function Sonuc() {
       }
     })()
   }, [oyunId, deneme, sonuc, code, git])
+
+  // Tören sesleri: her sıra satırına "dum", gerilim, zafer fanfarı + tezahürat; sonra kutlama döngüsü.
+  useEffect(() => {
+    if (!sonuc || !oyunId) return
+    const benim = sonuc.ranking.find(r => r.userId === userId)
+    toren(oyunId, sonuc.ranking.length, benim?.rank ?? null, Boolean(benim?.rankedUp))
+  }, [sonuc, oyunId, userId, toren])
 
   useEffect(() => {
     if (!stat) return
@@ -124,12 +135,21 @@ export default function Sonuc() {
           <UstBar sag={<span className="etiket">{sinavEtiketi(oyun.kategori)} · sonuç</span>} />
           {kazanan && (
             <div className="sat">
-              <span className="tac-av">
+              <button
+                type="button"
+                className={`tac-av${isilti ? ' zipla' : ''}`}
+                key={isilti}
+                aria-label={`${kazanan.displayName}: kutla`}
+                onClick={() => {
+                  efekt('isilti')
+                  setIsilti(i => i + 1)
+                }}
+              >
                 <span className="tac">
                   <Tac />
                 </span>
                 <Avatar avatarKey={kazanan.avatarKey} photoUrl={kazanan.photoUrl} ad={kazanan.displayName} boyut={96} ben={benKazandim} />
-              </span>
+              </button>
               <div className="min-w-0">
                 <span className="etiket">Kazanan</span>
                 <h1>{benKazandim ? 'Kazandın!' : kazanan.displayName}</h1>

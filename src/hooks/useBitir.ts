@@ -31,13 +31,17 @@ export function useBitir(gameId: string | undefined, code: string | undefined) {
   const [bekliyor, setBekliyor] = useState(false)
   const [hata, setHata] = useState<string | null>(null)
 
-  const bitir = useCallback(async () => {
+  /** `gecikmeMs`: sonuca geçmeden önce en az bu kadar bekle (bitiş kornası çalsın). */
+  const bitir = useCallback(async (gecikmeMs = 0) => {
     if (!gameId || !code || kilit.current) return
+    const t0 = Date.now()
     kilit.current = true
     setBekliyor(true)
     setHata(null)
     try {
       const sonuc = await finishGameYeniden(gameId)
+      const kalan = gecikmeMs - (Date.now() - t0)
+      if (kalan > 0) await bekle(kalan)
       git(`/sonuc/${code}`, { replace: true, state: { sonuc } })
     } catch {
       setHata('Sonuçlar alınamadı, tekrar dene')

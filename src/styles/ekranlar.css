@@ -307,3 +307,23 @@
   .kivilcim { opacity: .7; transform: translateY(calc(var(--h) * .3)); }
   .alevler { transition: none; }
 }
+
+/* ---------- Ses: hoparlör butonu, ayar menüsü, test paneli ---------- */
+.ust-sag { display: flex; align-items: center; gap: 8px; }
+.ses-kap { position: relative; flex: none; }
+.ses-btn { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--burgundy); background: rgba(112, 43, 58, .08); -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; touch-action: manipulation; transition: background .15s, transform .12s; }
+.ses-btn:active { transform: scale(.94); }
+.ses-btn.koyu, .kazanan .ses-btn, .koyu-ekran .ses-btn { color: var(--cream); background: rgba(245, 242, 237, .12); }
+.ses-menu { position: absolute; right: 0; top: 50px; z-index: 80; width: 200px; padding: 6px; border-radius: 16px; background: #fff; box-shadow: 0 14px 34px -12px rgba(43, 14, 23, .45); color: var(--ink); }
+.ses-anahtar { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 10px; border-radius: 12px; font: 600 15px var(--font-govde); color: var(--ink); }
+.ses-anahtar:active { background: #F7EFE8; }
+.anahtar { position: relative; width: 40px; height: 24px; border-radius: 999px; background: #D9CEC9; transition: background .2s; }
+.anahtar i { position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(43, 14, 23, .3); transition: transform .2s; }
+.anahtar.acik { background: var(--dogru); }
+.anahtar.acik i { transform: translateX(16px); }
+.ses-test { position: fixed; left: 8px; bottom: calc(8px + var(--safe-alt)); z-index: 200; display: flex; flex-wrap: wrap; gap: 6px; max-width: 320px; padding: 10px; border-radius: 14px; background: rgba(30, 9, 16, .92); color: var(--cream); font: 600 12px var(--font-govde); }
+.ses-test b { width: 100%; font: 800 13px var(--font-baslik); }
+.ses-test button { min-height: 36px; padding: 0 10px; border-radius: 10px; background: rgba(245, 242, 237, .14); color: var(--cream); font: 600 12px var(--font-govde); }
+.ses-test button:active { background: var(--orange); color: var(--ink); }
+.ust2 .ses-btn { margin: -10px 0; }
+.tac-av { border-radius: 50%; -webkit-tap-highlight-color: transparent; }
