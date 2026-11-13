@@ -23,6 +23,9 @@ const TABLOLAR = [
   'tarih_tyt', 'cografya_tyt', 'felsefe_tyt', 'din_kulturu_tyt',
   'fizik_ayt', 'kimya_ayt', 'biyoloji_ayt', 'matematik_ayt', 'edebiyat_ayt',
   'tarih_ayt', 'cografya_ayt', 'felsefe_ayt', 'din_kulturu_ayt',
+  // LGS (0003_lgs_xp.sql)
+  'turkce_lgs', 'inkilap_lgs', 'din_kulturu_lgs',
+  'ingilizce_lgs', 'matematik_lgs', 'fen_lgs',
 ]
 const ADET = 8
 const ETIKET = '[TEST]'

@@ -44,6 +44,7 @@ describe('rankPlayers', () => {
   const p = (userId: string, score: number, totalTimeMs: number): PlayerState => ({
     userId, displayName: userId, avatarKey: null, photoUrl: null,
     score, currentQ: 0, correctCount: 0, wrongCount: 0, finished: false, totalTimeMs,
+    rankKey: 'caylak', rankLabel: 'Çaylak',
   })
 
   it('puana göre azalan sıralar, rank 1\'den başlar', () => {
