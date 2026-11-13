@@ -4,20 +4,22 @@
 //   npx tsx scripts/import-questions.ts <dosya.csv> [--dry-run] [--gorsel-klasor <klasör>]
 //
 // Sütunlar (başlık satırı zorunlu):
-//   tablo, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_sik, gorsel_dosya, aciklama
+//   tablo, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_sik, gorsel_dosya, aciklama, cozum_aciklamasi
+// aciklama = dahili not (öğrenciye gösterilmez); cozum_aciklamasi = yarış sonrası öğrenciye gösterilen çözüm (en çok 400 karakter, isteğe bağlı).
 // YKS tablolarında 5 şık (A-E) zorunludur. LGS tablolarında (*_lgs) soru 4 şıklıdır: secenek_e boş bırakılır, dogru_sik A-D.
 // Ayrıntı: docs/SORU-EKLEME.md
 import { config } from 'dotenv'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { extname, join } from 'node:path'
+import { extname, join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { LGS_TABLOLARI, STORAGE_KOVASI, TUM_TABLOLAR } from './lib-sorular.ts'
 
 config({ path: '.env.local' })
 
 const GRUP_BOYUTU = 50
 const ZORUNLU_SUTUNLAR = ['tablo', 'soru_metni', 'secenek_a', 'secenek_b', 'secenek_c', 'secenek_d', 'secenek_e', 'dogru_sik']
-const ISTEGE_BAGLI_SUTUNLAR = ['gorsel_dosya', 'aciklama']
+const ISTEGE_BAGLI_SUTUNLAR = ['gorsel_dosya', 'aciklama', 'cozum_aciklamasi']
 const GORSEL_ADI = /^[A-Za-z0-9._-]+$/
 const GORSEL_TURLERI: Record<string, string> = {
   '.png': 'image/png',
@@ -124,6 +126,7 @@ interface Aday {
     secenek_e: string | null
     dogru_sik: string
     aciklama: string | null
+    cozum_aciklamasi: string | null
     gorsel_url: string | null
   }
   gorselDosya: string
@@ -254,6 +257,10 @@ async function main(): Promise<void> {
       sorunlar.push(`dogru_sik ${lgs ? 'A-D (LGS soruları 4 şıklıdır)' : 'A-E'} olmalı (bulunan: '${al('dogru_sik')}')`)
     }
 
+    if (sutunNo('cozum_aciklamasi') >= 0 && al('cozum_aciklamasi').length > 400) {
+      sorunlar.push(`cozum_aciklamasi en çok 400 karakter olmalı (bulunan: ${al('cozum_aciklamasi').length})`)
+    }
+
     const gorselDosya = sutunNo('gorsel_dosya') >= 0 ? al('gorsel_dosya') : ''
     if (gorselDosya !== '') {
       if (!GORSEL_ADI.test(gorselDosya)) {
@@ -284,6 +291,7 @@ async function main(): Promise<void> {
         secenek_e: al('secenek_e') === '' ? null : al('secenek_e'), // LGS'de boş → NULL
         dogru_sik: dogruSik,
         aciklama: sutunNo('aciklama') >= 0 && al('aciklama') !== '' ? al('aciklama') : null,
+        cozum_aciklamasi: sutunNo('cozum_aciklamasi') >= 0 && al('cozum_aciklamasi') !== '' ? al('cozum_aciklamasi') : null,
         gorsel_url: null,
       },
     })
@@ -385,7 +393,10 @@ async function main(): Promise<void> {
   console.log('\nOK')
 }
 
-main().catch((e) => {
-  console.error(`HATA: ${e instanceof Error ? e.message : e}`)
-  process.exit(1)
-})
+// Başka bir script bu dosyadan csvAyristir'i içe aktardığında yükleme çalışmasın
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main().catch((e) => {
+    console.error(`HATA: ${e instanceof Error ? e.message : e}`)
+    process.exit(1)
+  })
+}

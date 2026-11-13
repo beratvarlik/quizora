@@ -276,6 +276,15 @@ async function testler(): Promise<void> {
     kontrol(sizan.length === 0, `okunabilen tablolar: ${sizan.join(', ')}`)
     return `${TUM_TABLOLAR.length} tablo`
   })
+  await adim('1a2. anon: soru tablolarından cozum_aciklamasi okunamıyor', async () => {
+    const sizan: string[] = []
+    for (const t of TUM_TABLOLAR) {
+      const r = await anon.from(t).select('cozum_aciklamasi').limit(1)
+      if (!okumaEngellendi(r)) sizan.push(t)
+    }
+    kontrol(sizan.length === 0, `cozum_aciklamasi okunabilen tablolar: ${sizan.join(', ')}`)
+    return `${TUM_TABLOLAR.length} tablo`
+  })
   await adim('1b. anon: games, game_players, answers, game_questions ve diğer tablolar okunamıyor', async () => {
     const tablolar = ['games', 'game_players', 'answers', 'game_questions', 'profiles', 'player_stats', 'rank_tiers', 'global_scores', 'app_settings']
     const sizan: string[] = []
@@ -297,6 +306,7 @@ async function testler(): Promise<void> {
       ['get_question', { p_game_id: SIFIR_UUID, p_position: 0 }],
       ['submit_answer', { p_game_id: SIFIR_UUID, p_position: 0, p_secenek: 'A' }],
       ['finish_game', { p_game_id: SIFIR_UUID }],
+      ['get_game_review', { p_game_id: SIFIR_UUID }],
       ['get_global_leaderboard', {}],
       ['get_my_stats', {}],
       ['rank_of', { p_xp: 0 }],
@@ -335,6 +345,19 @@ async function testler(): Promise<void> {
       mesaj(() => C.api.finishGame(g1)),
     ])
     kontrol(sonuclar.every((m) => m === 'Bu oyuna erişimin yok'), `mesajlar: ${JSON.stringify(sonuclar)}`)
+  })
+  await adim('2a2. get_game_review: üye olmayan C reddedildi; üye A için oyun bitmeden "Yarış henüz bitmedi"', async () => {
+    const mC = await mesaj(() => C.client.rpc('get_game_review', { p_game_id: g1 }).then((r) => { if (r.error) throw new Error(r.error.message) }))
+    kontrol(mC === 'Bu oyuna erişimin yok', `C mesajı: '${mC}'`)
+    const mA = await mesaj(() => A.client.rpc('get_game_review', { p_game_id: g1 }).then((r) => { if (r.error) throw new Error(r.error.message) }))
+    kontrol(mA === 'Yarış henüz bitmedi', `A mesajı: '${mA}'`)
+    // C: authenticated rolü de soru tablolarından cozum_aciklamasi okuyamaz
+    const sizan: string[] = []
+    for (const t of TUM_TABLOLAR) {
+      const r = await C.client.from(t).select('cozum_aciklamasi').limit(1)
+      if (!okumaEngellendi(r)) sizan.push(t)
+    }
+    kontrol(sizan.length === 0, `authenticated okuyabildi: ${sizan.join(', ')}`)
   })
   await adim('2b. C: başkasının oyununu start_game ile başlatamıyor', async () => {
     const m = await mesaj(() => C.api.startGame(g1))

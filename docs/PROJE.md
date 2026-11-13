@@ -50,14 +50,16 @@ Bir yarıştan kazanılan XP = **20** (katılım) + **max(0, floor(puan / 10))**
 - `/oyun/:code`: kalan süre (sunucu saatine göre sayaç), soru no (1-10), kendi puanın; soru metni + opsiyonel görsel + şıklar (YKS 5, LGS 4: **gelen `options` anahtarlarına göre çizilir**); şık seçilince submitAnswer; sonuç ANİMASYONLU doğru/yanlış gösterilir, kazanılan/kaybedilen puan görünür, ~2 sn sonra sonraki soru; canlı sıralama paneli (ad, puan, kaçıncı soruda, "bitirdi" işareti), puan değişince satırlar animasyonla yer değiştirir ve vurgulanır. Süre dolunca kalan sorular boş sayılır ve finishGame çağrılır.
 - **2× hız modu** (`game.speedupAt` dolunca): "X bitirdi, süre 2× hızlı akıyor" bildirimi (X = `game.speedupBy` oyuncusu), sayaç hızlanır, belirgin heyecan efektleri (şimşek, elektrik, ateş benzeri animasyonlar), son 10 sn ek vurgu. Bitiren oyuncu bekleme ekranında kalır: puanı sabit, sıralama canlı.
 - `/sonuc/:code`: finishGame sonucu: kazanan, sıralama (animasyonlu), kullanıcının doğru/yanlış/boş sayısı ve puan dökümü (taban + hız bonusu − ceza), kazanana kutlama, **XP dökümü** (`xpBreakdown`: katılım + puan + yerleşim + ilk bitiren = toplam), **XP çubuğunun dolması** (`xpBefore` → `xpAfter`) ve rank atlandıysa (`rankedUp`) **rank atlama animasyonu** (`rankLabelBefore` → `rankLabelAfter`), "Ana menüye dön" ve "Tekrar oyna". Ana menüdeki genel tablo kazananı canlı gösterir.
+- **Sonuç ekranı soru şeritleri** (`getGameReview`): sonuç ekranında oyuncu 10 soruyu şerit şerit görür. Her şeritte: soru numarası (1-10), ders, durum (doğru / yanlış / boş), seçilen şık ve doğru şık, aldığı puan (`points`) ve cevap süresi (`timeMs`, sn). Şeride tıklayınca açılır: soru metni (+ görsel), şıklar (yalnızca gelen anahtarlar; doğru şık işaretli, oyuncunun seçtiği şık ayrı işaretli) ve çözüm açıklaması (`explanation`). `explanation` null ise "açıklama henüz eklenmedi" yazılır (hata değil). Boş bırakılan soruda seçilen şık ve süre gösterilmez (`selected`/`timeMs` null). Yalnızca yarış bittikten sonra çağrılır; oyuncu yalnızca KENDİ cevaplarını görür.
 - Her ekranda: yükleme durumu, Türkçe hata mesajı, bağlantı koptu bandı. Mobil (iPhone Safari, 100dvh, safe-area) ve web; animasyonlar `prefers-reduced-motion`'da kapanır.
 
 ## Veritabanı
-24 soru tablosu (aynı şema): matematik_tyt, turkce_tyt, kimya_tyt, fizik_tyt, biyoloji_tyt, tarih_tyt, cografya_tyt, felsefe_tyt, din_kulturu_tyt, fizik_ayt, kimya_ayt, biyoloji_ayt, matematik_ayt, edebiyat_ayt, tarih_ayt, cografya_ayt, felsefe_ayt, din_kulturu_ayt, turkce_lgs, inkilap_lgs, din_kulturu_lgs, ingilizce_lgs, matematik_lgs, fen_lgs. Sütunlar: id uuid pk, soru_metni, gorsel_url null, secenek_a..secenek_e, dogru_sik char(1) A–E (**LGS tablolarında secenek_e NULL olabilir ve dogru_sik yalnız A–D**), aciklama null, aktif bool default true, created_at.
-Oyun tabloları: profiles, games, game_players, game_questions, answers, global_scores (eski), rank_tiers, player_stats. RPC'ler: create_game, join_game, start_game, get_game, get_game_by_id, get_question, submit_answer, finish_game, get_global_leaderboard, get_my_stats, server_time.
+24 soru tablosu (aynı şema): matematik_tyt, turkce_tyt, kimya_tyt, fizik_tyt, biyoloji_tyt, tarih_tyt, cografya_tyt, felsefe_tyt, din_kulturu_tyt, fizik_ayt, kimya_ayt, biyoloji_ayt, matematik_ayt, edebiyat_ayt, tarih_ayt, cografya_ayt, felsefe_ayt, din_kulturu_ayt, turkce_lgs, inkilap_lgs, din_kulturu_lgs, ingilizce_lgs, matematik_lgs, fen_lgs. Sütunlar: id uuid pk, soru_metni, gorsel_url null, secenek_a..secenek_e, dogru_sik char(1) A–E (**LGS tablolarında secenek_e NULL olabilir ve dogru_sik yalnız A–D**), aciklama null (dahili not, öğrenciye gösterilmez), cozum_aciklamasi null (en çok 400 karakter; yarış sonrası öğrenciye gösterilir), aktif bool default true, created_at.
+Oyun tabloları: profiles, games, game_players, game_questions, answers, global_scores (eski), rank_tiers, player_stats. RPC'ler: create_game, join_game, start_game, get_game, get_game_by_id, get_question, submit_answer, finish_game, get_global_leaderboard, get_my_stats, get_game_review, server_time.
 - `finish_game(game_id)`: sıralamayı kesinleştirir, XP'yi yarış başına bir kez uygular (`games.xp_applied`), idempotenttir. Süre dolmadan ve herkes bitirmeden 'Yarış henüz bitmedi' der. Dönüş: `{winner_id, ranking[{rank, user_id, ..., xp_gained, xp_before, xp_after, rank_label_before, rank_label_after, ranked_up}], breakdown, xp_breakdown}`. `global_scores`'a yazılmaz.
 - `get_global_leaderboard()`: **XP döner** (`player_stats` + `profiles`), ilk 20; `[{user_id, display_name, avatar_key, photo_url, xp, rank_key, rank_label, wins, games_played}]`, `xp` azalan, eşitlikte `wins` azalan.
 - `get_question(game_id, position)`: yalnızca oyuncunun sıradaki sorusu; süre sayacını (`q_started_at`) ilk çağrıda başlatır, tekrar çağrıda sıfırlamaz. Doğru şık, açıklama ve `aktif` ASLA dönmez. `submit_answer(game_id, position, secenek|null)`: puanı sunucu hesaplar; süre bitmişse cevabı boş sayar; 10. soruyu ilk bitiren `speedup_at/speedup_remaining_ms/speedup_by` değerlerini yazar. Hata mesajları listesi: `docs/ENTEGRASYON.md`.
+- `get_game_review(p_game_id)`: **yalnızca `finished` oyunda ve yalnızca üyeye**; oyunu bitirmez. Çağıranın 10 soruluk incelemesi: `{items:[{position, ders, text, image_url, options, selected, correct_option, outcome, points, time_ms, explanation}]}` (`position` sırasıyla). `options`'ta `secenek_e` boşsa `E` anahtarı yoktur (LGS). `outcome`: `correct` (seçilen = doğru şık) / `wrong` / `blank` (cevap satırı yok ya da şık null; `selected` null, `points` 0, `time_ms` null). `explanation` = `cozum_aciklamasi` (null olabilir). Silinmiş sorunun pozisyonu atlanır. Hatalar: 'Oturum yok', 'Bu oyuna erişimin yok', 'Yarış henüz bitmedi'. Doğru şık ve açıklama başka hiçbir RPC'de (`get_question`, `submit_answer`'ın `correct_option`'ı hariç, `get_game`, `get_game_by_id`) bulunmaz.
 - `get_my_stats()`: çağıranın XP/rank özeti (satır yoksa 0 ile oluşturur). Tüm RPC'ler oturum ister (anon çağıramaz); iç yardımcılar (`min_players`, `remaining_ms`, `question_label`, `game_snapshot`) istemciye kapalıdır.
 - Soru tablolarına ve `answers`/`game_questions`'a istemci erişimi YOKTUR (RLS açık, policy yok, yetki alınmış); `player_stats`, `rank_tiers`, `global_scores`, `games`, `game_players` istemciye yalnızca okunur.
 
@@ -72,6 +74,7 @@ Oyun tabloları: profiles, games, game_players, game_questions, answers, global_
 | `0006_fix_is_member.sql` | `is_member` anon erişimini kapatır (güvenlik testi bulgusu) |
 | `0006b_fix_submit_lock.sql` | `submit_answer` eşzamanlı son soru kilitlenmesini giderir (`for no key update`) |
 | `0007_lgs_4_sik.sql` | LGS soruları 4 şıklı: LGS tablolarında `secenek_e` boş olabilir, `dogru_sik` yalnız A-D; `get_question` boş E'yi `options`'a koymaz; `submit_answer` soruda olmayan şık için 'Geçersiz şık' der. **0006b'den SONRA çalıştırılır** (`submit_answer`'ın en güncel hâlini içerir). |
+| `0008_cozum_aciklamasi.sql` | 24 soru tablosuna `cozum_aciklamasi` (≤ 400 karakter) ve `get_game_review` RPC'si |
 
 Eski migration dosyaları değiştirilmez; düzeltmeler yeni dosya olarak eklenir. Geliştirmede `app_settings.min_players` 1 yapılabilir; **demo/yayın öncesi 2 olmalı** (`docs/YAYIN.md`).
 
@@ -85,7 +88,7 @@ Eski migration dosyaları değiştirilmez; düzeltmeler yeni dosya olarak ekleni
 | `e2e-sim.ts [--oyuncu N] [--kategori ad]` | N sanal oyuncuyla tam yarış simülasyonu |
 | `security-test.ts` | Yetkiler, RLS, XP hileleri, süre kuralı, eşzamanlılık, storage |
 | `soru-durumu.ts` | 24 tabloda soru sayıları; kategoriler hazır mı |
-| `import-questions.ts`, `seed-test-questions.ts`, `xp-ayarla.ts` | Soru yükleme, test sorusu, demo XP aracı (`docs/SORU-EKLEME.md`) |
+| `import-questions.ts`, `aciklama-yukle.ts`, `seed-test-questions.ts`, `xp-ayarla.ts` | Soru yükleme, çözüm açıklaması yükleme, test sorusu, demo XP aracı (`docs/SORU-EKLEME.md`) |
 
 Entegrasyon ve yayın: [ENTEGRASYON.md](ENTEGRASYON.md) (B için akış, sayaç, hata mesajları), [YAYIN.md](YAYIN.md) (Vercel).
 
@@ -138,6 +141,14 @@ export interface GameResult {
 }
 export interface GlobalRow { userId: string; displayName: string; avatarKey: string | null; photoUrl: string | null; xp: number; rankKey: string; rankLabel: string; wins: number; gamesPlayed: number }
 export interface MyStats { xp: number; rankKey: string; rankLabel: string; nextRankLabel: string | null; xpToNext: number | null; progressPct: number; wins: number; gamesPlayed: number }
+export type ReviewOutcome = 'correct' | 'wrong' | 'blank';
+export interface ReviewItem {
+  position: number; ders: string; text: string; imageUrl: string | null;
+  options: Partial<Record<Secenek, string>>;
+  selected: Secenek | null; correctOption: Secenek; outcome: ReviewOutcome;
+  points: number; timeMs: number | null; explanation: string | null;
+}
+export interface GameReview { items: ReviewItem[] }
 export interface GameSnapshot { game: GameInfo; players: PlayerState[] }
 export interface QuizoraApi {
   ensureSession(): Promise<string>;
@@ -153,6 +164,7 @@ export interface QuizoraApi {
   finishGame(gameId: string): Promise<GameResult>;
   getGlobalLeaderboard(): Promise<GlobalRow[]>;
   getMyStats(): Promise<MyStats>;
+  getGameReview(gameId: string): Promise<GameReview>;
   subscribeGame(gameId: string, cb: (s: GameSnapshot) => void): Unsubscribe;
   subscribeGlobalLeaderboard(cb: (rows: GlobalRow[]) => void): Unsubscribe;
 }

@@ -91,7 +91,7 @@ async function soruCevapTesti(A: Kullanici, B: Kullanici, id: string) {
     !q0.error &&
       anahtarlar === 'ders,image_url,options,position,text' &&
       Object.keys(q0.data.options).sort().join('') === 'ABCDE' &&
-      !alanAdlari.some((k) => /dogru|aciklama|aktif|correct/i.test(k)),
+      !alanAdlari.some((k) => /dogru|aciklama|aktif|correct|explanation|cozum/i.test(k)),
     q0.error?.message ?? anahtarlar,
   )
   rapor("get_question ders etiketi '(AYT)' içeriyor", String(q0.data?.ders).includes('(AYT)'), q0.data?.ders)
@@ -435,6 +435,209 @@ async function bitirmeTesti(A: Kullanici, B: Kullanici, C: Kullanici, D: Kullani
   )
 }
 
+// ---- get_game_review testleri (0008_cozum_aciklamasi.sql) ----
+
+type Alan = Record<string, any>
+const SIZINTI_ADI = /^(explanation|cozum_aciklamasi|correct_option|dogru_sik|aciklama)$/i // correct_count gibi meşru alanlar etkilenmez
+
+// Bir JSON ağacındaki tüm alan ADLARINI toplar (metin içeriğine bakılmaz)
+function tumAnahtarlar(v: unknown, cikti: string[] = []): string[] {
+  if (Array.isArray(v)) {
+    for (const x of v) tumAnahtarlar(x, cikti)
+  } else if (v && typeof v === 'object') {
+    for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
+      cikti.push(k)
+      tumAnahtarlar(x, cikti)
+    }
+  }
+  return cikti
+}
+
+// Plana göre oynar: plan[pos] = 'D' (doğru), 'Y' (yanlış), 'B' (boş). Toplam puanı döner.
+// Oyun boyunca get_question / submit_answer yanıtlarında açıklama alan adı olmadığını da toplar.
+async function planlaOyna(u: Kullanici, id: string, plan: string, sizinti: string[]): Promise<number> {
+  let toplam = 0
+  for (let pos = 0; pos < plan.length; pos++) {
+    const g = await u.client.rpc('get_question', { p_game_id: id, p_position: pos })
+    if (g.error) throw new Error(`get_question(${pos}): ${g.error.message}`)
+    sizinti.push(...tumAnahtarlar(g.data).filter((k) => SIZINTI_ADI.test(k)))
+    const d = await dogruSik(id, pos)
+    const secenek = plan[pos] === 'D' ? d : plan[pos] === 'B' ? null : SIKLAR.find((x) => x !== d)!
+    const r = await u.client.rpc('submit_answer', { p_game_id: id, p_position: pos, p_secenek: secenek })
+    if (r.error) throw new Error(`submit_answer(${pos}): ${r.error.message}`)
+    // submit_answer correct_option'ı cevap sonrası zaten döndürür; yalnızca açıklama alanı olmamalı
+    sizinti.push(...tumAnahtarlar(r.data).filter((k) => /explanation|cozum/i.test(k)))
+    toplam += Number(r.data.points)
+  }
+  return toplam
+}
+
+async function incelemeTesti(A: Kullanici, B: Kullanici, D: Kullanici) {
+  const sizinti: string[] = []
+  const ger = (u: Kullanici, id: string) => u.client.rpc('get_game_review', { p_game_id: id })
+
+  // ===== Oyun: tyt, A + B =====
+  const g = await oyunKur(A, [B])
+  const erken = await ger(A, g)
+  rapor("(a) oyun bitmeden get_game_review 'Yarış henüz bitmedi' der", erken.error?.message === 'Yarış henüz bitmedi', erken.error?.message)
+  const yabanci = await ger(D, g)
+  rapor('(b) üye olmayan get_game_review çağıramıyor', yabanci.error?.message === 'Bu oyuna erişimin yok', yabanci.error?.message)
+
+  // A: 0 doğru, 1 yanlış, 2 boş, 3-9 doğru. B: 0 yanlış, 1-9 doğru.
+  const planA = 'DYBDDDDDDD'
+  const planB = 'YDDDDDDDDD'
+  const [puanA, puanB] = await Promise.all([planlaOyna(A, g, planA, sizinti), planlaOyna(B, g, planB, sizinti)])
+
+  // get_game / get_game_by_id yanıtlarında açıklama / doğru şık alan adı yok
+  const { data: gRow } = await admin.from('games').select('code').eq('id', g).single()
+  const gg = await A.client.rpc('get_game', { p_code: gRow?.code })
+  const ggid = await A.client.rpc('get_game_by_id', { p_game_id: g })
+  sizinti.push(...tumAnahtarlar(gg.data).filter((k) => SIZINTI_ADI.test(k)))
+  sizinti.push(...tumAnahtarlar(ggid.data).filter((k) => SIZINTI_ADI.test(k)))
+  rapor(
+    'sızıntı: get_question, submit_answer, get_game, get_game_by_id yanıtlarında açıklama/doğru şık alan adı yok',
+    !gg.error && !ggid.error && sizinti.length === 0,
+    gg.error?.message ?? ggid.error?.message ?? [...new Set(sizinti)].join(','),
+  )
+
+  await sureyiBitir(g)
+  const fa = await A.client.rpc('finish_game', { p_game_id: g })
+  const fb = await B.client.rpc('finish_game', { p_game_id: g })
+  rapor('inceleme oyunu finish_game', !fa.error && !fb.error, fa.error?.message ?? fb.error?.message)
+  if (fa.error || fb.error) return
+
+  // Açıklama: 4. pozisyonun sorusuna özel metin yaz (diğerleri veritabanındakiyle aynı olmalı)
+  const { data: gqs } = await admin.from('game_questions').select('position, source_table, question_id').eq('game_id', g).order('position')
+  const sorular = gqs ?? []
+  const veriAciklama: Record<number, string | null> = {}
+  for (const q of sorular) {
+    const { data: r } = await admin.from(q.source_table).select('cozum_aciklamasi').eq('id', q.question_id).single()
+    veriAciklama[q.position] = (r?.cozum_aciklamasi as string | null) ?? null
+  }
+  const q4 = sorular.find((q) => q.position === 4)!
+  const ORNEK = '[TEST] İnceleme açıklaması: 2 + 2 = 4.'
+  const eskiAciklama = veriAciklama[4]
+  await admin.from(q4.source_table).update({ cozum_aciklamasi: ORNEK }).eq('id', q4.question_id)
+  veriAciklama[4] = ORNEK
+
+  try {
+    const ra = await ger(A, g)
+    const rb = await ger(B, g)
+    const itA = (ra.data?.items ?? []) as Alan[]
+    const itB = (rb.data?.items ?? []) as Alan[]
+    rapor('(c) A için 10 öğe, position 0..9 sırasıyla', !ra.error && itA.length === 10 && itA.every((x, i) => x.position === i), ra.error?.message)
+
+    const say = (it: Alan[], o: string) => it.filter((x) => x.outcome === o).length
+    rapor(
+      '(c) A outcome sayıları finish_game breakdown ile aynı (8 doğru, 1 yanlış, 1 boş)',
+      say(itA, 'correct') === fa.data.breakdown.correct && say(itA, 'wrong') === fa.data.breakdown.wrong && say(itA, 'blank') === fa.data.breakdown.blank &&
+        fa.data.breakdown.correct === 8 && fa.data.breakdown.wrong === 1 && fa.data.breakdown.blank === 1,
+      `${say(itA, 'correct')}/${say(itA, 'wrong')}/${say(itA, 'blank')} — ${JSON.stringify(fa.data.breakdown)}`,
+    )
+    rapor(
+      '(c) B outcome sayıları finish_game breakdown ile aynı (9 doğru, 1 yanlış)',
+      say(itB, 'correct') === fb.data.breakdown.correct && say(itB, 'wrong') === fb.data.breakdown.wrong && say(itB, 'blank') === fb.data.breakdown.blank &&
+        fb.data.breakdown.correct === 9 && fb.data.breakdown.wrong === 1,
+      JSON.stringify(fb.data.breakdown),
+    )
+
+    const sira = fa.data.ranking as Alan[]
+    const skorA = sira.find((r) => r.user_id === A.id)!.score
+    const skorB = sira.find((r) => r.user_id === B.id)!.score
+    const topA = itA.reduce((t, x) => t + x.points, 0)
+    const topB = itB.reduce((t, x) => t + x.points, 0)
+    rapor('(c) points toplamı oyuncunun skoruna eşit', topA === skorA && skorA === puanA && topB === skorB && skorB === puanB, `A ${topA}/${skorA} B ${topB}/${skorB}`)
+
+    // selected / correct_option / outcome: gerçek doğru şıkla karşılaştır
+    let tutarli = true
+    let ayrinti = ''
+    for (let i = 0; i < 10; i++) {
+      const d = await dogruSik(g, i)
+      const x = itA[i]
+      const sonuc = planA[i] === 'D' ? 'correct' : planA[i] === 'B' ? 'blank' : 'wrong'
+      const secimTamam = planA[i] === 'D' ? x?.selected === d : planA[i] === 'B' ? x?.selected === null : !!x?.selected && x.selected !== d
+      if (!x || x.correct_option !== d || x.outcome !== sonuc || !secimTamam) {
+        tutarli = false
+        ayrinti = `pos ${i}: ${JSON.stringify(x)} (doğru ${d})`
+        break
+      }
+    }
+    rapor('(c) selected / correct_option / outcome doğru (A: doğru, yanlış, boş)', tutarli, ayrinti)
+
+    rapor(
+      '(c) time_ms cevaplananlarda dolu (tam sayı), boş soruda points 0',
+      itA.every((x) => (x.outcome === 'blank' ? x.points === 0 : Number.isInteger(x.time_ms) && x.time_ms >= 0)),
+      JSON.stringify(itA.map((x) => x.time_ms)),
+    )
+    rapor(
+      'öğe alanları: ders, text, image_url, options (YKS: A-E)',
+      itA.every((x) => typeof x.ders === 'string' && x.ders.length > 0 && typeof x.text === 'string' && 'image_url' in x && Object.keys(x.options).sort().join('') === 'ABCDE'),
+      JSON.stringify(Object.keys(itA[0] ?? {})),
+    )
+
+    // (d) açıklama
+    rapor(
+      '(d) cozum_aciklamasi dolu soruda explanation dolu, diğerleri veritabanındakiyle aynı',
+      itA[4]?.explanation === ORNEK && itA.every((x) => x.explanation === veriAciklama[x.position]),
+      JSON.stringify(itA.map((x) => x.explanation)),
+    )
+
+    // (f) oyuncular birbirinin cevabını görmez
+    rapor(
+      '(f) A ve B yalnızca kendi selected değerlerini görür',
+      itA[0].outcome === 'correct' && itB[0].outcome === 'wrong' && itA[1].outcome === 'wrong' && itB[1].outcome === 'correct' &&
+        itA[2].selected === null && itB[2].selected !== null && itA[0].selected !== itB[0].selected,
+      JSON.stringify([itA.slice(0, 3).map((x) => x.selected), itB.slice(0, 3).map((x) => x.selected)]),
+    )
+
+    const { data: ogr } = await admin.from('games').select('status').eq('id', g).single()
+    rapor('get_game_review oyunu değiştirmedi (finished kaldı)', ogr?.status === 'finished')
+  } finally {
+    await admin.from(q4.source_table).update({ cozum_aciklamasi: eskiAciklama }).eq('id', q4.question_id)
+  }
+
+  // ===== (e) lgs_sayisal: options yalnızca A-D; B hiç cevap vermedi → tüm öğeler boş =====
+  const lg = await oyunKur(A, [B], 'lgs_sayisal')
+  await planlaOyna(A, lg, 'DYDYDYDYDY', [])
+  await sureyiBitir(lg)
+  const fl = await A.client.rpc('finish_game', { p_game_id: lg })
+  if (fl.error) {
+    rapor('(e) lgs_sayisal oyunu bitirildi', false, fl.error.message)
+    return
+  }
+  const rl = await ger(A, lg)
+  const itL = (rl.data?.items ?? []) as Alan[]
+  rapor(
+    '(e) lgs_sayisal incelemesi: 10 öğe, options yalnızca A-D',
+    !rl.error && itL.length === 10 && itL.every((x) => Object.keys(x.options).sort().join('') === 'ABCD' && /LGS/.test(x.ders)),
+    rl.error?.message ?? JSON.stringify(itL[0]?.options),
+  )
+  const rlb = await ger(B, lg)
+  const itLB = (rlb.data?.items ?? []) as Alan[]
+  rapor(
+    'hiç cevap vermeyen oyuncu: 10 öğe, hepsi blank, selected null, points 0, time_ms null',
+    !rlb.error && itLB.length === 10 && itLB.every((x) => x.outcome === 'blank' && x.selected === null && x.points === 0 && x.time_ms === null),
+    rlb.error?.message ?? JSON.stringify(itLB[0]),
+  )
+
+  // ===== Silinen soru: o pozisyon atlanır, hata yok; test sonunda satır geri konur =====
+  const { data: gq3 } = await admin.from('game_questions').select('source_table, question_id').eq('game_id', lg).eq('position', 3).single()
+  if (gq3) {
+    const { data: satir } = await admin.from(gq3.source_table).select('*').eq('id', gq3.question_id).single()
+    if (satir) {
+      try {
+        await admin.from(gq3.source_table).delete().eq('id', gq3.question_id)
+        const rs = await ger(A, lg)
+        const itS = (rs.data?.items ?? []) as Alan[]
+        rapor('silinmiş soru: hata yok, o pozisyon atlandı (9 öğe, 3. pozisyon yok)', !rs.error && itS.length === 9 && !itS.some((x) => x.position === 3), rs.error?.message ?? `${itS.length} öğe`)
+      } finally {
+        const { error: geriE } = await admin.from(gq3.source_table).insert(satir)
+        rapor('silinen soru geri yüklendi', !geriE, geriE?.message)
+      }
+    }
+  }
+}
+
 async function main() {
   const A = await kullaniciOlustur('A')
   const B = await kullaniciOlustur('B')
@@ -637,6 +840,9 @@ async function main() {
 
   // ---- finish_game / get_global_leaderboard (0005_rpc_finish.sql): A, B, C oyuncu; D üye olmayan ----
   await bitirmeTesti(A, B, C, D)
+
+  // ---- get_game_review (0008_cozum_aciklamasi.sql) ----
+  await incelemeTesti(A, B, D)
 }
 
 main()

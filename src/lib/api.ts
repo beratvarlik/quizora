@@ -12,6 +12,9 @@ import type {
   GlobalRow,
   Kategori,
   MyStats,
+  GameReview,
+  ReviewItem,
+  ReviewOutcome,
   PlayerState,
   Profile,
   QuizoraApi,
@@ -162,6 +165,20 @@ interface HamIstatistik {
   games_played: number
 }
 
+interface HamIncelemeSatir {
+  position: number
+  ders: string
+  text: string
+  image_url: string | null
+  options: Partial<Record<Secenek, string>>
+  selected: Secenek | null
+  correct_option: Secenek
+  outcome: ReviewOutcome
+  points: number
+  time_ms: number | null
+  explanation: string | null
+}
+
 interface HamProfil {
   id: string
   display_name: string
@@ -281,6 +298,22 @@ function mapMyStats(h: HamIstatistik): MyStats {
     progressPct: h.progress_pct,
     wins: h.wins,
     gamesPlayed: h.games_played,
+  }
+}
+
+function mapReviewItem(h: HamIncelemeSatir): ReviewItem {
+  return {
+    position: h.position,
+    ders: h.ders,
+    text: h.text,
+    imageUrl: h.image_url,
+    options: h.options,
+    selected: h.selected,
+    correctOption: h.correct_option,
+    outcome: h.outcome,
+    points: h.points,
+    timeMs: h.time_ms,
+    explanation: h.explanation,
   }
 }
 
@@ -547,6 +580,11 @@ export function createApi(client: Istemci): QuizoraApi {
 
     async getMyStats(): Promise<MyStats> {
       return mapMyStats(await rpc<HamIstatistik>(client, 'get_my_stats'))
+    },
+
+    async getGameReview(gameId: string): Promise<GameReview> {
+      const h = await rpc<{ items: HamIncelemeSatir[] }>(client, 'get_game_review', { p_game_id: gameId })
+      return { items: (h.items ?? []).map(mapReviewItem) }
     },
 
     // Realtime olaylarında tam snapshot yeniden çekilir (50 ms debounce); 3 sn'de bir güvenlik ağı

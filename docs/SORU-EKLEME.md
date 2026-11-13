@@ -13,7 +13,8 @@ Sorular bir E-Tablo'da hazırlanır, CSV olarak indirilir ve tek komutla veritab
 | `secenek_e` | YKS: evet, LGS: hayır | **YKS sorularında 5 şık (A-E) zorunludur. LGS soruları 4 şıklıdır (A-D): LGS tablolarında `secenek_e` boş bırakılır.** |
 | `dogru_sik` | evet | YKS: `A`-`E`; **LGS: yalnızca `A`-`D`** (küçük harf ve boşluk sorun değil) |
 | `gorsel_dosya` | hayır | Görselli soruda görselin dosya adı (örn. `sekil-1.png`) |
-| `aciklama` | hayır | Çözüm açıklaması (oyunda gösterilmez) |
+| `aciklama` | hayır | **Dahili not** (örn. "KONTROL: şık C doğrulandı"); öğrenciye HİÇ gösterilmez |
+| `cozum_aciklamasi` | hayır | **Öğrenciye gösterilen çözüm** (1-2 cümle, en çok 400 karakter); yarış bittikten sonra sonuç ekranında görünür. Boşsa "açıklama henüz eklenmedi" gösterilir |
 
 Hazır şablon: `scripts/soru-sablonu.csv`. **Şablondaki `[ÖRNEK]` satırlarını silmeden gerçek yükleme yapma.**
 
@@ -25,6 +26,25 @@ Hazır şablon: `scripts/soru-sablonu.csv`. **Şablondaki `[ÖRNEK]` satırları
 **LGS:** `turkce_lgs`, `inkilap_lgs`, `din_kulturu_lgs`, `ingilizce_lgs`, `matematik_lgs`, `fen_lgs`
 
 Tablo adları küçük harfle ve Türkçe karakter OLMADAN yazılır (`cografya`, `kulturu`).
+
+## 2b. Çözüm açıklaması: `cozum_aciklamasi` ve `aciklama` farkı
+- `aciklama`: dahili nottur, kimseye gösterilmez.
+- `cozum_aciklamasi`: yarış bittikten sonra, sonuç ekranındaki soru şeridinde öğrenciye gösterilir. Doğru şıkkı ele verdiği için yarış bitmeden hiçbir yoldan istemciye gitmez.
+
+Sorular zaten yüklüyse açıklamaları ayrı bir CSV ile ekleyebilirsin (`scripts/aciklama-yukle.ts`). Sütunlar: `tablo, soru_metni, cozum_aciklamasi`. Eşleştirme aynı tabloda `soru_metni` ile yapılır (fazla boşluk ve satır sonları yok sayılır; metin birebir aynı olmalı).
+```
+tablo,soru_metni,cozum_aciklamasi
+matematik_ayt,2x + 6 = 14 denkleminin çözümü kaçtır?,2x = 8 olduğundan x = 4 bulunur.
+fen_lgs,Hangisi bir element sembolüdür?,"Demirin sembolü Fe'dir; H2O su, CO2 karbondioksit, NaCl tuzdur."
+```
+```
+# Önce dene (hiçbir şey yazmaz): tablo bazında güncellenen / eşleşmeyen / 400+ karakter / boş
+npx tsx scripts/aciklama-yukle.ts aciklamalar.csv --dry-run
+
+# Gerçek yükleme (aynı dosyayı tekrar çalıştırmak güvenlidir)
+npx tsx scripts/aciklama-yukle.ts aciklamalar.csv
+```
+Eşleşmeyen, boş ya da 400 karakteri aşan satırlar satır numarasıyla Türkçe olarak raporlanır ve diğerlerini durdurmaz. Hangi tabloda kaç sorunun açıklaması eksik: `npx tsx scripts/soru-durumu.ts` ("AÇIKLAMASI EKSİK" sütunu, [TEST] hariç). Yeni soru yüklerken de aynı CSV'ye `cozum_aciklamasi` sütunu ekleyebilirsin (`import-questions.ts` kabul eder; şablonda var).
 
 ## 3. CSV'ye çevirme
 - **Google E-Tablolar:** Dosya → İndir → Virgülle ayrılmış değerler (.csv)
@@ -65,6 +85,7 @@ npx tsx scripts/seed-test-questions.ts --temizle
 | `secenek_c boş` / `secenek_e boş` | Şıklardan biri boş bırakılmış (YKS tablosunda `secenek_e` de zorunlu; LGS tablosunda yalnızca A-D zorunlu) |
 | `dogru_sik A-E olmalı` | Doğru şık harfi yazılmamış ya da A-E dışında (`F`, `1`, boş) |
 | `dogru_sik A-D (LGS soruları 4 şıklıdır) olmalı` | LGS tablosuna doğru şık olarak `E` yazılmış; LGS sorularında E şıkkı yoktur |
+| `cozum_aciklamasi en çok 400 karakter olmalı` | Çözüm açıklaması çok uzun; 1-2 cümleye kısalt |
 | `gorsel_dosya klasörde yok` | Dosya adı yanlış ya da dosya klasörde değil |
 | `gorsel_dosya dolu ama --gorsel-klasor verilmedi` | Komuta `--gorsel-klasor` eklenmemiş |
 | `gorsel_dosya adı yalnızca harf…` | Dosya adında boşluk, Türkçe karakter ya da klasör yolu var |

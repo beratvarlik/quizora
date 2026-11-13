@@ -29,6 +29,14 @@ export interface GameResult {
 }
 export interface GlobalRow { userId: string; displayName: string; avatarKey: string | null; photoUrl: string | null; xp: number; rankKey: string; rankLabel: string; wins: number; gamesPlayed: number }
 export interface MyStats { xp: number; rankKey: string; rankLabel: string; nextRankLabel: string | null; xpToNext: number | null; progressPct: number; wins: number; gamesPlayed: number }
+export type ReviewOutcome = 'correct' | 'wrong' | 'blank';
+export interface ReviewItem {
+  position: number; ders: string; text: string; imageUrl: string | null;
+  options: Partial<Record<Secenek, string>>;
+  selected: Secenek | null; correctOption: Secenek; outcome: ReviewOutcome;
+  points: number; timeMs: number | null; explanation: string | null;
+}
+export interface GameReview { items: ReviewItem[] }
 export interface GameSnapshot { game: GameInfo; players: PlayerState[] }
 export interface QuizoraApi {
   ensureSession(): Promise<string>;
@@ -44,6 +52,7 @@ export interface QuizoraApi {
   finishGame(gameId: string): Promise<GameResult>;
   getGlobalLeaderboard(): Promise<GlobalRow[]>;
   getMyStats(): Promise<MyStats>;
+  getGameReview(gameId: string): Promise<GameReview>;
   subscribeGame(gameId: string, cb: (s: GameSnapshot) => void): Unsubscribe;
   subscribeGlobalLeaderboard(cb: (rows: GlobalRow[]) => void): Unsubscribe;
 }

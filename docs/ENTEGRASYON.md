@@ -134,6 +134,42 @@ async function bitir(gameId: string): Promise<GameResult> {
 }
 ```
 
+## 8b. Yarış sonrası soru incelemesi (`getGameReview`)
+Sonuç ekranındaki soru şeritleri için. Doğru şık ve çözüm açıklaması yarış `finished` olmadan HİÇBİR yoldan istemciye gelmez; bu çağrı yalnızca bitmiş oyunda çalışır ve oyunu bitirmez.
+
+**Ne zaman çağrılır:** `finishGame` döndükten sonra ya da `snapshot.game.status === 'finished'` iken (örn. sayfa yenilenince). `'Yarış henüz bitmedi'` hatasında 500 ms sonra yeniden dene, en çok 5 kez:
+```ts
+async function incelemeAl(gameId: string): Promise<GameReview> {
+  for (let deneme = 0; ; deneme++) {
+    try {
+      return await api.getGameReview(gameId)
+    } catch (e) {
+      const yeniden = e instanceof Error && e.message === 'Yarış henüz bitmedi' && deneme < 5
+      if (!yeniden) throw e
+      await new Promise((r) => setTimeout(r, 500))
+    }
+  }
+}
+```
+
+**Dönüş:** `{ items: ReviewItem[] }`, `position` (0-9) sırasıyla; yalnızca ÇAĞIRAN oyuncunun cevapları. Her öğe:
+| Alan | Anlam |
+|---|---|
+| `position` | 0-9 (arayüzde 1-10 göster) |
+| `ders` | "Fizik (AYT)", "Fen Bilimleri (LGS)" gibi etiket |
+| `text`, `imageUrl` | Soru metni, varsa görsel |
+| `options` | **Yalnızca gelen anahtarlar** (YKS A-E, LGS A-D); sabit 5 şık varsayma, `Object.entries(options)` ile çiz |
+| `selected` | Oyuncunun seçtiği şık; cevap vermediyse `null` |
+| `correctOption` | Doğru şık |
+| `outcome` | `'correct'` (seçilen = doğru), `'wrong'` (seçilen ≠ doğru), `'blank'` (cevap yok / `selected` null) |
+| `points` | O sorudan aldığı puan (doğru 100-200, yanlış −25, boş 0) |
+| `timeMs` | Cevap süresi (ms); boşta `null` |
+| `explanation` | 1-2 cümlelik çözüm; `null` olabilir → "açıklama henüz eklenmedi" göster |
+
+- Toplamlar `finishGame` ile tutarlıdır: `outcome` sayıları `breakdown.correct/wrong/blank`, `points` toplamı oyuncunun puanı.
+- Silinmiş bir soru varsa o pozisyon listede olmaz (10'dan az öğe gelebilir); hata vermez.
+- **Hatalar:** `Yarış henüz bitmedi` (yukarıdaki yeniden deneme), `Bu oyuna erişimin yok` (üye değil), `Oturum yok`, `Bağlantı hatası, tekrar dene`.
+
 ## 9. Abonelikler
 ```ts
 useEffect(() => {
@@ -167,6 +203,7 @@ Her hata `Error.message` içinde **Türkçe** gelir; olduğu gibi gösterebilirs
 | `Önce soruyu getir` | `getQuestion` çağrılmadan `submitAnswer` | Önce `getQuestion` |
 | `Geçersiz şık` | A-E dışında bir şık, ya da soruda olmayan şık (LGS sorularında `E`) | Programlama hatası: yalnızca `soru.options`'ta bulunan anahtarlar gönderilmeli |
 | `Yarış henüz bitmedi` | Süre dolmadan/herkes bitmeden `finishGame` | 500 ms sonra yeniden dene (en çok 5) |
+| `Yarış henüz bitmedi` (`getGameReview`) | Oyun `finished` olmadan inceleme istendi | 500 ms sonra yeniden dene (en çok 5); bölüm 8b |
 | `Oyun bitti` | Biten oyunda `getQuestion`/`submitAnswer` | Sonuç ekranına git |
 | `Bu oyuna erişimin yok` | Üye olmayan biri oyun verisi ister | Menüye dön; kodla `joinGame` dene |
 | `Oyun bulunamadı` | Olmayan `gameId` | Menüye dön |
