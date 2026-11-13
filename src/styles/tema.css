@@ -1,0 +1,138 @@
+/* Quizora tema: renkler hem düz CSS değişkeni hem Tailwind v4 @theme token'ı olarak tanımlı.
+   Tasarım referansı: Masaüstü/quizora-taslak/taslak.html */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-burgundy: #702B3A;
+  --color-orange: #F15A24;
+  --color-cream: #F5F2ED;
+  --color-ink: #2B0E17;
+  --color-night: #1E0910;
+  --color-ember: #E0262B;
+  --color-dogru: #13805A;
+  --color-yanlis: #C8102E;
+  --font-baslik: 'Outfit', system-ui, sans-serif;
+  --font-govde: 'Inter', system-ui, sans-serif;
+}
+
+:root {
+  --burgundy: #702B3A;
+  --orange: #F15A24;
+  --cream: #F5F2ED;
+  --ink: #2B0E17;
+  --night: #1E0910;
+  --ember: #E0262B;
+  --dogru: #13805A;
+  --yanlis: #C8102E;
+  --soluk: rgba(43, 14, 23, .64);
+  --cizgi: rgba(112, 43, 58, .16);
+  --golge: 0 1px 0 rgba(112, 43, 58, .06), 0 12px 28px -14px rgba(112, 43, 58, .45);
+  --zipla: cubic-bezier(.34, 1.56, .64, 1);
+  /* iPhone Safari güvenli alanları */
+  --safe-ust: env(safe-area-inset-top, 0px);
+  --safe-alt: env(safe-area-inset-bottom, 0px);
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  html, body, #root { min-height: 100dvh; }
+  body {
+    margin: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: var(--font-govde);
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; background: none; border: 0; padding: 0; }
+  /* iOS'ta odaklanınca yakınlaştırmayı önlemek için input yazısı ≥16px */
+  input, select, textarea { font-size: max(16px, 1em); }
+  h1, h2, h3 { font-family: var(--font-baslik); letter-spacing: -.03em; }
+}
+
+@layer components {
+  /* ---------- Sayfa kabuğu: 100dvh + safe-area ---------- */
+  .sayfa { position: relative; min-height: 100dvh; padding-top: var(--safe-ust); padding-bottom: var(--safe-alt); isolation: isolate; overflow-x: hidden; }
+  .sayfa > :not(.devre) { position: relative; z-index: 1; }
+
+  .etiket { font: 600 12px/1 var(--font-govde); letter-spacing: .14em; text-transform: uppercase; color: var(--burgundy); }
+  .baslik { font: 800 42px/.95 var(--font-baslik); letter-spacing: -.035em; }
+  .baslik em { font-style: normal; color: var(--orange); }
+
+  /* ---------- Button: "arcade" tuşu ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    min-height: 56px; padding: 0 22px; border-radius: 16px;
+    font: 800 18px var(--font-baslik); letter-spacing: -.01em;
+    transition: transform .08s, box-shadow .08s, background .2s;
+  }
+  .btn-blok { width: 100%; }
+  .btn-ana { background: var(--orange); color: var(--ink); box-shadow: 0 4px 0 var(--ink); }
+  .btn-iki { background: var(--burgundy); color: var(--cream); box-shadow: 0 4px 0 var(--ink); }
+  .btn-ana:active:not(:disabled), .btn-iki:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 0 0 var(--ink); }
+  .btn-uc { min-height: 52px; color: var(--burgundy); background: var(--cream); border: 1.5px solid var(--burgundy); }
+  .btn-uc:active:not(:disabled) { background: #EDE6DF; }
+  .btn:disabled { background: #E3D9D3; color: rgba(43, 14, 23, .45); box-shadow: none; cursor: not-allowed; }
+  .btn svg { width: 20px; height: 20px; flex: none; }
+
+  /* ---------- Card ---------- */
+  .kart { position: relative; overflow: hidden; background: #fff; border-radius: 18px; box-shadow: var(--golge); }
+  .kart-bant {
+    display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 16px;
+    background: var(--burgundy); color: var(--cream);
+    font: 600 12px var(--font-govde); letter-spacing: .12em; text-transform: uppercase;
+  }
+  .kart-bant .sag { margin-left: auto; opacity: .75; letter-spacing: .08em; }
+
+  /* ---------- Cip ---------- */
+  .cip {
+    display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px;
+    border-radius: 999px; border: 1.5px solid var(--burgundy); background: var(--cream); color: var(--burgundy);
+    font: 600 13px var(--font-govde); white-space: nowrap;
+  }
+  .cip-dolu { background: var(--burgundy); color: var(--cream); }
+  .cip-k { height: 24px; padding: 0 9px; font-size: 11px; letter-spacing: .08em; }
+
+  /* ---------- Avatar: daire kırpma + 2px krem kenar; "sen" turuncu ---------- */
+  .av { display: block; flex: none; overflow: hidden; border-radius: 50%; background: var(--burgundy); box-shadow: 0 0 0 2px var(--cream); }
+  .av img { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+  .av.halka-ben { box-shadow: 0 0 0 2.5px var(--orange); }
+  .av-harf { display: grid; place-items: center; width: 100%; height: 100%; color: var(--cream); font: 800 1em var(--font-baslik); }
+
+  /* ---------- DevreHatlari: kenar şeridinde dolaşan hatlar, içeriğin ALTINDA ---------- */
+  .devre { position: absolute; z-index: 0; pointer-events: none; }
+  .devre svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .devre .iz { fill: none; stroke: var(--burgundy); stroke-opacity: .22; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .devre .isiklar { filter: drop-shadow(0 0 2px var(--ember)) drop-shadow(0 0 5px var(--orange)); }
+  .devre .isik {
+    fill: none; stroke: var(--orange); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round;
+    stroke-dasharray: 12 200; stroke-dashoffset: 12;
+    animation: devre-akis calc(var(--s) / var(--devre-hiz, 1)) linear calc(var(--g) / var(--devre-hiz, 1)) infinite;
+  }
+  .devre .ped {
+    stroke: var(--burgundy); stroke-opacity: .5; stroke-width: 2; transform-box: fill-box; transform-origin: center;
+    animation: devre-ped calc(var(--s) / var(--devre-hiz, 1)) linear calc(var(--g) / var(--devre-hiz, 1)) infinite;
+  }
+  .devre .ped.bos { fill: var(--devre-zemin, var(--cream)); }
+  .devre .ped.dolu { fill: var(--burgundy); fill-opacity: .45; }
+  .devre.koyu .iz { stroke: var(--cream); stroke-opacity: .16; }
+  .devre.koyu .ped { stroke: var(--cream); stroke-opacity: .4; }
+  .devre.koyu .ped.dolu { fill: var(--cream); fill-opacity: .3; }
+}
+
+@keyframes devre-akis { from { stroke-dashoffset: 12; } to { stroke-dashoffset: -100; } }
+@keyframes devre-ped {
+  0%, 85% {}
+  91% { fill: var(--orange); fill-opacity: 1; stroke: var(--orange); stroke-opacity: 1; transform: scale(1.55); filter: drop-shadow(0 0 4px var(--orange)) drop-shadow(0 0 9px var(--ember)); }
+  100% {}
+}
+@keyframes zipla { 0% { transform: scale(1); } 35% { transform: scale(1.14); } 65% { transform: scale(.96); } 100% { transform: scale(1); } }
+.zipla { animation: zipla .45s var(--zipla); }
+
+/* Hareketi azalt: animasyonlar kapanır, devre hatlarında sadece statik iz kalır */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  .devre .isik { display: none; }
+}
