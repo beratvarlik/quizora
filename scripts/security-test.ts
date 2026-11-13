@@ -282,7 +282,11 @@ async function testler(): Promise<void> {
       const r = await anon.from(t).select('cozum_aciklamasi').limit(1)
       if (!okumaEngellendi(r)) sizan.push(t)
     }
-    kontrol(sizan.length === 0, `cozum_aciklamasi okunabilen tablolar: ${sizan.join(', ')}`)
+    for (const t of TUM_TABLOLAR) {
+      const r = await anon.from(t).select('topic').limit(1)
+      if (!okumaEngellendi(r)) sizan.push(`${t}.topic`)
+    }
+    kontrol(sizan.length === 0, `cozum_aciklamasi/topic okunabilen tablolar: ${sizan.join(', ')}`)
     return `${TUM_TABLOLAR.length} tablo`
   })
   await adim('1b. anon: games, game_players, answers, game_questions ve diğer tablolar okunamıyor', async () => {
@@ -317,6 +321,8 @@ async function testler(): Promise<void> {
       ['remove_mistake', { p_question_id: SIFIR_UUID }],
       ['_game_mistakes', { p_game_id: SIFIR_UUID }],
       ['_apply_mistakes', { p_game_id: SIFIR_UUID }],
+      ['get_performance', { p_exam: null, p_days: 30 }],
+      ['_perf_rows', { p_uid: SIFIR_UUID, p_since: '2000-01-01T00:00:00Z', p_exam: null }],
       ['get_global_leaderboard', {}],
       ['get_my_stats', {}],
       ['rank_of', { p_xp: 0 }],
@@ -431,6 +437,16 @@ async function testler(): Promise<void> {
     } finally {
       await admin.from('mistake_book').delete().eq('user_id', A.id).eq('question_id', qid)
     }
+  })
+  await adim('2a5. Akıllı analiz: _perf_rows istemciden çağrılamaz (başkasının verisi); get_performance yalnızca çağıranın verisini döndürür; soru tablolarında topic okunamaz', async () => {
+    const ic = await C.client.rpc('_perf_rows', { p_uid: A.id, p_since: '2000-01-01T00:00:00Z', p_exam: null })
+    kontrol(!!ic.error, '_perf_rows istemciden çağrılabildi (başkasının verisi okunabilir)!')
+    const pc = await C.client.rpc('get_performance', { p_exam: null, p_days: 365 })
+    kontrol(!pc.error && pc.data.totals.games === 0 && pc.data.totals.answered === 0 && pc.data.by_topic.length === 0, `C boş olmalıydı: ${pc.error?.message ?? JSON.stringify(pc.data?.totals)}`)
+    const kotu = await mesaj(() => C.client.rpc('get_performance', { p_exam: 'xyz', p_days: 30 }).then((r) => { if (r.error) throw new Error(r.error.message) }))
+    kontrol(kotu === 'Geçersiz sınav', `geçersiz exam mesajı: '${kotu}'`)
+    const t = await C.client.from('matematik_tyt').select('topic').limit(1)
+    kontrol(okumaEngellendi(t), `authenticated topic okuyabildi: ${JSON.stringify(t.data)}`)
   })
   await adim('2b. C: başkasının oyununu start_game ile başlatamıyor', async () => {
     const m = await mesaj(() => C.api.startGame(g1))

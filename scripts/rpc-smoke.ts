@@ -1121,6 +1121,222 @@ async function defterTesti(A: Kullanici, B: Kullanici, D: Kullanici) {
   rapor('sızıntı: defter testlerinde oyun yanıtlarında açıklama alan adı yok', sizinti.length === 0, [...new Set(sizinti)].join(','))
 }
 
+// ---- Akıllı analiz / Performansım (0011_akilli_analiz.sql) ----
+
+const bugunIstanbul = (): string => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul' }).format(new Date())
+const gunEkle = (d: string, n: number): string => {
+  const t = new Date(`${d}T12:00:00Z`)
+  t.setUTCDate(t.getUTCDate() + n)
+  return t.toISOString().slice(0, 10)
+}
+const yuzde = (c: number, a: number): number => (a > 0 ? Math.round((1000 * c) / a) / 10 : 0)
+
+async function performansTesti() {
+  const P1 = await kullaniciOlustur('P1')
+  const P2 = await kullaniciOlustur('P2')
+  const P3 = await kullaniciOlustur('P3')
+  const perf = (u: Kullanici, a: { exam?: string | null; days?: number } = {}) =>
+    u.client.rpc('get_performance', { p_exam: a.exam ?? null, p_days: a.days ?? 30 })
+  const sizinti: string[] = []
+  const gunuAyarla = async (oyun: string, kacGunOnce: number) => {
+    const { error } = await admin.from('games').update({ finished_at: new Date(Date.now() - kacGunOnce * 86_400_000).toISOString() }).eq('id', oyun)
+    if (error) throw new Error(`finished_at: ${error.message}`)
+  }
+  const bitir = async (oyun: string, kimler: Kullanici[]) => {
+    await sureyiBitir(oyun)
+    for (const u of kimler) {
+      const r = await u.client.rpc('finish_game', { p_game_id: oyun })
+      if (r.error) throw new Error(`finish_game: ${r.error.message}`)
+    }
+  }
+
+  // ===== Boş kullanıcı =====
+  const bos = await perf(P3)
+  const bd = bos.data
+  rapor(
+    'boş kullanıcı: totals sıfır, bySubject/byTopic boş, daily 7 gün sıfır, streak 0',
+    !bos.error && bd.totals.games === 0 && bd.totals.answered === 0 && bd.totals.accuracy === 0 && bd.totals.avg_time_ms === 0 &&
+      bd.by_subject.length === 0 && bd.by_topic.length === 0 && bd.daily.length === 7 &&
+      bd.daily.every((x: Alan) => x.answered === 0 && x.correct === 0) && bd.streak_days === 0,
+    bos.error?.message ?? JSON.stringify(bd),
+  )
+  const kotu = await perf(P3, { exam: 'xyz' })
+  rapor("geçersiz exam → 'Geçersiz sınav'", kotu.error?.message === 'Geçersiz sınav', kotu.error?.message)
+
+  // ===== Oyun 1: bilinen konular =====
+  const g = await oyunKur(P1, [P2])
+  const gq = await gqOku(g)
+  // konular: pos0-3 'Tst Konu A', pos4-8 'Tst Konu B', pos9 boş (NULL → 'Diğer')
+  const konuOf = (pos: number): string | null => (pos <= 3 ? 'Tst Konu A' : pos <= 8 ? 'Tst Konu B' : null)
+  const orijinal: { tbl: string; id: string; topic: string | null }[] = []
+  for (const q of gq) {
+    const { data } = await admin.from(q.source_table).select('topic').eq('id', q.question_id).single()
+    orijinal.push({ tbl: q.source_table, id: q.question_id, topic: (data?.topic as string | null) ?? null })
+  }
+  try {
+    for (const q of gq) {
+      const { error } = await admin.from(q.source_table).update({ topic: konuOf(q.position) }).eq('id', q.question_id)
+      if (error) throw new Error(`topic atama: ${error.message}`)
+    }
+
+    const planP1 = 'DDYBDDYYDD' // 6 doğru, 3 yanlış, 1 boş
+    const planP2 = 'DDDDDDDDDD'
+    await Promise.all([planlaOyna(P1, g, planP1, sizinti), planlaOyna(P2, g, planP2, sizinti)])
+
+    const once = await perf(P1)
+    rapor('yalnızca BİTMİŞ oyunlar: oyun sürerken totals.games 0, answered 0', !once.error && once.data.totals.games === 0 && once.data.totals.answered === 0, once.error?.message ?? JSON.stringify(once.data.totals))
+
+    await bitir(g, [P1, P2])
+
+    // Beklenen değerleri bu yarıştan yerelde hesapla
+    const etiketler: Record<string, string> = {}
+    for (const q of gq) {
+      if (!etiketler[q.source_table]) {
+        const l = await admin.rpc('question_label', { source_table: q.source_table })
+        etiketler[q.source_table] = l.data as string
+      }
+    }
+    const beklenenTopic = new Map<string, { subject: string; topic: string; answered: number; correct: number }>()
+    const beklenenDers = new Map<string, { answered: number; correct: number }>()
+    for (const q of gq) {
+      const sonuc = planP1[q.position]
+      if (sonuc === 'B') continue // boş: answered'a sayılmaz
+      const topic = konuOf(q.position) ?? 'Diğer'
+      const k = `${q.source_table}|${topic}`
+      const t = beklenenTopic.get(k) ?? { subject: etiketler[q.source_table], topic, answered: 0, correct: 0 }
+      t.answered++
+      if (sonuc === 'D') t.correct++
+      beklenenTopic.set(k, t)
+      const d = beklenenDers.get(q.source_table) ?? { answered: 0, correct: 0 }
+      d.answered++
+      if (sonuc === 'D') d.correct++
+      beklenenDers.set(q.source_table, d)
+    }
+
+    const r1 = await perf(P1)
+    const p = r1.data
+    const { data: cevaplar } = await admin.from('answers').select('sure_ms, secenek').eq('game_id', g).eq('user_id', P1.id)
+    const sureler = (cevaplar ?? []).filter((x) => x.secenek !== null).map((x) => Number(x.sure_ms))
+    const beklenenOrt = Math.round(sureler.reduce((t, x) => t + x, 0) / sureler.length)
+    rapor(
+      'totals: 1 oyun, 9 cevaplanan, 6 doğru, 3 yanlış, 1 boş, accuracy 66.7, ortalama süre cevap sürelerinden',
+      !r1.error && p.totals.games === 1 && p.totals.answered === 9 && p.totals.correct === 6 && p.totals.wrong === 3 && p.totals.blank === 1 &&
+        p.totals.accuracy === 66.7 && Math.abs(p.totals.avg_time_ms - beklenenOrt) <= 1,
+      r1.error?.message ?? `${JSON.stringify(p.totals)} (beklenen ort ${beklenenOrt})`,
+    )
+
+    const satirlar = (p.by_topic as Alan[]).filter((x) => /^(Tst Konu|Diğer)/.test(x.topic))
+    const topicTamam =
+      satirlar.length === p.by_topic.length &&
+      satirlar.length === beklenenTopic.size &&
+      satirlar.every((x) => {
+        const e = [...beklenenTopic.values()].find((b) => b.subject === x.subject && b.topic === x.topic)
+        return !!e && x.answered === e.answered && x.correct === e.correct && x.accuracy === yuzde(e.correct, e.answered) &&
+          x.low_sample === (e.answered < 3) && x.exam === 'yks'
+      })
+    rapor('byTopic: (ders, konu) başına answered/correct/accuracy/lowSample yerel hesapla birebir aynı; boş topic "Diğer"', topicTamam, JSON.stringify(p.by_topic))
+    const lowIdx = (p.by_topic as Alan[]).findIndex((x) => x.low_sample)
+    const sirali = (p.by_topic as Alan[]).every((x, i, a) => i === 0 || a[i - 1].low_sample === x.low_sample || (!a[i - 1].low_sample && x.low_sample)) &&
+      (p.by_topic as Alan[]).filter((x) => !x.low_sample).every((x, i, a) => i === 0 || a[i - 1].accuracy <= x.accuracy)
+    rapor(`byTopic sırası: önce yeterli örnekliler (doğruluk artan), sonra lowSample (${lowIdx < 0 ? 'lowSample yok' : `ilk lowSample ${lowIdx}. sırada`})`, sirali)
+    const dersTamam =
+      (p.by_subject as Alan[]).length === beklenenDers.size &&
+      (p.by_subject as Alan[]).every((x) => {
+        const tbl = Object.keys(etiketler).find((t) => etiketler[t] === x.subject)!
+        const e = beklenenDers.get(tbl)
+        return !!e && x.answered === e.answered && x.correct === e.correct && x.accuracy === yuzde(e.correct, e.answered) &&
+          x.exam === 'yks' && Number.isInteger(x.avg_time_ms) && x.avg_time_ms >= 0
+      })
+    rapor('bySubject: ders başına answered/correct/accuracy yerel hesapla aynı (boş bırakılanlar sayılmaz)', dersTamam, JSON.stringify(p.by_subject))
+
+    const bugun = bugunIstanbul()
+    const gunler = [-6, -5, -4, -3, -2, -1, 0].map((n) => gunEkle(bugun, n))
+    rapor(
+      'daily: 7 gün (bugün dahil, eskiden yeniye), bugün 9/6, diğer günler 0; streakDays 1',
+      JSON.stringify(p.daily.map((x: Alan) => x.date)) === JSON.stringify(gunler) &&
+        p.daily[6].answered === 9 && p.daily[6].correct === 6 && p.daily.slice(0, 6).every((x: Alan) => x.answered === 0 && x.correct === 0) && p.streak_days === 1,
+      JSON.stringify(p.daily),
+    )
+
+    // Başka kullanıcılar etkilenmez / yalnızca kendi verisi
+    const r2 = await perf(P2)
+    const r3 = await perf(P3)
+    rapor(
+      'yalnızca kendi verisi: P2 10/10 (accuracy 100), P3 hâlâ boş',
+      r2.data.totals.answered === 10 && r2.data.totals.correct === 10 && r2.data.totals.accuracy === 100 && r2.data.totals.games === 1 &&
+        r3.data.totals.games === 0 && r3.data.by_topic.length === 0,
+      JSON.stringify([r2.data.totals, r3.data.totals]),
+    )
+
+    // Filtreler
+    const lgs = await perf(P1, { exam: 'lgs' })
+    const yks = await perf(P1, { exam: 'yks' })
+    rapor(
+      'exam filtresi: lgs → boş (daily 7 gün sıfır), yks → tüm veri; streak filtreden bağımsız',
+      lgs.data.totals.games === 0 && lgs.data.by_topic.length === 0 && lgs.data.daily.every((x: Alan) => x.answered === 0) &&
+        yks.data.totals.games === 1 && yks.data.totals.answered === 9 && lgs.data.streak_days === 1,
+      lgs.error?.message ?? yks.error?.message,
+    )
+
+    // topic: review ve defter
+    const rv = await P1.client.rpc('get_game_review', { p_game_id: g })
+    const items = (rv.data?.items ?? []) as Alan[]
+    rapor(
+      'get_game_review: her öğede topic (pos0-3 A, 4-8 B, 9 boş → null)',
+      !rv.error && items.length === 10 && items.every((x) => x.topic === konuOf(x.position)),
+      rv.error?.message ?? JSON.stringify(items.map((x) => x.topic)),
+    )
+    const md = await P1.client.rpc('get_mistakes', { p_exam: null, p_subject: null, p_limit: 50 })
+    const mi = (md.data?.items ?? []) as Alan[]
+    rapor(
+      'get_mistakes: her öğede topic, oyundaki sorunun konusuyla aynı (4 yanlış/boş soru)',
+      !md.error && mi.length === 4 && mi.every((x) => 'topic' in x && x.topic === konuOf(gq.find((q) => q.question_id === x.question_id)!.position)),
+      md.error?.message ?? JSON.stringify(mi.map((x) => x.topic)),
+    )
+
+    // Pencere (days) ve seri
+    await gunuAyarla(g, 5)
+    const d1 = await perf(P1, { days: 1 })
+    const d30 = await perf(P1, { days: 30 })
+    const d0 = await perf(P1, { days: 0 })
+    const d9 = await perf(P1, { days: 9999 })
+    rapor(
+      'days: 5 gün önce biten yarış days=1 penceresinde yok (totals/byTopic boş) ama daily’de 5 gün önce 9/6; days=30 kapsıyor; 0 ve 9999 hata vermez',
+      d1.data.totals.games === 0 && d1.data.by_topic.length === 0 && d1.data.daily[1].answered === 9 && d1.data.daily[1].correct === 6 &&
+        d30.data.totals.games === 1 && !d0.error && d0.data.totals.games === 0 && !d9.error && d9.data.totals.games === 1,
+      d1.error?.message ?? JSON.stringify(d1.data.daily),
+    )
+    rapor('seri: tek oyun 5 gün önce → streakDays 0', d30.data.streak_days === 0, String(d30.data.streak_days))
+
+    // İkinci oyun (bugün) ile seri senaryoları
+    const g2 = await oyunKur(P1, [P2])
+    await Promise.all([planlaOyna(P1, g2, 'DD', sizinti), planlaOyna(P2, g2, 'D', sizinti)])
+    await bitir(g2, [P1, P2])
+    const seri = async (): Promise<number> => (await perf(P1)).data.streak_days as number
+    const senaryolar: Array<[string, number, number, number]> = [
+      // [açıklama, g kaç gün önce, g2 kaç gün önce, beklenen seri]
+      ['g 5 gün önce, g2 bugün → 1', 5, 0, 1],
+      ['g dün, g2 bugün → 2', 1, 0, 2],
+      ['g 2 gün önce, g2 bugün (dün boş) → 1', 2, 0, 1],
+      ['g 2 gün önce, g2 dün (bugün yok) → 2', 2, 1, 2],
+      ['g 4 gün önce, g2 3 gün önce (bugün/dün yok) → 0', 4, 3, 0],
+    ]
+    const sonuclar: string[] = []
+    let hepsi = true
+    for (const [ad, gOnce, g2Once, beklenen] of senaryolar) {
+      await gunuAyarla(g, gOnce)
+      await gunuAyarla(g2, g2Once)
+      const s = await seri()
+      if (s !== beklenen) hepsi = false
+      sonuclar.push(`${ad}: ${s}`)
+    }
+    rapor('streakDays senaryoları (bugün ya da dünden geriye üst üste gün)', hepsi, sonuclar.join(' | '))
+  } finally {
+    for (const o of orijinal) await admin.from(o.tbl).update({ topic: o.topic }).eq('id', o.id)
+    rapor('soruların özgün konuları geri yüklendi', true, `${orijinal.length} soru`)
+  }
+}
+
 async function main() {
   const A = await kullaniciOlustur('A')
   const B = await kullaniciOlustur('B')
@@ -1332,6 +1548,9 @@ async function main() {
 
   // ---- Yanlışlarım defteri (0010_yanlislarim_defteri.sql) ----
   await defterTesti(A, B, D)
+
+  // ---- Akıllı analiz / Performansım (0011_akilli_analiz.sql) ----
+  await performansTesti()
 }
 
 main()
