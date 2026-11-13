@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import Alevler from '../components/Alevler'
 import CanliSerit from '../components/CanliSerit'
 import DevreHatlari from '../components/DevreHatlari'
 import { BaglantiBandi, HataEkrani, Yukleniyor } from '../components/Durum'
@@ -7,9 +8,12 @@ import HizBildirimi from '../components/HizBildirimi'
 import HizRozeti from '../components/HizRozeti'
 import { IkCarpi, IkTik } from '../components/Ikon'
 import { sinavEtiketi, sinavHarfleri } from '../components/Kategoriler'
+import SesButonu from '../components/SesButonu'
 import SureHalkasi from '../components/SureHalkasi'
 import { hataMesaji } from '../hooks/hata'
+import { useBitir } from '../hooks/useBitir'
 import { useCountdown } from '../hooks/useCountdown'
+import { useSes } from '../hooks/useSes'
 import { useGame } from '../hooks/useGame'
 import { api } from '../lib/client'
 import type { AnswerResult, PlayerState, Question, Secenek } from '../types'
@@ -33,6 +37,8 @@ export default function Oyun() {
   const { snapshot, me, userId, offsetMs, loading, error } = useGame(code)
   const oyun = snapshot?.game
   const sayac = useCountdown(oyun, offsetMs)
+  const ses = useSes()
+  const { baslangicPlanla, oyunDurumu, sayac: sesSayac, hizGecisi, boguk, oyunBitti, efekt } = ses
 
   const [pos, setPos] = useState<number | null>(null) // şu an çözülen soru (0..9)
   const [soru, setSoru] = useState<Question | null>(null)
@@ -64,16 +70,54 @@ export default function Oyun() {
     if (me.finished || me.currentQ >= toplam) setBitirdim(true)
   }, [me, toplam])
 
-  // Faz yönlendirmeleri: lobi → lobiye, süre bitti / herkes bitirdi → sonuca.
+  // Faz yönlendirmeleri (ENTEGRASYON.md §7-8). Snapshot gelmeyebilir: sayaç (2× dahil) her 100 ms
+  // yerel olarak hesaplanır; süre dolunca ya da herkes bitirince finishGame (tek sefer, yeniden
+  // denemeli) çağrılır ve sonuca geçilir. Oyun zaten bitmişse (sayfa yenileme) doğrudan sonuca.
   const herkesBitti = Boolean(snapshot && snapshot.players.length > 0 && snapshot.players.every(p => p.finished))
+  const { bitir, bekliyor: sonucBekleniyor, hata: bitirHata } = useBitir(oyun?.id, oyun?.code)
+  const oyunId = oyun?.id
+  const durum = oyun?.status
+  const oyunKodu = oyun?.code
+  const sureBitti = sayac.phase === 'bitti'
   useEffect(() => {
-    if (!oyun) return
-    if (oyun.status === 'lobby') git(`/lobi/${oyun.code}`, { replace: true })
-    else if (sayac.phase === 'bitti' || herkesBitti) {
-      const t = window.setTimeout(() => git(`/sonuc/${oyun.code}`, { replace: true }), geri ? 900 : 300)
+    if (!durum || !oyunKodu) return
+    if (durum === 'lobby') {
+      git(`/lobi/${oyunKodu}`, { replace: true })
+      return
+    }
+    if (durum === 'finished') {
+      // Müzik çalıyorsa bitiş kornası (kısa – kısa – UZUN) bitince sonuca geç; yenilemede korna yok.
+      const t = window.setTimeout(() => git(`/sonuc/${oyunKodu}`, { replace: true }), oyunId ? oyunBitti(oyunId) : 0)
       return () => window.clearTimeout(t)
     }
-  }, [oyun, sayac.phase, herkesBitti, geri, git])
+    if (sureBitti || herkesBitti) {
+      const t = window.setTimeout(() => void bitir(oyunId ? oyunBitti(oyunId) : 0), geri ? 900 : 0)
+      return () => window.clearTimeout(t)
+    }
+  }, [durum, oyunKodu, oyunId, sureBitti, herkesBitti, geri, bitir, git, oyunBitti])
+
+  // ---- Ses: başlama kornası, müzik seviyesi, son saniyeler, boğuk bekleme ----
+  const baslangicZamani = oyun?.startedAt
+  useEffect(() => {
+    if (oyunId && baslangicZamani && (sayac.phase === 'gerisayim' || sayac.phase === 'oyun'))
+      baslangicPlanla(oyunId, new Date(baslangicZamani).getTime(), offsetMs)
+  }, [oyunId, baslangicZamani, sayac.phase, offsetMs, baslangicPlanla])
+  const oyunSuruyor = sayac.phase === 'oyun' && durum === 'playing' && !herkesBitti
+  const son20 = sayac.kalanMs <= 20000
+  const son3 = sayac.kalanMs <= 3000
+  useEffect(() => {
+    if (oyunSuruyor) oyunDurumu({ hizli: sayac.hizli, son20, son3 })
+  }, [oyunSuruyor, sayac.hizli, son20, son3, oyunDurumu])
+  const ekranSaniye = Math.ceil(sayac.kalanMs / 1000)
+  const kalanRef = useRef(sayac.kalanMs)
+  kalanRef.current = sayac.kalanMs
+  useEffect(() => {
+    if (oyunSuruyor && oyunId) sesSayac(oyunId, kalanRef.current, sayac.hizli)
+  }, [oyunSuruyor, oyunId, ekranSaniye, sayac.hizli, sesSayac])
+  useEffect(() => {
+    boguk(bitirdim && oyunSuruyor)
+  }, [bitirdim, oyunSuruyor, boguk])
+  useEffect(() => () => boguk(false), [boguk])
 
   // 2× anı: oyun sırasında speedupBy ilk kez dolunca bir kez oynat.
   useEffect(() => {
@@ -86,9 +130,10 @@ export default function Oyun() {
     if (!oncekiHiz.current && simdiki) {
       const kim = snapshot.players.find(p => p.userId === simdiki)
       if (kim) setHizAni(kim)
+      hizGecisi()
     }
     oncekiHiz.current = simdiki
-  }, [oyun, snapshot])
+  }, [oyun, snapshot, hizGecisi])
 
   // Sıradaki soruyu getir.
   const soruGetir = useCallback(
@@ -120,8 +165,10 @@ export default function Oyun() {
     if (!oyun || !soru || geri || gonderiliyor.current || sayac.phase !== 'oyun') return
     gonderiliyor.current = true
     setSecili(s)
+    efekt('tik')
     try {
       const r = await api.submitAnswer(oyun.id, soru.position, s)
+      if (s !== null) efekt(r.correct ? 'dogru' : 'yanlis')
       setGeri({ secenek: s, sonuc: r })
       setPuan(r.newScore)
       setSonuclar(o => ({ ...o, [soru.position]: s === null ? 'b' : r.correct ? 'd' : 'y' }))
@@ -153,6 +200,8 @@ export default function Oyun() {
   if (!me) return <HataEkrani mesaj="Bu yarışta değilsin." />
 
   const hizli = sayac.hizli
+  const dogruSayisi = Object.values(sonuclar).filter(v => v === 'd').length
+  const yanlisSayisi = Object.values(sonuclar).filter(v => v === 'y').length
   const benimPuan = puan ?? me.score
   const suAnki = pos ?? me.currentQ
   // Şık sayısı sorudan gelir (boş/null şık gösterilmez); LGS'de E asla gösterilmez.
@@ -164,6 +213,7 @@ export default function Oyun() {
       <BaglantiBandi />
       <DevreHatlari kose="sol-alt" boyut={180} soluk={!hizli} koyu={hizli} hiz={hizli ? 2.5 : 1} zemin={hizli ? '#1E0910' : undefined} />
       <DevreHatlari kose="sag-alt" boyut={180} soluk={!hizli} koyu={hizli} hiz={hizli ? 2.5 : 1} zemin={hizli ? '#1E0910' : undefined} />
+      {hizli && <Alevler son10={sayac.kalanMs <= 10000} />}
       <div className="icerik oyun-ust" ref={ekran}>
         <CanliSerit oyuncular={snapshot.players} benId={userId ?? ''} koyu={hizli} hizli={hizli} toplamSoru={toplam} />
 
@@ -174,7 +224,10 @@ export default function Oyun() {
               <span className="soru-no">
                 {bitirdim ? 'Bitti' : `Soru ${Math.min(suAnki + 1, toplam)}`} <span>/ {toplam}</span>
               </span>
-              {hizli && <HizRozeti ref={rozet} gizli={Boolean(hizAni)} />}
+              <span className="flex items-center gap-2">
+                {hizli && <HizRozeti ref={rozet} gizli={Boolean(hizAni)} />}
+                <SesButonu koyu={hizli} />
+              </span>
             </div>
             <div className="segmentler" aria-hidden="true">
               {Array.from({ length: toplam }, (_, i) => {
@@ -202,8 +255,17 @@ export default function Oyun() {
             </p>
             <div className="buyuk">{sureYazi(sayac.kalanMs)}</div>
             <p>
-              {me.correctCount} doğru · {me.wrongCount} yanlış
+              {Math.max(me.correctCount, dogruSayisi)} doğru · {Math.max(me.wrongCount, yanlisSayisi)} yanlış
             </p>
+            {sonucBekleniyor && <p>Sonuçlar hazırlanıyor…</p>}
+            {bitirHata && (
+              <div className="mt-4">
+                <p className="text-[color:var(--yanlis)] font-semibold">{bitirHata}</p>
+                <button type="button" className="btn btn-ana btn-blok mt-3" onClick={() => void bitir()}>
+                  Tekrar dene
+                </button>
+              </div>
+            )}
           </div>
         ) : sayac.phase === 'gerisayim' ? (
           <div className="bekleme kart">
@@ -256,6 +318,14 @@ export default function Oyun() {
                 Boş geç
               </button>
             </div>
+          </div>
+        )}
+        {bitirHata && !bitirdim && (
+          <div className="hata-kutu" role="alert">
+            {bitirHata}{' '}
+            <button type="button" className="underline" onClick={() => void bitir()}>
+              Tekrar dene
+            </button>
           </div>
         )}
         {hata && (

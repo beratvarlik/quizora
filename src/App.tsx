@@ -6,9 +6,13 @@ import Lobi from './pages/Lobi'
 import Join from './pages/Join'
 import Oyun from './pages/Oyun'
 import Sonuc from './pages/Sonuc'
+import SesTestPaneli, { sesTestAcik } from './components/SesTestPaneli'
+import { useSes } from './hooks/useSes'
 
 export default function App() {
+  useSes() // ilk dokunuşta ses motorunun kilidini açmak için dinleyicileri kurar
   return (
+    <>
     <Routes>
       <Route path="/" element={<Acilis />} />
       <Route path="/profil" element={<Profil />} />
@@ -19,5 +23,7 @@ export default function App() {
       <Route path="/sonuc/:code" element={<Sonuc />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    {sesTestAcik() && <SesTestPaneli />}
+    </>
   )
 }
