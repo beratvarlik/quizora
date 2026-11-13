@@ -14,7 +14,7 @@ export interface PlayerState {
   score: number; currentQ: number; correctCount: number; wrongCount: number; finished: boolean; totalTimeMs: number;
   rankKey: string; rankLabel: string;
 }
-export interface Question { position: number; ders: string; text: string; imageUrl: string | null; options: Record<Secenek, string> }
+export interface Question { position: number; ders: string; text: string; imageUrl: string | null; options: Partial<Record<Secenek, string>> }
 export interface AnswerResult { correct: boolean; points: number; correctOption: Secenek; newScore: number; finished: boolean; speedupTriggered: boolean }
 export interface RankedPlayer extends PlayerState {
   rank: number; xpGained: number; xpBefore: number; xpAfter: number;
