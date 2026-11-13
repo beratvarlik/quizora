@@ -8,7 +8,7 @@ import SureHalkasi from './SureHalkasi'
 
 /** Geçici vitrin demosu: 5 oyunculu 2× durumu (oyun ekranı B3/B4'te bu bileşenleri kullanacak). */
 const oyuncu = (userId: string, displayName: string, avatarKey: string, score: number, currentQ: number, finished = false, totalTimeMs = 0): PlayerState =>
-  ({ userId, displayName, avatarKey, photoUrl: null, score, currentQ, correctCount: 0, wrongCount: 0, finished, totalTimeMs })
+  ({ userId, displayName, avatarKey, photoUrl: null, score, currentQ, correctCount: 0, wrongCount: 0, finished, totalTimeMs, rankKey: 'caylak', rankLabel: 'Çaylak' })
 const ILK: PlayerState[] = [
   oyuncu('elif', 'Elif', 'avatar-7', 1105, 10, true, 98000),
   oyuncu('ben', 'Deniz', 'avatar-3', 775, 7),
