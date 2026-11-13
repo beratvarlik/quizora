@@ -156,8 +156,8 @@ async function main() {
   await bekle(3500)
   const soru = await B.getQuestion(gameId, 0)
   rapor(
-    "getQuestion: ders '(LGS)', 5 şık, doğru şık yok",
-    soru.position === 0 && soru.ders.includes('(LGS)') && Object.keys(soru.options).sort().join('') === 'ABCDE' &&
+    "getQuestion: ders '(LGS)', 4 şık (A-D, E yok), doğru şık yok",
+    soru.position === 0 && soru.ders.includes('(LGS)') && Object.keys(soru.options).sort().join('') === 'ABCD' &&
       !('dogru_sik' in soru) && !('correctOption' in soru) && soru.imageUrl === null,
     soru.ders,
   )

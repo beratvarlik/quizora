@@ -110,7 +110,7 @@ interface HamSoru {
   ders: string
   text: string
   image_url: string | null
-  options: Record<Secenek, string>
+  options: Partial<Record<Secenek, string>> // LGS soruları 4 şıklıdır: E anahtarı yoktur
 }
 
 interface HamCevap {

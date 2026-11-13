@@ -5,12 +5,13 @@
 //
 // Sütunlar (başlık satırı zorunlu):
 //   tablo, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_sik, gorsel_dosya, aciklama
+// YKS tablolarında 5 şık (A-E) zorunludur. LGS tablolarında (*_lgs) soru 4 şıklıdır: secenek_e boş bırakılır, dogru_sik A-D.
 // Ayrıntı: docs/SORU-EKLEME.md
 import { config } from 'dotenv'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { extname, join } from 'node:path'
-import { STORAGE_KOVASI, TUM_TABLOLAR } from './lib-sorular.ts'
+import { LGS_TABLOLARI, STORAGE_KOVASI, TUM_TABLOLAR } from './lib-sorular.ts'
 
 config({ path: '.env.local' })
 
@@ -120,7 +121,7 @@ interface Aday {
     secenek_b: string
     secenek_c: string
     secenek_d: string
-    secenek_e: string
+    secenek_e: string | null
     dogru_sik: string
     aciklama: string | null
     gorsel_url: string | null
@@ -242,11 +243,16 @@ async function main(): Promise<void> {
     const sorunlar: string[] = []
     const metin = al('soru_metni')
     if (metin === '') sorunlar.push('soru_metni boş')
-    for (const harf of ['a', 'b', 'c', 'd', 'e']) {
+    // LGS soruları 4 şıklıdır: secenek_e boş olabilir, dogru_sik A-D. YKS'de 5 şık zorunlu, dogru_sik A-E.
+    const lgs = (LGS_TABLOLARI as readonly string[]).includes(tablo)
+    for (const harf of lgs ? ['a', 'b', 'c', 'd'] : ['a', 'b', 'c', 'd', 'e']) {
       if (al(`secenek_${harf}`) === '') sorunlar.push(`secenek_${harf} boş`)
     }
     const dogruSik = al('dogru_sik').toUpperCase()
-    if (!['A', 'B', 'C', 'D', 'E'].includes(dogruSik)) sorunlar.push(`dogru_sik A-E olmalı (bulunan: '${al('dogru_sik')}')`)
+    const gecerliSiklar = lgs ? ['A', 'B', 'C', 'D'] : ['A', 'B', 'C', 'D', 'E']
+    if (!gecerliSiklar.includes(dogruSik)) {
+      sorunlar.push(`dogru_sik ${lgs ? 'A-D (LGS soruları 4 şıklıdır)' : 'A-E'} olmalı (bulunan: '${al('dogru_sik')}')`)
+    }
 
     const gorselDosya = sutunNo('gorsel_dosya') >= 0 ? al('gorsel_dosya') : ''
     if (gorselDosya !== '') {
@@ -275,7 +281,7 @@ async function main(): Promise<void> {
         secenek_b: al('secenek_b'),
         secenek_c: al('secenek_c'),
         secenek_d: al('secenek_d'),
-        secenek_e: al('secenek_e'),
+        secenek_e: al('secenek_e') === '' ? null : al('secenek_e'), // LGS'de boş → NULL
         dogru_sik: dogruSik,
         aciklama: sutunNo('aciklama') >= 0 && al('aciklama') !== '' ? al('aciklama') : null,
         gorsel_url: null,

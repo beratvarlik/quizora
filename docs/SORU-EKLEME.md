@@ -9,8 +9,9 @@ Sorular bir E-Tablo'da hazırlanır, CSV olarak indirilir ve tek komutla veritab
 |---|---|---|
 | `tablo` | evet | Sorunun gideceği tablo (aşağıdaki 24 adetten biri) |
 | `soru_metni` | evet | Soru metni |
-| `secenek_a` … `secenek_e` | evet | Beş şıkkın beşi de dolu olmalı |
-| `dogru_sik` | evet | `A`, `B`, `C`, `D` veya `E` (küçük harf ve boşluk sorun değil) |
+| `secenek_a` … `secenek_d` | evet | Dört şık dolu olmalı |
+| `secenek_e` | YKS: evet, LGS: hayır | **YKS sorularında 5 şık (A-E) zorunludur. LGS soruları 4 şıklıdır (A-D): LGS tablolarında `secenek_e` boş bırakılır.** |
+| `dogru_sik` | evet | YKS: `A`-`E`; **LGS: yalnızca `A`-`D`** (küçük harf ve boşluk sorun değil) |
 | `gorsel_dosya` | hayır | Görselli soruda görselin dosya adı (örn. `sekil-1.png`) |
 | `aciklama` | hayır | Çözüm açıklaması (oyunda gösterilmez) |
 
@@ -61,8 +62,9 @@ npx tsx scripts/seed-test-questions.ts --temizle
 | Hata mesajı | Neden |
 |---|---|
 | `tablo adı geçersiz` | Tablo adı yanlış yazılmış (büyük harf değil, Türkçe karakter yok: `cografya_ayt`, `coğrafya_ayt` değil) |
-| `secenek_c boş` | Beş şıktan biri boş bırakılmış |
+| `secenek_c boş` / `secenek_e boş` | Şıklardan biri boş bırakılmış (YKS tablosunda `secenek_e` de zorunlu; LGS tablosunda yalnızca A-D zorunlu) |
 | `dogru_sik A-E olmalı` | Doğru şık harfi yazılmamış ya da A-E dışında (`F`, `1`, boş) |
+| `dogru_sik A-D (LGS soruları 4 şıklıdır) olmalı` | LGS tablosuna doğru şık olarak `E` yazılmış; LGS sorularında E şıkkı yoktur |
 | `gorsel_dosya klasörde yok` | Dosya adı yanlış ya da dosya klasörde değil |
 | `gorsel_dosya dolu ama --gorsel-klasor verilmedi` | Komuta `--gorsel-klasor` eklenmemiş |
 | `gorsel_dosya adı yalnızca harf…` | Dosya adında boşluk, Türkçe karakter ya da klasör yolu var |

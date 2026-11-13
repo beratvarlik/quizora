@@ -643,6 +643,56 @@ async function testler(): Promise<void> {
     return `${(kapanan ?? []).length} soru geçici kapatılıp geri açıldı`
   })
 
+  // ===== 12. LGS soruları 4 şıklı (0007_lgs_4_sik.sql) =====
+  await adim('12a. veritabanı kısıtları: LGS\'de secenek_e boş ve dogru_sik yalnız A-D; YKS\'de 5 şık zorunlu, dogru_sik A-E', async () => {
+    const etiket = `[TEST] 4sik-kontrol ${Date.now()}`
+    const govde = { secenek_a: 'a', secenek_b: 'b', secenek_c: 'c', secenek_d: 'd' }
+    const eklenenler: Array<{ tablo: string; id: string }> = []
+    const ekle = async (tablo: string, ek: Record<string, unknown>) => {
+      const r = await admin.from(tablo).insert({ soru_metni: `${etiket} ${tablo}`, ...govde, ...ek }).select('id')
+      if (!r.error && r.data?.[0]) eklenenler.push({ tablo, id: r.data[0].id as string })
+      return r
+    }
+    try {
+      const lgsE = await ekle('fen_lgs', { secenek_e: null, dogru_sik: 'E' })
+      kontrol(!!lgsE.error, "LGS'ye dogru_sik='E' eklenebildi!")
+      const lgsOk = await ekle('fen_lgs', { secenek_e: null, dogru_sik: 'D' })
+      kontrol(!lgsOk.error, `LGS 4 şıklı soru eklenemedi: ${lgsOk.error?.message}`)
+      const yksBos = await ekle('fizik_ayt', { secenek_e: null, dogru_sik: 'A' })
+      kontrol(!!yksBos.error, "YKS'ye secenek_e boş soru eklenebildi (5 şık zorunlu olmalı)!")
+      const yksOk = await ekle('fizik_ayt', { secenek_e: 'e', dogru_sik: 'E' })
+      kontrol(!yksOk.error, `YKS 5 şıklı (doğru E) soru eklenemedi: ${yksOk.error?.message}`)
+      return "LGS: E boş ✓, doğru E ✗; YKS: E zorunlu ✓, doğru E ✓"
+    } finally {
+      for (const e of eklenenler) await admin.from(e.tablo).delete().eq('id', e.id)
+    }
+  })
+  await adim("12b. LGS oyununda soru 4 şıklı (options'ta E yok); E gönderilirse 'Geçersiz şık', kayıt yazılmaz; geçerli şık hâlâ çalışır", async () => {
+    const g = (await lobiKur([A, B], 'lgs_sozel')).gameId
+    await baslat(A, g)
+    const siklar = await dogruSiklariOku(g)
+    kontrol(siklar.every((s) => 'ABCD'.includes(s)), `LGS doğru şıklar A-D dışında: ${siklar.join('')}`)
+    const soru = await A.api.getQuestion(g, 0)
+    kontrol(Object.keys(soru.options).sort().join('') === 'ABCD', `options anahtarları: ${Object.keys(soru.options).join('')}`)
+    kontrol(!('E' in soru.options), "options içinde 'E' var")
+    const m = await mesaj(() => A.api.submitAnswer(g, 0, 'E'))
+    kontrol(m === 'Geçersiz şık', `E cevabı: ${m}`)
+    const { count } = await admin.from('answers').select('*', { count: 'exact', head: true }).eq('game_id', g).eq('user_id', A.id)
+    const { data: gp } = await admin.from('game_players').select('current_q, q_started_at, score').eq('game_id', g).eq('user_id', A.id).single()
+    kontrol(count === 0 && gp?.current_q === 0 && gp?.score === 0 && gp?.q_started_at !== null, `geçersiz şık kayıt bıraktı: answers ${count}, ${JSON.stringify(gp)}`)
+    const r = await A.api.submitAnswer(g, 0, siklar[0])
+    kontrol(r.correct && r.points >= 100 && 'ABCD'.includes(r.correctOption), `geçerli cevap: ${JSON.stringify(r)}`)
+    return `options ${Object.keys(soru.options).join('')}`
+  })
+  await adim("12c. YKS oyununda soru 5 şıklı; 'E' hâlâ geçerli bir cevap", async () => {
+    const g = (await lobiKur([A, B], 'tyt')).gameId
+    await baslat(A, g)
+    const soru = await A.api.getQuestion(g, 0)
+    kontrol(Object.keys(soru.options).sort().join('') === 'ABCDE', `options anahtarları: ${Object.keys(soru.options).join('')}`)
+    const r = await A.api.submitAnswer(g, 0, 'E')
+    kontrol(/^[A-E]$/.test(r.correctOption) && (r.points === -25 || r.points >= 100), `E cevabı: ${JSON.stringify(r)}`)
+  })
+
   // ===== 5. Storage =====
   await adim('5. storage: kendi klasörüne yükleyebilir; başkasının klasörüne, kök dizine ve soru-gorselleri\'ne yazamaz', async () => {
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64')

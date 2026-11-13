@@ -84,13 +84,14 @@ async function soruCevapTesti(A: Kullanici, B: Kullanici, id: string) {
   // B 0. soruyu alır: doğru şık/açıklama sızmamalı
   const q0 = await al(B, 0)
   const anahtarlar = Object.keys(q0.data ?? {}).sort().join(',')
-  const metin = JSON.stringify(q0.data ?? {})
+  // Yasaklı alan ADLARI aranır (soru metninin içeriğine bakılmaz: gerçek sorularda "radyoaktif" gibi sözcükler geçer)
+  const alanAdlari = [...Object.keys(q0.data ?? {}), ...Object.keys(q0.data?.options ?? {})]
   rapor(
     'B get_question(0): doğru şık/açıklama yok',
     !q0.error &&
       anahtarlar === 'ders,image_url,options,position,text' &&
       Object.keys(q0.data.options).sort().join('') === 'ABCDE' &&
-      !/dogru|aciklama|aktif|correct/i.test(metin),
+      !alanAdlari.some((k) => /dogru|aciklama|aktif|correct/i.test(k)),
     q0.error?.message ?? anahtarlar,
   )
   rapor("get_question ders etiketi '(AYT)' içeriyor", String(q0.data?.ders).includes('(AYT)'), q0.data?.ders)
@@ -226,6 +227,13 @@ async function soruCevapTesti(A: Kullanici, B: Kullanici, id: string) {
     !lq.error && /Matematik \(LGS\)|Fen Bilimleri \(LGS\)/.test(String(lq.data?.ders)),
     lq.error?.message ?? lq.data?.ders,
   )
+  // LGS soruları 4 şıklı: options içinde E anahtarı YOK; E gönderilirse 'Geçersiz şık'
+  const lgsSiklar = Object.keys(lq.data?.options ?? {}).sort().join('')
+  rapor('LGS get_question 4 şık: options yalnızca A-D (E anahtarı yok)', !lq.error && lgsSiklar === 'ABCD', lgsSiklar)
+  const eCevap = await B.client.rpc('submit_answer', { p_game_id: lg.data.game_id, p_position: 0, p_secenek: 'E' })
+  rapor("LGS 4 şıklı soruda 'E' → 'Geçersiz şık'", eCevap.error?.message === 'Geçersiz şık', eCevap.error?.message ?? 'hata yok')
+  const geciciDogru = await dogruSik(lg.data.game_id, 0)
+  rapor("LGS doğru şık A-D", ['A', 'B', 'C', 'D'].includes(geciciDogru), geciciDogru)
 }
 
 // ---- finish_game / get_global_leaderboard testleri (0005_rpc_finish.sql) ----

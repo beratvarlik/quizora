@@ -30,6 +30,8 @@ const TABLOLAR = [
 const ADET = 8
 const ETIKET = '[TEST]'
 const SIKLAR = ['A', 'B', 'C', 'D', 'E']
+const SIKLAR_LGS = ['A', 'B', 'C', 'D'] // LGS soruları 4 şıklıdır (0007_lgs_4_sik.sql)
+const LGS_TABLOLARI = ['turkce_lgs', 'inkilap_lgs', 'din_kulturu_lgs', 'ingilizce_lgs', 'matematik_lgs', 'fen_lgs']
 
 const admin = createClient(url!, serviceKey!, { auth: { persistSession: false } })
 
@@ -50,6 +52,8 @@ async function ekle() {
     if (error) throw new Error(`${t}: ${error.message}`)
     const var_olan = new Set((data ?? []).map((r) => r.soru_metni as string))
 
+    const lgs = LGS_TABLOLARI.includes(t)
+    const siklar = lgs ? SIKLAR_LGS : SIKLAR
     const yeni = []
     for (let i = 1; i <= ADET; i++) {
       const metin = `${ETIKET} ${t} örnek soru ${i}`
@@ -60,8 +64,8 @@ async function ekle() {
         secenek_b: 'Seçenek B',
         secenek_c: 'Seçenek C',
         secenek_d: 'Seçenek D',
-        secenek_e: 'Seçenek E',
-        dogru_sik: SIKLAR[i % SIKLAR.length],
+        secenek_e: lgs ? null : 'Seçenek E', // LGS: 4 şık, E boş
+        dogru_sik: siklar[i % siklar.length],
         aciklama: 'Test sorusu',
       })
     }

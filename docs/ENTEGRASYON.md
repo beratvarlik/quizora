@@ -64,6 +64,13 @@ for (let pos = benimCurrentQ; pos < 10; pos++) {
   if (sonuc.finished) break                            // 10. soru bitti
 }
 ```
+**Şık sayısı sabit değildir:** YKS soruları 5 şıklıdır (A-E), **LGS soruları 4 şıklıdır (A-D)**. `Question.options` bu yüzden `Partial<Record<Secenek, string>>`dir ve LGS sorularında `E` anahtarı **hiç gelmez**. **Şıkları sabit 5 değil, gelen anahtarlara göre çiz:**
+```ts
+const siklar = (Object.entries(soru.options) as Array<[Secenek, string]>).sort(([a], [b]) => a.localeCompare(b))
+siklar.map(([harf, metin]) => <SecenekDugmesi key={harf} harf={harf} metin={metin} />)
+```
+Gelmeyen şıkkı (LGS'de E) boş düğme olarak gösterme ve gönderme; gönderirsen `Geçersiz şık` hatası alırsın. `submitAnswer` sonucundaki `correctOption` her zaman o sorunun şıklarından biridir.
+
 `getQuestion` aynı soru için tekrar çağrılabilir (sayfa yenileme); süre **sıfırlanmaz**. Doğru şık yalnızca `submitAnswer` sonucunda (`correctOption`) gelir.
 
 ## 4. Sayaç ve 2× modu
@@ -158,7 +165,7 @@ Her hata `Error.message` içinde **Türkçe** gelir; olduğu gibi gösterebilirs
 | `Sıra dışı soru` | Beklenen `currentQ` dışında pozisyon | Snapshot'taki `currentQ`'ya dön |
 | `Bu soru zaten cevaplandı` | Aynı soruya ikinci `submitAnswer` (çift tıklama) | Yok say, sonraki soruya geç |
 | `Önce soruyu getir` | `getQuestion` çağrılmadan `submitAnswer` | Önce `getQuestion` |
-| `Geçersiz şık` | A-E dışında şık | Programlama hatası |
+| `Geçersiz şık` | A-E dışında bir şık, ya da soruda olmayan şık (LGS sorularında `E`) | Programlama hatası: yalnızca `soru.options`'ta bulunan anahtarlar gönderilmeli |
 | `Yarış henüz bitmedi` | Süre dolmadan/herkes bitmeden `finishGame` | 500 ms sonra yeniden dene (en çok 5) |
 | `Oyun bitti` | Biten oyunda `getQuestion`/`submitAnswer` | Sonuç ekranına git |
 | `Bu oyuna erişimin yok` | Üye olmayan biri oyun verisi ister | Menüye dön; kodla `joinGame` dene |
