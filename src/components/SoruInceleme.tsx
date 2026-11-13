@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { hataMesaji } from '../hooks/hata'
-import { getGameReview, type QuestionReview } from '../lib/client'
-import type { Secenek } from '../types'
+import { api } from '../lib/client'
+import type { ReviewItem, Secenek } from '../types'
 import { IkCarpi, IkTik } from './Ikon'
-import { sinavHarfleri } from './Kategoriler'
+
+const HARFLER: Secenek[] = ['A', 'B', 'C', 'D', 'E']
 
 type Filtre = 'tumu' | 'yanlis' | 'bos'
 type Durum = 'dogru' | 'yanlis' | 'bos'
 
 const DENEME = 5
 const bekle = (ms: number) => new Promise(r => setTimeout(r, ms))
-const durumu = (q: QuestionReview): Durum => (q.myAnswer === null ? 'bos' : q.isCorrect ? 'dogru' : 'yanlis')
+const durumu = (q: ReviewItem): Durum => (q.outcome === 'blank' ? 'bos' : q.outcome === 'correct' ? 'dogru' : 'yanlis')
 const azHareket = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 /** "Matematik (AYT)" → "Mat"; şerit altındaki küçük ders kısaltması. */
@@ -39,7 +40,7 @@ function Ampul() {
  * seçili sorunun inceleme kartı (doğru şık, senin cevabın, "Neden doğru?"). Kart yana kaydırılarak da geçilir.
  */
 export default function SoruInceleme({ gameId }: { gameId: string }) {
-  const [liste, setListe] = useState<QuestionReview[] | null>(null)
+  const [liste, setListe] = useState<ReviewItem[] | null>(null)
   const [hata, setHata] = useState<string | null>(null)
   const [deneme, setDeneme] = useState(0)
   const [filtre, setFiltre] = useState<Filtre>('tumu')
@@ -55,12 +56,12 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
     ;(async () => {
       for (let d = 0; d <= DENEME; d++) {
         try {
-          const r = await getGameReview(gameId)
+          const r = await api.getGameReview(gameId)
           if (iptal) return
-          const sirali = [...r].sort((a, b) => a.index - b.index)
+          const sirali = [...r.items].sort((a, b) => a.position - b.position)
           setListe(sirali)
           // İlk açılışta ilk YANLIŞ soru seçili (yoksa ilk soru)
-          setSecili(sirali.find(q => durumu(q) === 'yanlis')?.index ?? sirali[0]?.index ?? null)
+          setSecili(sirali.find(q => durumu(q) === 'yanlis')?.position ?? sirali[0]?.position ?? null)
           return
         } catch (e) {
           if (iptal) return
@@ -87,7 +88,7 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
   // Filtre değişince seçili soru listede yoksa ilkine geç
   useEffect(() => {
     if (!gorunen.length) return
-    if (secili === null || !gorunen.some(q => q.index === secili)) setSecili(gorunen[0].index)
+    if (secili === null || !gorunen.some(q => q.position === secili)) setSecili(gorunen[0].position)
   }, [gorunen, secili])
 
   // Seçili numarayı şeritte görünür yap (sayfayı dikeyde kaydırmadan)
@@ -99,13 +100,13 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
     kap.scrollTo({ left: hedef, behavior: azHareket() ? 'auto' : 'smooth' })
   }, [secili, gorunen])
 
-  const konum = gorunen.findIndex(q => q.index === secili)
+  const konum = gorunen.findIndex(q => q.position === secili)
   const git = useCallback(
     (adim: number) => {
       const yeni = gorunen[konum + adim]
       if (!yeni) return
       setYon(adim > 0 ? 'ileri' : 'geri')
-      setSecili(yeni.index)
+      setSecili(yeni.position)
     },
     [gorunen, konum],
   )
@@ -166,21 +167,21 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
             {gorunen.map((s, i) => {
               const d = durumu(s)
               return (
-                <li key={s.index} style={{ '--i': i } as React.CSSProperties}>
+                <li key={s.position} style={{ '--i': i } as React.CSSProperties}>
                   <button
                     type="button"
                     className={`inc-no ${d}`}
-                    aria-current={s.index === secili}
-                    aria-label={`Soru ${s.index + 1}: ${d === 'dogru' ? 'doğru' : d === 'yanlis' ? 'yanlış' : 'boş'}`}
+                    aria-current={s.position === secili}
+                    aria-label={`Soru ${s.position + 1}: ${d === 'dogru' ? 'doğru' : d === 'yanlis' ? 'yanlış' : 'boş'}`}
                     onClick={() => {
-                      setYon(s.index > (secili ?? 0) ? 'ileri' : 'geri')
-                      setSecili(s.index)
+                      setYon(s.position > (secili ?? 0) ? 'ileri' : 'geri')
+                      setSecili(s.position)
                     }}
                   >
                     {d === 'dogru' ? <IkTik boyut={16} /> : d === 'yanlis' ? <IkCarpi boyut={16} /> : <b>–</b>}
-                    <i>{s.index + 1}</i>
+                    <i>{s.position + 1}</i>
                   </button>
-                  <small>{kisalt(s.subject)}</small>
+                  <small>{kisalt(s.ders)}</small>
                 </li>
               )
             })}
@@ -190,7 +191,7 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
             <p className="inc-bos">{filtre === 'yanlis' ? 'Hiç yanlışın yok. Harika!' : 'Boş bıraktığın soru yok.'}</p>
           ) : (
             <article
-              key={q.index}
+              key={q.position}
               className={`inc-kart ${yon}`}
               onPointerDown={e => (kaydirma.current = { x: e.clientX, y: e.clientY })}
               onPointerUp={e => {
@@ -204,28 +205,26 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
               onPointerCancel={() => (kaydirma.current = null)}
             >
               <div className="inc-baslik">
-                <span className="ders-cip">{dersAdi(q.subject)}</span>
+                <span className="ders-cip">{dersAdi(q.ders)}</span>
                 <span className="inc-sira">
-                  Soru {q.index + 1}/{toplam}
+                  Soru {q.position + 1}/{toplam}
                 </span>
-                <span className={`inc-puan ${q.pointsEarned > 0 ? 'art' : q.pointsEarned < 0 ? 'eks' : ''}`}>
-                  {q.pointsEarned > 0 ? `+${q.pointsEarned}` : q.pointsEarned < 0 ? `−${Math.abs(q.pointsEarned)}` : '0'}
+                <span className={`inc-puan ${q.points > 0 ? 'art' : q.points < 0 ? 'eks' : ''}`}>
+                  {q.points > 0 ? `+${q.points}` : q.points < 0 ? `−${Math.abs(q.points)}` : '0'}
                   {q.timeMs !== null && <small> · {(q.timeMs / 1000).toFixed(1).replace('.', ',')} sn</small>}
                 </span>
               </div>
 
               <div className="soru-kart inc-soru">
-                {q.myAnswer === null && <span className="inc-etiket bos">Boş bıraktın</span>}
+                {q.outcome === 'blank' && <span className="inc-etiket bos">Boş bıraktın</span>}
                 {q.imageUrl && <img src={q.imageUrl} alt="" />}
                 <div className="metin">{q.text}</div>
               </div>
 
-              <div className={`siklar inc-siklar${q.exam === 'lgs' ? ' siklar-4' : ''}`}>
-                {sinavHarfleri(q.exam)
-                  .filter((h: Secenek) => q.options[h]?.trim())
-                  .map((h: Secenek) => {
+              <div className={`siklar inc-siklar${Object.keys(q.options).length <= 4 ? ' siklar-4' : ''}`}>
+                {HARFLER.filter(h => q.options[h]?.trim()).map(h => {
                     const dogru = h === q.correctOption
-                    const benim = h === q.myAnswer && !q.isCorrect
+                    const benim = h === q.selected && q.outcome === 'wrong'
                     return (
                       <div key={h} className={`sik ${dogru ? 'dogrusu' : benim ? 'yanlis' : 'soluk'}`}>
                         <span className="harf">{h}</span>
@@ -239,17 +238,15 @@ export default function SoruInceleme({ gameId }: { gameId: string }) {
                   })}
               </div>
 
-              {q.explanation && (
-                <div className="inc-neden">
-                  <span className="inc-ampul">
-                    <Ampul />
-                  </span>
-                  <div>
-                    <b>Neden doğru?</b>
-                    <p>{q.explanation}</p>
-                  </div>
+              <div className="inc-neden">
+                <span className="inc-ampul">
+                  <Ampul />
+                </span>
+                <div>
+                  <b>Neden doğru?</b>
+                  <p>{q.explanation ?? 'Bu soru için açıklama henüz eklenmedi.'}</p>
                 </div>
-              )}
+              </div>
 
               <div className="inc-gezin">
                 <button type="button" className="inc-ok" onClick={() => git(-1)} disabled={konum <= 0} aria-label="Önceki soru">

@@ -4,6 +4,7 @@ import type {
   AnswerResult,
   GameInfo,
   GameResult,
+  GameReview,
   GameSnapshot,
   GlobalRow,
   Kategori,
@@ -13,13 +14,14 @@ import type {
   Question,
   QuizoraApi,
   RankedPlayer,
+  ReviewItem,
+  ReviewOutcome,
   Secenek,
   Sinav,
   Unsubscribe,
   XpBreakdown,
 } from '../types'
 import { rankPlayers, remainingMs, scorePoints } from './scoring'
-import type { QuestionReview } from './client'
 
 // ---------------------------------------------------------------------
 // Yardımcılar
@@ -815,6 +817,33 @@ export const api: QuizoraApi = {
     return liderlik()
   },
 
+  /** Yarış sonrası soru incelemesi (yalnızca çağıran oyuncunun cevapları). Bitmeden: 'Yarış henüz bitmedi'. */
+  async getGameReview(gameId): Promise<GameReview> {
+    await ag()
+    const g = oyunBul(gameId)
+    const ben = benOyuncuyum(g)
+    if (g.info.status !== 'finished') throw new Error('Yarış henüz bitmedi')
+    const items: ReviewItem[] = g.sorular.map((s, i) => {
+      const c = ben.cevaplar.get(i)
+      const outcome: ReviewOutcome = !c || c.secenek === null ? 'blank' : c.dogru ? 'correct' : 'wrong'
+      return {
+        position: i,
+        ders: s.ders,
+        text: s.text,
+        imageUrl: null,
+        options: { ...s.options }, // LGS'de yalnızca A-D
+        selected: outcome === 'blank' ? null : (c?.secenek ?? null),
+        correctOption: s.dogru,
+        outcome,
+        points: c?.puan ?? 0,
+        timeMs: outcome === 'blank' || !c ? null : Math.round(c.sureMs),
+        // Son sorunun açıklaması bilerek boş: gerçek veride çoğu açıklama henüz yüklenmedi
+        explanation: i === g.sorular.length - 1 ? null : s.aciklama,
+      }
+    })
+    return { items }
+  },
+
   async getMyStats() {
     await ag()
     const s = benimStat()
@@ -852,29 +881,4 @@ function baslat(g: IcOyun) {
   yayinla(g)
   for (const o of g.oyuncular) if (o.bot) zamanla(g, 3000, () => botCevaplat(g, o))
   g.saat = window.setInterval(() => bitisKontrol(g), 250)
-}
-
-/** Sonuç ekranı soru incelemesi (çağıran oyuncunun cevaplarıyla). Yarış bitmeden çağrılırsa hata verir. */
-export async function getGameReview(gameId: string): Promise<QuestionReview[]> {
-  await ag()
-  const g = oyunBul(gameId)
-  const ben = benOyuncuyum(g)
-  if (g.info.status !== 'finished') throw new Error('Yarış henüz bitmedi')
-  return g.sorular.map((s, i) => {
-    const c = ben.cevaplar.get(i)
-    return {
-      index: i,
-      subject: s.ders,
-      exam: g.info.sinav,
-      text: s.text,
-      imageUrl: null,
-      options: { ...s.options },
-      correctOption: s.dogru,
-      myAnswer: c?.secenek ?? null,
-      isCorrect: c?.dogru === true,
-      pointsEarned: c?.puan ?? 0,
-      timeMs: c ? Math.round(c.sureMs) : null,
-      explanation: s.aciklama,
-    }
-  })
 }
