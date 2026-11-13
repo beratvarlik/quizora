@@ -15,6 +15,7 @@ import type {
   GameReview,
   MistakeItem,
   MistakeSummary,
+  PerformanceStats,
   PracticeResult,
   ReviewItem,
   ReviewOutcome,
@@ -173,6 +174,7 @@ interface HamIstatistik {
 interface HamIncelemeSatir {
   position: number
   ders: string
+  topic: string | null
   text: string
   image_url: string | null
   options: Partial<Record<Secenek, string>>
@@ -188,12 +190,21 @@ interface HamDefterSatir {
   question_id: string
   exam: Sinav
   subject: string
+  topic: string | null
   text: string
   image_url: string | null
   options: Partial<Record<Secenek, string>>
   last_answer: Secenek | null
   wrong_count: number
   last_wrong_at: string
+}
+
+interface HamPerformans {
+  totals: { games: number; answered: number; correct: number; wrong: number; blank: number; avg_time_ms: number; accuracy: number }
+  by_subject: { exam: Sinav; subject: string; answered: number; correct: number; accuracy: number; avg_time_ms: number }[]
+  by_topic: { exam: Sinav; subject: string; topic: string; answered: number; correct: number; accuracy: number; low_sample: boolean }[]
+  daily: { date: string; answered: number; correct: number }[]
+  streak_days: number
 }
 
 interface HamDefterOzeti {
@@ -338,6 +349,7 @@ function mapMistakeItem(h: HamDefterSatir): MistakeItem {
     questionId: h.question_id,
     exam: h.exam,
     subject: h.subject,
+    topic: h.topic ?? null,
     text: h.text,
     imageUrl: h.image_url,
     options: h.options,
@@ -351,6 +363,7 @@ function mapReviewItem(h: HamIncelemeSatir): ReviewItem {
   return {
     position: h.position,
     ders: h.ders,
+    topic: h.topic ?? null,
     text: h.text,
     imageUrl: h.image_url,
     options: h.options,
@@ -678,6 +691,43 @@ export function createApi(client: Istemci): QuizoraApi {
 
     async removeMistake(questionId: string): Promise<void> {
       await rpc<unknown>(client, 'remove_mistake', { p_question_id: questionId })
+    },
+
+    async getPerformance(opts?: { exam?: Sinav; days?: number }): Promise<PerformanceStats> {
+      const h = await rpc<HamPerformans>(client, 'get_performance', {
+        p_exam: opts?.exam ?? null,
+        p_days: opts?.days ?? 30,
+      })
+      return {
+        totals: {
+          games: h.totals.games,
+          answered: h.totals.answered,
+          correct: h.totals.correct,
+          wrong: h.totals.wrong,
+          blank: h.totals.blank,
+          avgTimeMs: h.totals.avg_time_ms,
+          accuracy: h.totals.accuracy,
+        },
+        bySubject: (h.by_subject ?? []).map((b) => ({
+          exam: b.exam,
+          subject: b.subject,
+          answered: b.answered,
+          correct: b.correct,
+          accuracy: b.accuracy,
+          avgTimeMs: b.avg_time_ms,
+        })),
+        byTopic: (h.by_topic ?? []).map((b) => ({
+          exam: b.exam,
+          subject: b.subject,
+          topic: b.topic,
+          answered: b.answered,
+          correct: b.correct,
+          accuracy: b.accuracy,
+          lowSample: b.low_sample,
+        })),
+        daily: (h.daily ?? []).map((d) => ({ date: d.date, answered: d.answered, correct: d.correct })),
+        streakDays: h.streak_days,
+      }
     },
 
     // Realtime olaylarında tam snapshot yeniden çekilir (50 ms debounce); 3 sn'de bir güvenlik ağı

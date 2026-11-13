@@ -1,5 +1,5 @@
-tablo,soru_metni,secenek_a,secenek_b,secenek_c,secenek_d,secenek_e,dogru_sik,gorsel_dosya,aciklama,cozum_aciklamasi
-matematik_ayt,[ÖRNEK] 2x + 6 = 14 denkleminin çözümü kaçtır?,2,3,4,5,6,C,,2x = 8 olduğundan x = 4 bulunur.,x = 4 bulunur; seçenekler arasında 4 yalnızca C şıkkındadır.
-fizik_ayt,[ÖRNEK] Şekildeki cismin ivmesi kaç m/s² olur?,1,2,3,4,5,B,ornek-sekil.png,"Net kuvvet 6 N, kütle 3 kg olduğundan a = F / m = 2 m/s².",Hareket denklemine göre a = F / m = 6 / 3 = 2 m/s² olur.
-turkce_lgs,"[ÖRNEK] Aşağıdaki cümlelerin hangisinde, yazım yanlışı vardır?",Herkes geldi.,Yanlız kaldı.,Bugün yağmur var.,Ders çalıştı.,,B,,"Doğrusu ""yalnız"" biçimindedir.","""Yalnız"" sözcüğü bitişik yazılır; ""yanlız"" yazımı yanlıştır."
-fen_lgs,[ÖRNEK] Hangisi bir element sembolüdür?,H2O,CO2,Fe,NaCl,,C,,Fe demirin sembolüdür.,"Demirin sembolü Fe'dir; H2O su, CO2 karbondioksit, NaCl tuzdur."
+tablo,soru_metni,secenek_a,secenek_b,secenek_c,secenek_d,secenek_e,dogru_sik,gorsel_dosya,aciklama,cozum_aciklamasi,topic
+matematik_ayt,[ÖRNEK] 2x + 6 = 14 denkleminin çözümü kaçtır?,2,3,4,5,6,C,,2x = 8 olduğundan x = 4 bulunur.,x = 4 bulunur; seçenekler arasında 4 yalnızca C şıkkındadır.,Denklemler
+fizik_ayt,[ÖRNEK] Şekildeki cismin ivmesi kaç m/s² olur?,1,2,3,4,5,B,ornek-sekil.png,"Net kuvvet 6 N, kütle 3 kg olduğundan a = F / m = 2 m/s².",Hareket denklemine göre a = F / m = 6 / 3 = 2 m/s² olur.,Işık ve Optik
+turkce_lgs,"[ÖRNEK] Aşağıdaki cümlelerin hangisinde, yazım yanlışı vardır?",Herkes geldi.,Yanlız kaldı.,Bugün yağmur var.,Ders çalıştı.,,B,,"Doğrusu ""yalnız"" biçimindedir.","""Yalnız"" sözcüğü bitişik yazılır; ""yanlız"" yazımı yanlıştır.",Cümlede Anlam
+fen_lgs,[ÖRNEK] Hangisi bir element sembolüdür?,H2O,CO2,Fe,NaCl,,C,,Fe demirin sembolüdür.,"Demirin sembolü Fe'dir; H2O su, CO2 karbondioksit, NaCl tuzdur.",Periyodik Sistem

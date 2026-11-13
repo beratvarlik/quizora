@@ -30,6 +30,8 @@ const TABLOLAR = [
 const ADET = 8
 const ETIKET = '[TEST]'
 const ORNEK_COZUM = '[TEST] Bu bir örnek açıklamadır.'
+// Her tabloda iki test konusu (akıllı analiz arayüzü geliştirilirken konu kırılımı görünsün)
+const ornekKonu = (i: number): string => `Test Konusu ${(i % 2) + 1}`
 const SIKLAR = ['A', 'B', 'C', 'D', 'E']
 const SIKLAR_LGS = ['A', 'B', 'C', 'D'] // LGS soruları 4 şıklıdır (0007_lgs_4_sik.sql)
 const LGS_TABLOLARI = ['turkce_lgs', 'inkilap_lgs', 'din_kulturu_lgs', 'ingilizce_lgs', 'matematik_lgs', 'fen_lgs']
@@ -69,6 +71,7 @@ async function ekle() {
         dogru_sik: siklar[i % siklar.length],
         aciklama: 'Test sorusu',
         cozum_aciklamasi: ORNEK_COZUM,
+        topic: ornekKonu(i),
       })
     }
     // Eski [TEST] sorularında çözüm açıklaması boşsa doldur (arayüz geliştirilirken görünsün)
@@ -78,6 +81,9 @@ async function ekle() {
       .like('soru_metni', `${ETIKET}%`)
       .is('cozum_aciklamasi', null)
     if (gunc.error) throw new Error(`${t}: ${gunc.error.message}`)
+    // Eski [TEST] sorularında konu boşsa doldur
+    const gunc2 = await admin.from(t).update({ topic: ornekKonu(1) }).like('soru_metni', `${ETIKET}%`).is('topic', null)
+    if (gunc2.error) throw new Error(`${t}: ${gunc2.error.message}`)
     if (yeni.length === 0) {
       console.log(`${t}: zaten ${ADET} test sorusu var, atlandı`)
       continue

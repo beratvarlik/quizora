@@ -53,11 +53,12 @@ Bir yarıştan kazanılan XP = **20** (katılım) + **max(0, floor(puan / 10))**
 - **Sonuç ekranı soru şeritleri** (`getGameReview`): sonuç ekranında oyuncu 10 soruyu şerit şerit görür. Her şeritte: soru numarası (1-10), ders, durum (doğru / yanlış / boş), seçilen şık ve doğru şık, aldığı puan (`points`) ve cevap süresi (`timeMs`, sn). Şeride tıklayınca açılır: soru metni (+ görsel), şıklar (yalnızca gelen anahtarlar; doğru şık işaretli, oyuncunun seçtiği şık ayrı işaretli) ve çözüm açıklaması (`explanation`). `explanation` null ise "açıklama henüz eklenmedi" yazılır (hata değil). Boş bırakılan soruda seçilen şık ve süre gösterilmez (`selected`/`timeMs` null). Yalnızca yarış bittikten sonra çağrılır; oyuncu yalnızca KENDİ cevaplarını görür.
 - **Sonuç ekranında defter bilgisi:** `getGameReview(...).addedToNotebook > 0` ise "N soru Yanlışlarım defterine eklendi" (defter ekranına bağlantı).
 - `/defter` (Yanlışlarım defteri): `getMistakeSummary` ile toplam ve ders/sınav kırılımı (filtre çipleri; `subject` metni aynen filtre değeridir), `getMistakes` ile liste (en yeni önce; soru metni + görsel + gelen `options` anahtarları; son cevabın ve yanlış sayısının rozeti). Soruya tıklayınca çözme modu: oyuncu şık seçer → `practiceAnswer` → doğru şık işaretlenir, açıklama (`explanation`, null ise "açıklama henüz eklenmedi") ve doğruysa "Defterden çıktı" gösterilir; "Defterimden çıkar" → `removeMistake`. Liste boşsa "Defterin boş".
+- `/performans` (Performansım): `getPerformance({ exam?, days? })`. Üstte özet kartları (yarış sayısı, doğruluk %, cevaplanan, ortalama süre, seri 🔥 `streakDays`); sınav (Hepsi/YKS/LGS) ve dönem (7/30/90 gün) filtresi; son 7 gün çubuk grafiği (`daily`: cevaplanan ve doğru); ders kırılımı (`bySubject`, doğruluk çubuğu); konu kırılımı (`byTopic`): en zayıf konular önce, `lowSample` olanlar "az veri" etiketiyle ayrı bölümde ve zayıf konu önerisine dahil edilmez. Hiç yarış yoksa "Henüz veri yok" ekranı. Yalnızca oyuncunun kendi verisi.
 - Her ekranda: yükleme durumu, Türkçe hata mesajı, bağlantı koptu bandı. Mobil (iPhone Safari, 100dvh, safe-area) ve web; animasyonlar `prefers-reduced-motion`'da kapanır.
 
 ## Veritabanı
 24 soru tablosu (aynı şema): matematik_tyt, turkce_tyt, kimya_tyt, fizik_tyt, biyoloji_tyt, tarih_tyt, cografya_tyt, felsefe_tyt, din_kulturu_tyt, fizik_ayt, kimya_ayt, biyoloji_ayt, matematik_ayt, edebiyat_ayt, tarih_ayt, cografya_ayt, felsefe_ayt, din_kulturu_ayt, turkce_lgs, inkilap_lgs, din_kulturu_lgs, ingilizce_lgs, matematik_lgs, fen_lgs. Sütunlar: id uuid pk, soru_metni, gorsel_url null, secenek_a..secenek_e, dogru_sik char(1) A–E (**LGS tablolarında secenek_e NULL olabilir ve dogru_sik yalnız A–D**), aciklama null (dahili not, öğrenciye gösterilmez), cozum_aciklamasi null (en çok 400 karakter; yarış sonrası öğrenciye gösterilir), aktif bool default true, created_at.
-Oyun tabloları: profiles, games, game_players, game_questions, answers, global_scores (eski), rank_tiers, player_stats. RPC'ler: create_game, join_game, start_game, get_game, get_game_by_id, get_question, submit_answer, finish_game, get_global_leaderboard, get_my_stats, get_game_review, quick_join, start_if_ready, leave_game, get_mistake_summary, get_mistakes, practice_answer, remove_mistake, server_time. Defter tabloları: mistake_book (RLS: kullanıcı yalnızca kendi satırlarını okur; yazma yalnız RPC), mistake_games (oyun başına tek uygulama işareti; istemci erişimi yok).
+Oyun tabloları: profiles, games, game_players, game_questions, answers, global_scores (eski), rank_tiers, player_stats. RPC'ler: create_game, join_game, start_game, get_game, get_game_by_id, get_question, submit_answer, finish_game, get_global_leaderboard, get_my_stats, get_game_review, quick_join, start_if_ready, leave_game, get_mistake_summary, get_mistakes, practice_answer, remove_mistake, get_performance, server_time. Defter tabloları: mistake_book (RLS: kullanıcı yalnızca kendi satırlarını okur; yazma yalnız RPC), mistake_games (oyun başına tek uygulama işareti; istemci erişimi yok).
 - `finish_game(game_id)`: sıralamayı kesinleştirir, XP'yi yarış başına bir kez uygular (`games.xp_applied`), idempotenttir. Süre dolmadan ve herkes bitirmeden 'Yarış henüz bitmedi' der. Dönüş: `{winner_id, ranking[{rank, user_id, ..., xp_gained, xp_before, xp_after, rank_label_before, rank_label_after, ranked_up}], breakdown, xp_breakdown}`. `global_scores`'a yazılmaz.
 - `get_global_leaderboard()`: **XP döner** (`player_stats` + `profiles`), ilk 20; `[{user_id, display_name, avatar_key, photo_url, xp, rank_key, rank_label, wins, games_played}]`, `xp` azalan, eşitlikte `wins` azalan.
 - `get_question(game_id, position)`: yalnızca oyuncunun sıradaki sorusu; süre sayacını (`q_started_at`) ilk çağrıda başlatır, tekrar çağrıda sıfırlamaz. Doğru şık, açıklama ve `aktif` ASLA dönmez. `submit_answer(game_id, position, secenek|null)`: puanı sunucu hesaplar; süre bitmişse cevabı boş sayar; 10. soruyu ilk bitiren `speedup_at/speedup_remaining_ms/speedup_by` değerlerini yazar. Hata mesajları listesi: `docs/ENTEGRASYON.md`.
@@ -72,6 +73,7 @@ Oyun tabloları: profiles, games, game_players, game_questions, answers, global_
   - `practice_answer(p_question_id, p_selected)` → `{is_correct, correct_option, explanation, resolved}`; soru kullanıcının açık defterinde değilse 'Bu soru defterinde yok'; doğruysa `resolved_at = now()`, yanlışsa `wrong_count+1` ve `last_answer`; LGS'de 'E' → 'Geçersiz şık'.
   - `remove_mistake(p_question_id)`: `resolved_at = now()` (zaten çıkarılmışsa sessiz; defterde hiç yoksa 'Bu soru defterinde yok').
   - `get_game_review` yanıtına `added_to_notebook` eklendi (o oyundan deftere giren soru sayısı).
+- **Akıllı analiz** (`get_performance(p_exam default null, p_days default 30)`): yalnızca BİTMİŞ oyunlar, yalnızca çağıranın cevapları (`auth.uid()`); yalnızca oyuncunun **gördüğü** sorular sayılır (cevap satırı var / `position < current_q` / ekrandaki soru). Silinmiş soru atlanır; `topic` boşsa 'Diğer'. Yanıt (snake_case): `{totals:{games, answered, correct, wrong, blank, avg_time_ms, accuracy}, by_subject:[{exam, subject, answered, correct, accuracy, avg_time_ms}], by_topic:[{exam, subject, topic, answered, correct, accuracy, low_sample}], daily:[{date, answered, correct}], streak_days}`. `answered = correct + wrong` (boş hariç); `accuracy` 0-100, 1 ondalık. `p_days` 1-365'e sıkıştırılır ve `totals/by_subject/by_topic` penceresidir; `daily` her zaman son 7 gün (Europe/Istanbul, bugün dahil, boş gün 0); `streak_days` bugün ya da dünden geriye üst üste yarışılan gün (filtrelerden bağımsız). `low_sample` = `answered < 3`; `by_topic` sırası: önce yeterli örnekliler (doğruluk artan), sonra low_sample. 'Geçersiz sınav' (`p_exam` yks/lgs dışı). `get_game_review` ve `get_mistakes` öğelerine `topic` eklendi (`get_question` değişmedi).
 - `get_my_stats()`: çağıranın XP/rank özeti (satır yoksa 0 ile oluşturur). Tüm RPC'ler oturum ister (anon çağıramaz); iç yardımcılar (`min_players`, `remaining_ms`, `question_label`, `game_snapshot`) istemciye kapalıdır.
 - Soru tablolarına ve `answers`/`game_questions`'a istemci erişimi YOKTUR (RLS açık, policy yok, yetki alınmış); `player_stats`, `rank_tiers`, `global_scores`, `games`, `game_players` istemciye yalnızca okunur.
 
@@ -87,6 +89,7 @@ Oyun tabloları: profiles, games, game_players, game_questions, answers, global_
 | `0006b_fix_submit_lock.sql` | `submit_answer` eşzamanlı son soru kilitlenmesini giderir (`for no key update`) |
 | `0007_lgs_4_sik.sql` | LGS soruları 4 şıklı: LGS tablolarında `secenek_e` boş olabilir, `dogru_sik` yalnız A-D; `get_question` boş E'yi `options`'a koymaz; `submit_answer` soruda olmayan şık için 'Geçersiz şık' der. **0006b'den SONRA çalıştırılır** (`submit_answer`'ın en güncel hâlini içerir). |
 | `0008_cozum_aciklamasi.sql` | 24 soru tablosuna `cozum_aciklamasi` (≤ 400 karakter) ve `get_game_review` RPC'si |
+| `0011_akilli_analiz.sql` | Akıllı analiz: 24 soru tablosuna `topic` (≤ 60 karakter), `get_performance`, `get_game_review`/`get_mistakes` öğelerine `topic`; mevcut soruların konuları `scripts/konu-yukle.ts` ile yüklenir |
 | `0010_yanlislarim_defteri.sql` | Yanlışlarım defteri: `mistake_book`, `mistake_games`, iç yardımcılar, `finish_game` (defteri doldurur), `get_game_review.added_to_notebook`, `get_mistake_summary`, `get_mistakes`, `practice_answer`, `remove_mistake`, backfill |
 | `0009_hemen_katil.sql` | Hemen Katıl: `games.is_public/auto_start_at/last_activity_at`, `quick_join`, `start_if_ready`, `leave_game`; `create_game` iç yardımcıya taşındı, `join_game` güncellendi |
 
@@ -102,7 +105,7 @@ Eski migration dosyaları değiştirilmez; düzeltmeler yeni dosya olarak ekleni
 | `e2e-sim.ts [--oyuncu N] [--kategori ad] [--hizli]` | N sanal oyuncuyla tam yarış simülasyonu |
 | `security-test.ts` | Yetkiler, RLS, XP hileleri, süre kuralı, eşzamanlılık, storage |
 | `soru-durumu.ts` | 24 tabloda soru sayıları; kategoriler hazır mı |
-| `import-questions.ts`, `aciklama-yukle.ts`, `seed-test-questions.ts`, `xp-ayarla.ts` | Soru yükleme, çözüm açıklaması yükleme, test sorusu, demo XP aracı (`docs/SORU-EKLEME.md`) |
+| `import-questions.ts`, `aciklama-yukle.ts`, `konu-yukle.ts`, `seed-test-questions.ts`, `xp-ayarla.ts` | Soru yükleme (`topic` zorunlu), çözüm açıklaması yükleme, konu yükleme, test sorusu, demo XP aracı (`docs/SORU-EKLEME.md`) |
 
 Entegrasyon ve yayın: [ENTEGRASYON.md](ENTEGRASYON.md) (B için akış, sayaç, hata mesajları), [YAYIN.md](YAYIN.md) (Vercel).
 
@@ -158,7 +161,7 @@ export interface GlobalRow { userId: string; displayName: string; avatarKey: str
 export interface MyStats { xp: number; rankKey: string; rankLabel: string; nextRankLabel: string | null; xpToNext: number | null; progressPct: number; wins: number; gamesPlayed: number }
 export type ReviewOutcome = 'correct' | 'wrong' | 'blank';
 export interface ReviewItem {
-  position: number; ders: string; text: string; imageUrl: string | null;
+  position: number; ders: string; topic: string | null; text: string; imageUrl: string | null;
   options: Partial<Record<Secenek, string>>;
   selected: Secenek | null; correctOption: Secenek; outcome: ReviewOutcome;
   points: number; timeMs: number | null; explanation: string | null;
@@ -166,12 +169,22 @@ export interface ReviewItem {
 export interface GameReview { items: ReviewItem[]; addedToNotebook: number } // addedToNotebook: bu yarıştan Yanlışlarım defterine giren soru sayısı
 export interface MistakeSummary { total: number; resolvedTotal: number; bySubject: { exam: Sinav; subject: string; count: number }[] }
 export interface MistakeItem {
-  questionId: string; exam: Sinav; subject: string; text: string; imageUrl: string | null;
+  questionId: string; exam: Sinav; subject: string; topic: string | null; text: string; imageUrl: string | null;
   options: Partial<Record<Secenek, string>>; // LGS'de yalnızca A-D
   lastAnswer: Secenek | null; // null = boş bırakılmıştı
   wrongCount: number; lastWrongAt: string; // doğru şık ve açıklama BURADA yok
 }
 export interface PracticeResult { isCorrect: boolean; correctOption: Secenek; explanation: string | null; resolved: boolean }
+// Akıllı analiz / Performansım (yalnızca bitmiş oyunlar, çağıranın kendi verisi).
+// answered = correct + wrong (boş bırakılanlar hariç); accuracy = 100 * correct / answered (0-100, 1 ondalık; answered 0 ise 0);
+// avgTimeMs: cevaplanan sorularda ortalama süre (veri yoksa 0). topic boş olan sorular 'Diğer' sayılır.
+export interface PerformanceStats {
+  totals: { games: number; answered: number; correct: number; wrong: number; blank: number; avgTimeMs: number; accuracy: number };
+  bySubject: { exam: Sinav; subject: string; answered: number; correct: number; accuracy: number; avgTimeMs: number }[]; // answered > 0 olanlar, en çok çözülen önce
+  byTopic: { exam: Sinav; subject: string; topic: string; answered: number; correct: number; accuracy: number; lowSample: boolean }[]; // lowSample: answered < 3; önce yeterli örnekliler (doğruluk artan), sonra lowSample
+  daily: { date: string; answered: number; correct: number }[]; // son 7 gün (Europe/Istanbul, bugün dahil, eskiden yeniye), boş gün 0; 'YYYY-MM-DD'
+  streakDays: number; // üst üste yarışılan gün (bugün ya da dünden geriye)
+}
 export interface GameSnapshot { game: GameInfo; players: PlayerState[] }
 export interface QuizoraApi {
   ensureSession(): Promise<string>;
@@ -195,6 +208,7 @@ export interface QuizoraApi {
   getMistakes(opts?: { exam?: Sinav; subject?: string; limit?: number }): Promise<MistakeItem[]>;
   practiceAnswer(questionId: string, selected: Secenek): Promise<PracticeResult>;
   removeMistake(questionId: string): Promise<void>;
+  getPerformance(opts?: { exam?: Sinav; days?: number }): Promise<PerformanceStats>; // days: 1-365, varsayılan 30
   subscribeGame(gameId: string, cb: (s: GameSnapshot) => void): Unsubscribe;
   subscribeGlobalLeaderboard(cb: (rows: GlobalRow[]) => void): Unsubscribe;
 }

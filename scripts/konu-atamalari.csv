@@ -1,0 +1,95 @@
+tablo,id,topic,soru_baslangici
+matematik_tyt,6fd46fa9-d717-4ee1-ba79-049646f29778,Denklemler,a + b = 12 ve a − b = 4 olduğuna göre a kaçtır?
+matematik_tyt,db12ce38-6d72-466d-b7bc-e693e8007903,Problemler,Ardışık üç tam sayının toplamı 45 olduğuna göre en
+matematik_tyt,bf4e3a58-047b-48fa-82c2-de95be8cb268,Temel Kavramlar,Aşağıdakilerden hangisi çift sayıdır?
+matematik_tyt,2268bf1c-e7ba-4992-bd12-087554d9b0db,Denklemler,Bir sayının 3 katının 5 fazlası 26 olduğuna göre b
+turkce_tyt,f3486a47-c4b9-4eea-a14a-1d0dc06b930c,Cümlede Anlam,Aşağıdaki cümlelerin hangisinde beklenmedik bir du
+turkce_tyt,a13188ab-a951-438d-aeca-7f7882ffd35c,Sözcükte Anlam,Bir yazarın başarısı yalnız anlattığı konularla de
+kimya_tyt,51f5609e-df1a-4201-838d-e730ccaa50e2,Bileşikler,I. NaCl — a. Sönmemiş kireç II. CaO — b. Sofra tuz
+kimya_tyt,2fc2b095-378e-43d2-a0f3-85292939606d,Kimya Bilimi,"Simya dönemi ile ilgili, I. Aristo'ya göre ıslak v"
+fizik_tyt,74f90c82-df86-427a-804f-82140589eda6,Elektrik Devreleri,"Ahmet'in elinde, değerleri 3 ohm olan iki adet ve "
+fizik_tyt,86d2ecb9-553d-41c9-9250-4612eb97c5d9,Madde ve Özellikleri,İkisi de 18 ayar olan şekildeki bileziklerden biri
+biyoloji_tyt,071e3e57-ff9c-42c2-a3b7-9d27c157791e,Hücre,Bir bitki hücresinin katı bir besin maddesini veya
+biyoloji_tyt,ce6874b6-6b83-490e-8f16-673f87710696,Ekosistem,Bir karasal ekosistemdeki besin piramidinde yer al
+tarih_tyt,7da7c424-3de6-41a1-be2b-3cdb9f5cf88b,İlk Çağ Uygarlıkları,Aşağıdaki kavramlardan hangisi İlk Çağ uygarlıklar
+tarih_tyt,4e8add89-fb8c-4913-826f-6bc47a31a6be,Tarih Bilimi,Tarihte hiçbir değişiklik dün ile bugün arasındaki
+cografya_tyt,b9620de0-617a-4733-9d59-93e78a70193a,Harita Bilgisi,Aşağıdakilerden hangisi büyük ölçekli haritalar il
+cografya_tyt,b8487104-2e77-4f62-b29f-29885b560931,Harita Bilgisi,I. Lejant bölümü II. Renklendirme yöntemi III. Coğ
+felsefe_tyt,fbe64644-5180-46dd-98fb-9304fb0a190c,Varlık Felsefesi,"17. yüzyıl filozoflarından Descartes, varlığın tem"
+felsefe_tyt,9194f45b-f023-4d0a-a66a-24d7a6e1a8e3,Ahlak Felsefesi,Farabi'ye göre insanın ahlaki eylemlerde bulunması
+din_kulturu_tyt,9104c489-58c4-4e19-a3f4-8811e7ae415f,Bilgi ve İnanç,İslam dininde doğru bilginin elde edilmesinde teme
+din_kulturu_tyt,9b0bb4f8-fd74-482d-90d1-5b51aaecf16b,Allah-İnsan İlişkisi,İslam dinine göre evrendeki her varlık belirli bir
+fizik_ayt,41918431-777a-435d-8648-a8f0a0c89fb5,Newton'un Hareket Yasaları,Bir cisme etki eden etki kuvvetine karşılık oluşan
+fizik_ayt,0c8c4378-0d8c-46d3-9068-4290494c5793,Modern Fizik,Fotoelektrik olayda metal yüzeyden elektron kopmas
+fizik_ayt,97f29929-8356-4294-890d-9ecc8f12c7db,Işık ve Optik,Işığın bir ortamdan başka ortama geçerken yön deği
+fizik_ayt,475c9282-e86c-41bf-b304-cba7415796a9,Modern Fizik,Nükleer füzyon hangi süreçtir?
+kimya_ayt,26dc3a41-3f6e-45da-90e9-52bef747d29d,Kimyasal Tepkimelerde Enerji,2X(g) + Y(g) → X₂Y(g) tepkimesinin potansiyel ener
+kimya_ayt,107e6787-94e8-43f0-9c75-4bc8f2ff9a42,Modern Atom Teorisi,Aynı atoma ait olan ve sınır yüzey diyagramları aş
+kimya_ayt,cfaa3fca-e311-4fdb-b8b5-92213898e766,Kimyasal Hesaplamalar,KMnO₄ + HCl → KCl + MnCl₂ + H₂O + Cl₂ tepkimesi en
+kimya_ayt,d98bb7c3-9a80-4695-ab8f-e6ddd11d9080,Periyodik Sistem,Periyodik sistemde 2B grubunda yer alan X element 
+biyoloji_ayt,ee117a82-d602-4cb5-9a0f-009cbf98e70e,Kan Grupları,Alyuvar zarları üzerinde bulunan A ve B tipi antij
+biyoloji_ayt,68e3da31-7250-4a49-a387-ba3af0810721,Bağışıklık,"Bağışıklık olayında görülen birincil yanıt için, I"
+biyoloji_ayt,134ddfef-9cce-4186-a3c0-5b2861b4404c,Ekoloji,Bir komünite içinde en bol bulunan ya da toplamda 
+biyoloji_ayt,29c81121-3b22-47bc-afe6-b7674476b0d9,Boşaltım Sistemi,"Üriner sistemle ilgili olarak, I. Kanın pH seviyes"
+matematik_ayt,c44ad5ae-962d-44a1-ab43-29d9c72271d5,Özdeşlikler,a ve b reel sayıları için a + b = 6 ve ab = 5 oldu
+matematik_ayt,e1885fb0-6355-45ba-88d6-5619920f6b17,Fonksiyonlar,f(1) = 3 ve f(3) = 11 olan doğrusal fonksiyonun eğ
+matematik_ayt,28d14748-5869-4ad8-a686-7fa0de810d92,Fonksiyonlar,f(x + 1) = 2x + 3 olduğuna göre f(5) kaçtır?
+matematik_ayt,c7d2f129-84f5-4e35-8688-8a3443b9fd93,Fonksiyonlar,f(x) = (x − 1) / (x + 2) fonksiyonunun tanım kümes
+matematik_ayt,0b9083f8-45bf-4513-92ae-410752a90eab,Fonksiyonlar,f(x) = 2x − 3 ve g(x) = x² + 1 olduğuna göre (g∘f)
+matematik_ayt,faca0c13-59b6-4394-943d-fb817d93f180,Fonksiyonlar,f(x) = f(−x) koşulunu sağlayan fonksiyon aşağıdaki
+matematik_ayt,58f75adc-e458-47c4-82f3-12691abaa70a,Logaritma,log₃9 + log₃27 toplamı kaçtır?
+matematik_ayt,520b3e5f-7f37-459d-9a0f-c8ae09acde5b,Trigonometri,sin x = 3/5 ve x ikinci bölgede olduğuna göre cos 
+edebiyat_ayt,6042ec55-3c61-4f21-a455-8867bc7f5d24,Tanzimat Edebiyatı,"""Sanat sanat içindir"" anlayışı hangi topluluğa ait"
+edebiyat_ayt,3489d9ec-9da8-44f1-93a7-390661719e6e,Paragraf,"(I) Dil, bir milletin kimliğidir. (II) Milletler d"
+edebiyat_ayt,0c111810-523e-42b6-b6ab-f87df2179d97,Divan Edebiyatı,aa ba ca da kafiye düzeni hangi nazım biçimidir?
+edebiyat_ayt,e614da81-73d1-4019-99f2-7106f5310852,Anlam Bilgisi,Aşağıdaki dizelerin hangisinde mecaz anlam vardır?
+edebiyat_ayt,5531ff3d-fd6c-4119-8b45-c0807a069920,Halk Edebiyatı,Aşağıdakilerden hangisi anonim halk edebiyatı ürün
+edebiyat_ayt,8803c329-d4a2-4f32-a396-cbb263cae57c,Tanzimat Edebiyatı,Aşağıdakilerden hangisi Tanzimat I. Dönem sanatçıs
+edebiyat_ayt,a5042281-0f50-4d42-aa2d-60fc80876b02,Paragraf,"Sanat, insanın kendini ifade etme biçimlerinden bi"
+edebiyat_ayt,0daf1614-c3c7-4e4a-a9e5-b5d651538239,İslamiyet Öncesi Türk Edebiyatı,Yuğ törenlerinde söylenen şiirlere ne ad verilir?
+tarih_ayt,30137977-8204-4faa-96c6-daf526fa5c25,İlk Türk Devletleri,Türk topluluklarının İlk Çağ'da Orta Asya'dan göç 
+tarih_ayt,f9cc7cec-16c6-466e-a2ff-be4185aa07b4,Orta Çağ'da Dünya,XII. yüzyılda Avrupa'da kullanımda bulunan altın p
+cografya_ayt,f2d707b0-f918-43a9-a92c-182cf7ace0f8,Çevre ve Toplum,Çevresel etki değerlendirmesi hangi amaçla yapılır
+cografya_ayt,d639cc4a-1b59-40eb-9d4c-1e08d4aba956,Ekonomik Faaliyetler,Demiryolu taşımacılığının sanayi için avantajların
+felsefe_ayt,95dffef0-8959-4e5d-a892-2625d02c215d,Felsefeye Giriş,"– Felsefe, her söyleneni olduğu gibi doğru kabul e"
+felsefe_ayt,e4a10096-7c9b-4a9d-8fb6-6a3614b45dc7,Psikoloji,Bazı öğrenmelerin gerçekleşmesi için belirli bir y
+din_kulturu_ayt,34b043b3-baec-4a55-8ab6-4e34f60de8e8,Din ve Özgürlük,"""Dinde zorlama yoktur."" (Bakara, 256) ayeti aşağıd"
+din_kulturu_ayt,f45523d7-1dee-45f2-bf49-65397f561f96,Allah-İnsan İlişkisi,"Kur'an-ı Kerim'de insanın yeryüzünde ""halife"" olar"
+turkce_lgs,d317ed0c-0974-4351-8e49-68b5db44311c,Cümlede Anlam,---- içindeki potansiyelin farkına bile varmadan k
+turkce_lgs,c919a027-153b-4e17-a51b-8ab81d1a1f28,Fiilde Çatı,1. takip etmiş 2. sormalısın 3. buz tuttu 4. seviy
+turkce_lgs,89c4fbf0-40d4-42a1-a88c-dc97157f8581,Fiilimsiler,Aşağıdaki cümlelerden hangisinde ikileme sıfat-fii
+turkce_lgs,6926cce9-8b32-4364-95a3-9ae2862d6238,Cümlede Anlam,Aşağıdakilerden hangisi tanım cümlesidir?
+turkce_lgs,69388db2-7dd4-4c87-b515-0f930fd85ae7,Fiilimsiler,"Bana cefa olan senden değildir, Benim kendi bahtım"
+turkce_lgs,f0564fda-8bf6-44a0-a369-8526b531ec4f,Cümlenin Ögeleri,Çocuklarınızı modern dünyanın hastalıklarından kor
+turkce_lgs,4fd62259-41ca-4fa3-9a43-86efe0a911a5,Fiilimsiler,I. Beni en çok mutlu eden şey yazmaktır. II. Başka
+turkce_lgs,765254a1-cc4c-44b2-a7db-45ce51ab0f37,Sözcükte Anlam,I. Kamyon - bisiklet - kamyonet - tır II. İletki -
+turkce_lgs,0a8762a5-d388-451f-8083-3c5199d4459e,Sözcükte Anlam,I. kuş II. canlı III. üveyik IV. hayvan Bu panoda 
+turkce_lgs,430f94a5-86b8-41a4-a9d5-e40cf2f671e6,Cümle Türleri,"Veysel günler geçti, yaş altmış oldu. Döküldü yapr"
+inkilap_lgs,cc909604-2cdc-4f3a-96ee-e93bb9ad2b23,Atatürkçülük ve Çağdaşlaşan Türkiye,Aşağıdaki ifadelerden hangisi cumhuriyetçilik ilke
+inkilap_lgs,15b8d641-4441-47ce-9246-8da8f0f9826b,Bir Kahraman Doğuyor,"Aşağıdakilerden hangisi Orta Çağ Avrupa'sına ""Kara"
+inkilap_lgs,4eab8840-9a88-4de3-99e3-2b11a47b7c0e,Bir Kahraman Doğuyor,I. Dünya Savaşı başladıktan sonra hem İttifak Devl
+inkilap_lgs,f3e7f330-a9e4-43f7-902c-4ee83d3e7af4,Milli Uyanış,Millî Mücadele sırasında aşağıdaki gelişmelerden h
+din_kulturu_lgs,33875643-49e5-4815-b162-61cde0bbb442,Zekât ve Sadaka,"""...(Ey müminler!) Siz hayır işlerinde yarışın..."""
+din_kulturu_lgs,3cc31c45-3369-41f9-bb41-35e436ec9275,Kader İnancı,"""Kader utansın!"" ""Ne yapayım kaderim böyleymiş!"" """
+ingilizce_lgs,1154e443-1d0e-4750-a83a-6889b996de2c,Friendship,"Carter: Are you busy tonight? ----? Shaun: Yeah, t"
+ingilizce_lgs,4f09bf17-e669-46cc-95ec-d70ed9d4c530,The Internet,Irene: Do you shop online? Maria: ----. I prefer g
+matematik_lgs,4a4b03f3-7527-4ac6-9ced-a78edde1a3c2,Kareköklü İfadeler,√54 sayısından küçük en büyük tam sayı aşağıdakile
+matematik_lgs,e35a2a76-91f6-4200-a170-1f8e802fe499,Çarpanlar ve Katlar,216 / x ifadesi bir asal sayıya eşittir. Buna göre
+matematik_lgs,dcd524a2-1b41-48e6-b0f7-f9bb77b8320e,Denklemler,3(x − 4) = 18 denklemini sağlayan x değeri kaçtır?
+matematik_lgs,c347e75f-2de5-4f06-95a1-31234b93f849,Çarpanlar ve Katlar,A doğal sayısı 6 ile 21 ile tam bölünüyor. Buna gö
+matematik_lgs,b6195362-4f1e-4ef7-afeb-8b9409e2f076,Çarpanlar ve Katlar,"a ve b birer pozitif tam sayı olmak üzere, a · b ="
+matematik_lgs,5b5a5c84-ce66-4429-ab94-909301790164,Üslü İfadeler,Aşağıdaki işlemlerden hangisinin sonucu 3²⁰'dir?
+matematik_lgs,003c1d5b-120a-47ff-b7f6-a9f4a91ae8f4,Çarpanlar ve Katlar,Biri diğerinin 5 katı olan iki sayının en büyük or
+matematik_lgs,29732e71-d514-4bc0-9f18-740b58ae7a0e,Rasyonel Sayılar,"Melis parasının 2/5'i ile bir paten, 1/3'ü ile bir"
+matematik_lgs,7cfc494b-44fd-45df-84c0-39a30f75b470,Çarpanlar ve Katlar,Uzunlukları 56 cm ve 108 cm olan iki farklı ahşap 
+matematik_lgs,ca22ced8-2b95-4e7a-950a-e7a84d047b3f,Kareköklü İfadeler,"x tam sayısı, √58 ile √75, y tam sayısı, √45 ile √"
+fen_lgs,cb6a0b40-f0c1-44e0-98af-73b541d1f700,Mevsimler ve İklim,21 Haziran'da Güneş ışınları Güney Yarım Küre'ye e
+fen_lgs,2819d4ac-0b34-4deb-9955-c80e3317f3ce,DNA ve Genetik Kod,Bir canlının tüm genetik özelliklerinin bilgisini 
+fen_lgs,5e78926c-a648-4fc8-8cc4-4b10b1e336aa,Mevsimler ve İklim,Dünya'nın dönme ekseninin yörünge düzlemine göre e
+fen_lgs,595d49ac-9251-4335-ab3a-6648d3e3c7be,Basit Makineler,Günlük yaşantımızda pek çok basit makine kullanırı
+fen_lgs,d224c69c-e3d9-4a92-a7c6-005a2a45f202,Basit Makineler,I. Kuvvetin doğrultusunu II. Kuvvetin yönünü III. 
+fen_lgs,2d6e17a9-1056-46fa-9553-1eac58d12b9f,Periyodik Sistem,I. Periyodik tabloda soldan sağa doğru atom numara
+fen_lgs,fc1323ac-3ef0-422e-b7e7-32eb70a8dda2,DNA ve Genetik Kod,Mendel'in çalışmalarında bezelyeleri tercih etmesi
+fen_lgs,e01eb0e8-1a02-44c6-be16-f694ff8a87d5,Basınç,"Özdeş küplerle oluşturulan I, II, III ve IV numara"
+fen_lgs,7738f8f1-747a-4b4b-81ea-3541baf69f2c,Periyodik Sistem,Periyodik sistemle ilgili aşağıda verilen ifadeler
+fen_lgs,e39d1c41-b4fc-48a3-be46-1cc6b17c41ba,DNA ve Genetik Kod,Şekildeki soyağacında Aa genotipli bir birey ile X

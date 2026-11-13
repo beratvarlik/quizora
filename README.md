@@ -212,6 +212,8 @@ npx tsx scripts/soru-durumu.ts
 
 Yarış sonrası soru incelemesinde öğrenciye gösterilen çözüm açıklamaları (`cozum_aciklamasi`, en çok 400 karakter) ayrı bir CSV ile yüklenir: `npx tsx scripts/aciklama-yukle.ts aciklamalar.csv --dry-run` (ayrıntı: `docs/SORU-EKLEME.md`). Migration `0008_cozum_aciklamasi.sql` önce uygulanmış olmalı.
 
+Akıllı analiz (Performansım) için her sorunun bir konusu (`topic`) vardır: yeni soru CSV'sinde `topic` sütunu zorunludur; mevcut sorulara `npx tsx scripts/konu-yukle.ts scripts/konu-atamalari.csv` ile yüklenir (migration `0011_akilli_analiz.sql` önce uygulanmış olmalı; ayrıntı: `docs/SORU-EKLEME.md` bölüm 2c).
+
 ### 6. Çalıştır
 ```bash
 npm run dev

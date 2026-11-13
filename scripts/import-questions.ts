@@ -4,7 +4,8 @@
 //   npx tsx scripts/import-questions.ts <dosya.csv> [--dry-run] [--gorsel-klasor <klasör>]
 //
 // Sütunlar (başlık satırı zorunlu):
-//   tablo, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_sik, gorsel_dosya, aciklama, cozum_aciklamasi
+//   tablo, soru_metni, secenek_a, secenek_b, secenek_c, secenek_d, secenek_e, dogru_sik, topic, gorsel_dosya, aciklama, cozum_aciklamasi
+// topic = dersin alt konusu (ZORUNLU, 1-60 karakter; kısa ve tutarlı isim, örn. 'Türev', 'Paragraf', 'Friendship'). Mevcut konu adları: docs/SORU-EKLEME.md
 // aciklama = dahili not (öğrenciye gösterilmez); cozum_aciklamasi = yarış sonrası öğrenciye gösterilen çözüm (en çok 400 karakter, isteğe bağlı).
 // YKS tablolarında 5 şık (A-E) zorunludur. LGS tablolarında (*_lgs) soru 4 şıklıdır: secenek_e boş bırakılır, dogru_sik A-D.
 // Ayrıntı: docs/SORU-EKLEME.md
@@ -18,7 +19,7 @@ import { LGS_TABLOLARI, STORAGE_KOVASI, TUM_TABLOLAR } from './lib-sorular.ts'
 config({ path: '.env.local' })
 
 const GRUP_BOYUTU = 50
-const ZORUNLU_SUTUNLAR = ['tablo', 'soru_metni', 'secenek_a', 'secenek_b', 'secenek_c', 'secenek_d', 'secenek_e', 'dogru_sik']
+const ZORUNLU_SUTUNLAR = ['tablo', 'soru_metni', 'secenek_a', 'secenek_b', 'secenek_c', 'secenek_d', 'secenek_e', 'dogru_sik', 'topic']
 const ISTEGE_BAGLI_SUTUNLAR = ['gorsel_dosya', 'aciklama', 'cozum_aciklamasi']
 const GORSEL_ADI = /^[A-Za-z0-9._-]+$/
 const GORSEL_TURLERI: Record<string, string> = {
@@ -127,6 +128,7 @@ interface Aday {
     dogru_sik: string
     aciklama: string | null
     cozum_aciklamasi: string | null
+    topic: string
     gorsel_url: string | null
   }
   gorselDosya: string
@@ -257,6 +259,9 @@ async function main(): Promise<void> {
       sorunlar.push(`dogru_sik ${lgs ? 'A-D (LGS soruları 4 şıklıdır)' : 'A-E'} olmalı (bulunan: '${al('dogru_sik')}')`)
     }
 
+    if (al('topic') === '') sorunlar.push('topic boş (dersin alt konusu zorunludur)')
+    else if (al('topic').length > 60) sorunlar.push(`topic en çok 60 karakter olmalı (bulunan: ${al('topic').length})`)
+
     if (sutunNo('cozum_aciklamasi') >= 0 && al('cozum_aciklamasi').length > 400) {
       sorunlar.push(`cozum_aciklamasi en çok 400 karakter olmalı (bulunan: ${al('cozum_aciklamasi').length})`)
     }
@@ -292,6 +297,7 @@ async function main(): Promise<void> {
         dogru_sik: dogruSik,
         aciklama: sutunNo('aciklama') >= 0 && al('aciklama') !== '' ? al('aciklama') : null,
         cozum_aciklamasi: sutunNo('cozum_aciklamasi') >= 0 && al('cozum_aciklamasi') !== '' ? al('cozum_aciklamasi') : null,
+        topic: al('topic'),
         gorsel_url: null,
       },
     })
