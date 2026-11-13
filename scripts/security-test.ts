@@ -286,7 +286,7 @@ async function testler(): Promise<void> {
     return `${TUM_TABLOLAR.length} tablo`
   })
   await adim('1b. anon: games, game_players, answers, game_questions ve diğer tablolar okunamıyor', async () => {
-    const tablolar = ['games', 'game_players', 'answers', 'game_questions', 'profiles', 'player_stats', 'rank_tiers', 'global_scores', 'app_settings']
+    const tablolar = ['games', 'game_players', 'answers', 'game_questions', 'profiles', 'player_stats', 'rank_tiers', 'global_scores', 'app_settings', 'mistake_book', 'mistake_games']
     const sizan: string[] = []
     for (const t of tablolar) {
       const r = await anon.from(t).select('*').limit(1)
@@ -311,6 +311,12 @@ async function testler(): Promise<void> {
       ['start_if_ready', { p_game_id: SIFIR_UUID }],
       ['leave_game', { p_game_id: SIFIR_UUID }],
       ['_create_game_internal', { p_kategori: 'tyt', p_host: SIFIR_UUID, p_public: true }],
+      ['get_mistake_summary', {}],
+      ['get_mistakes', { p_exam: null, p_subject: null, p_limit: 5 }],
+      ['practice_answer', { p_question_id: SIFIR_UUID, p_selected: 'A' }],
+      ['remove_mistake', { p_question_id: SIFIR_UUID }],
+      ['_game_mistakes', { p_game_id: SIFIR_UUID }],
+      ['_apply_mistakes', { p_game_id: SIFIR_UUID }],
       ['get_global_leaderboard', {}],
       ['get_my_stats', {}],
       ['rank_of', { p_xp: 0 }],
@@ -381,6 +387,50 @@ async function testler(): Promise<void> {
     await admin.from('games').update({ auto_start_at: null }).eq('id', g1)
     const ic = await C.client.rpc('_create_game_internal', { p_kategori: 'tyt', p_host: C.id, p_public: true })
     kontrol(!!ic.error, '_create_game_internal istemciden çağrılabildi!')
+  })
+  await adim('2a4. Yanlışlarım defteri: başkasının satırı görünmez/değiştirilemez; istemci tabloya yazamaz; iç yardımcılar kapalı', async () => {
+    // A'nın defterine service role ile bir satır koy (gerçek bir soru id'siyle)
+    const { data: soru } = await admin.from('matematik_tyt').select('id').limit(1).single()
+    kontrol(!!soru, 'matematik_tyt boş: önce seed-test-questions çalıştırın')
+    const qid = soru!.id as string
+    const { error: eIns } = await admin.from('mistake_book').insert({ user_id: A.id, question_id: qid, source_table: 'matematik_tyt', wrong_count: 1, last_answer: 'A' })
+    kontrol(!eIns, `hazırlık satırı eklenemedi: ${eIns?.message}`)
+    try {
+      // A kendi satırını okuyabilir; C göremez
+      const okuA = await A.client.from('mistake_book').select('question_id').eq('question_id', qid)
+      const okuC = await C.client.from('mistake_book').select('question_id').eq('question_id', qid)
+      kontrol(!okuA.error && (okuA.data ?? []).length === 1, `A kendi satırını okuyamadı: ${okuA.error?.message}`)
+      kontrol(okumaEngellendi(okuC), `C başkasının satırını okudu: ${JSON.stringify(okuC.data)}`)
+      const tumC = await C.client.from('mistake_book').select('*')
+      kontrol(!(tumC.data ?? []).some((x: { user_id: string }) => x.user_id === A.id), 'C tüm satırlarda A’nın verisini gördü')
+      // mistake_games: policy yok
+      const mg = await C.client.from('mistake_games').select('*').limit(1)
+      kontrol(okumaEngellendi(mg), `mistake_games okunabildi: ${JSON.stringify(mg.data)}`)
+      // İstemci doğrudan yazamaz (kendi satırı dahil)
+      const ekle = await C.client.from('mistake_book').insert({ user_id: C.id, question_id: qid, source_table: 'matematik_tyt' }).select()
+      kontrol(!!ekle.error || (ekle.data ?? []).length === 0, 'C kendi adına satır ekleyebildi!')
+      const guncelle = await A.client.from('mistake_book').update({ wrong_count: 99, resolved_at: new Date().toISOString() }).eq('question_id', qid).select()
+      kontrol(!!guncelle.error || (guncelle.data ?? []).length === 0, 'A kendi satırını doğrudan güncelleyebildi!')
+      const sil = await A.client.from('mistake_book').delete().eq('question_id', qid).select()
+      kontrol(!!sil.error || (sil.data ?? []).length === 0, 'A kendi satırını doğrudan silebildi!')
+      const { data: satir } = await admin.from('mistake_book').select('wrong_count, resolved_at').eq('user_id', A.id).eq('question_id', qid).single()
+      kontrol(satir?.wrong_count === 1 && satir?.resolved_at === null, `satır değişti: ${JSON.stringify(satir)}`)
+      // RPC'ler başkasının satırına dokunamaz
+      const pc = await mesaj(() => C.client.rpc('practice_answer', { p_question_id: qid, p_selected: 'A' }).then((r) => { if (r.error) throw new Error(r.error.message) }))
+      const rc = await mesaj(() => C.client.rpc('remove_mistake', { p_question_id: qid }).then((r) => { if (r.error) throw new Error(r.error.message) }))
+      kontrol(pc === 'Bu soru defterinde yok' && rc === 'Bu soru defterinde yok', `practice/remove mesajları: '${pc}' / '${rc}'`)
+      const sc = await C.client.rpc('get_mistake_summary')
+      const lc = await C.client.rpc('get_mistakes', { p_exam: null, p_subject: null, p_limit: 50 })
+      kontrol(!sc.error && sc.data.total === 0 && !lc.error && lc.data.items.length === 0, 'C başkasının defterini RPC ile gördü')
+      const { data: sonra } = await admin.from('mistake_book').select('resolved_at').eq('user_id', A.id).eq('question_id', qid).single()
+      kontrol(sonra?.resolved_at === null, 'A’nın satırı C tarafından değiştirildi')
+      // İç yardımcılar istemciden çağrılamaz
+      const i1 = await C.client.rpc('_game_mistakes', { p_game_id: g1 })
+      const i2 = await C.client.rpc('_apply_mistakes', { p_game_id: g1 })
+      kontrol(!!i1.error && !!i2.error, '_game_mistakes/_apply_mistakes istemciden çağrılabildi!')
+    } finally {
+      await admin.from('mistake_book').delete().eq('user_id', A.id).eq('question_id', qid)
+    }
   })
   await adim('2b. C: başkasının oyununu start_game ile başlatamıyor', async () => {
     const m = await mesaj(() => C.api.startGame(g1))
