@@ -12,6 +12,7 @@ import { hataMesaji } from '../hooks/hata'
 import { finishGameYeniden } from '../hooks/useBitir'
 import { useGame } from '../hooks/useGame'
 import { useSes } from '../hooks/useSes'
+import SoruInceleme from '../components/SoruInceleme'
 import { api } from '../lib/client'
 import type { GameResult, MyStats } from '../types'
 
@@ -208,6 +209,8 @@ export default function Sonuc() {
             <span>{b.base + b.bonus - b.penalty}</span>
           </div>
         </div>
+
+        {oyunId && <SoruInceleme gameId={oyunId} />}
 
         {ben?.rankedUp && (
           <div className="rutbe-atladi" role="status">
