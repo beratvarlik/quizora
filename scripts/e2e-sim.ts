@@ -499,6 +499,35 @@ async function tur(n: number, kategori: Kategori, tam: boolean): Promise<void> {
     }
   })
 
+  // Yanlışlarım defteri: yanlış + boş sorular deftere girmiş olmalı; api üzerinden çöz / çıkar
+  await adim(`${e} 6a2. Yanlışlarım defteri: addedToNotebook = yanlış + boş; özet/liste tutarlı; practiceAnswer ve removeMistake`, async () => {
+    for (const o of oyuncular) {
+      const inc = await o.api.getGameReview(gameId)
+      const yanlisBos = inc.items.filter((x) => x.outcome !== 'correct')
+      kontrol(inc.addedToNotebook === yanlisBos.length, `${o.ad}: addedToNotebook ${inc.addedToNotebook} ≠ ${yanlisBos.length}`)
+      const ozet = await o.api.getMistakeSummary()
+      const liste = await o.api.getMistakes({ limit: 50 })
+      kontrol(ozet.total === yanlisBos.length && ozet.resolvedTotal === 0, `${o.ad}: özet ${ozet.total}/${ozet.resolvedTotal} ≠ ${yanlisBos.length}/0`)
+      kontrol(liste.length === yanlisBos.length, `${o.ad}: liste ${liste.length} ≠ ${yanlisBos.length}`)
+      kontrol(ozet.bySubject.reduce((t, x) => t + x.count, 0) === ozet.total && ozet.bySubject.every((x) => x.exam === beklenenSinav),
+        `${o.ad}: bySubject toplamı/sınav tutarsız`)
+      const izinli = beklenenSinav === 'lgs' ? 'ABCD' : 'ABCDE'
+      kontrol(liste.every((x) => Object.keys(x.options).sort().join('') === izinli && !('correctOption' in x) && !('explanation' in x)),
+        `${o.ad}: liste şıkları/alanları beklenmedik`)
+      if (liste.length >= 2) {
+        // Soruyu incelemeden eşleştir: metin → doğru şık
+        const dogru = (metin: string) => inc.items.find((x) => x.text === metin)!.correctOption
+        const ilk = liste[0]
+        const pd = await o.api.practiceAnswer(ilk.questionId, dogru(ilk.text))
+        kontrol(pd.isCorrect && pd.resolved, `${o.ad}: doğru şıkla çözülmedi`)
+        const ikinci = liste[1]
+        await o.api.removeMistake(ikinci.questionId)
+        const son = await o.api.getMistakeSummary()
+        kontrol(son.total === yanlisBos.length - 2 && son.resolvedTotal === 2, `${o.ad}: çözüm/çıkarma sonrası ${son.total}/${son.resolvedTotal}`)
+      }
+    }
+  })
+
   await adim(`${e} 6b. XP yalnızca BİR kez arttı (player_stats ve getMyStats), wins/gamesPlayed doğru`, async () => {
     const stat = await statOku(oyuncular.map((o) => o.id))
     for (const o of oyuncular) {
