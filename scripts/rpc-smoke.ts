@@ -47,6 +47,187 @@ async function temizle() {
   for (const id of kullanicilar) await admin.auth.admin.deleteUser(id)
 }
 
+type Kullanici = { client: SupabaseClient; id: string }
+const bekle = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+// Doğru şıkkı service role ile oku (istemci göremez)
+async function dogruSik(id: string, pos: number): Promise<string> {
+  const { data: gq, error } = await admin
+    .from('game_questions')
+    .select('source_table, question_id')
+    .eq('game_id', id)
+    .eq('position', pos)
+    .single()
+  if (error || !gq) throw new Error(`game_questions ${pos}: ${error?.message}`)
+  const { data: q, error: qErr } = await admin.from(gq.source_table).select('dogru_sik').eq('id', gq.question_id).single()
+  if (qErr || !q) throw new Error(`${gq.source_table} ${gq.question_id}: ${qErr?.message}`)
+  return String(q.dogru_sik)
+}
+
+// get_question + submit_answer testleri (0004_rpc_game.sql). Oyun 'playing' ve başlamış olmalı.
+async function soruCevapTesti(A: Kullanici, B: Kullanici, id: string) {
+  const al = (u: Kullanici, pos: number) => u.client.rpc('get_question', { p_game_id: id, p_position: pos })
+  const ver = (u: Kullanici, pos: number, s: string | null) =>
+    u.client.rpc('submit_answer', { p_game_id: id, p_position: pos, p_secenek: s })
+
+  // Başlangıç geri sayımı bitsin (start_game started_at = now() + 3 sn)
+  await bekle(3500)
+
+  // Sıra dışı soru istenemez
+  const sd = await al(B, 3)
+  rapor('sıra dışı get_question reddedildi', sd.error?.message === 'Sıra dışı soru', sd.error?.message)
+
+  // Soru henüz getirilmeden cevap verilemez
+  const once = await ver(B, 0, 'A')
+  rapor('get_question öncesi submit_answer reddedildi', once.error?.message === 'Önce soruyu getir', once.error?.message)
+
+  // B 0. soruyu alır: doğru şık/açıklama sızmamalı
+  const q0 = await al(B, 0)
+  const anahtarlar = Object.keys(q0.data ?? {}).sort().join(',')
+  const metin = JSON.stringify(q0.data ?? {})
+  rapor(
+    'B get_question(0): doğru şık/açıklama yok',
+    !q0.error &&
+      anahtarlar === 'ders,image_url,options,position,text' &&
+      Object.keys(q0.data.options).sort().join('') === 'ABCDE' &&
+      !/dogru|aciklama|aktif|correct/i.test(metin),
+    q0.error?.message ?? anahtarlar,
+  )
+  rapor("get_question ders etiketi '(AYT)' içeriyor", String(q0.data?.ders).includes('(AYT)'), q0.data?.ders)
+
+  // Aynı soruyu tekrar istemek süreyi sıfırlamamalı (q_started_at aynı kalır)
+  const { data: gp1 } = await admin.from('game_players').select('q_started_at').eq('game_id', id).eq('user_id', B.id).single()
+  await bekle(300)
+  const q0b = await al(B, 0)
+  const { data: gp2 } = await admin.from('game_players').select('q_started_at').eq('game_id', id).eq('user_id', B.id).single()
+  rapor(
+    'aynı soru tekrar istenince q_started_at değişmedi',
+    !q0b.error && !!gp1?.q_started_at && gp1.q_started_at === gp2?.q_started_at,
+    q0b.error?.message,
+  )
+
+  // Geçersiz şık
+  const gs = await ver(B, 0, 'Z')
+  rapor('geçersiz şık reddedildi', gs.error?.message === 'Geçersiz şık', gs.error?.message)
+
+  // Hemen doğru cevap >= 190
+  const d0 = await dogruSik(id, 0)
+  const r0 = await ver(B, 0, d0)
+  rapor(
+    'hemen doğru cevap >= 190 puan',
+    !r0.error && r0.data?.correct === true && r0.data?.points >= 190 && r0.data?.points <= 200 &&
+      r0.data?.correct_option === d0 && r0.data?.new_score === r0.data?.points &&
+      r0.data?.finished === false && r0.data?.speedup_triggered === false,
+    r0.error?.message ?? JSON.stringify(r0.data),
+  )
+  let skor = Number(r0.data?.points)
+
+  // Aynı pozisyona ikinci cevap ve sıra dışı pozisyon
+  const ikinci = await ver(B, 0, d0)
+  rapor('aynı pozisyona ikinci cevap reddedildi', ikinci.error?.message === 'Bu soru zaten cevaplandı', ikinci.error?.message)
+  const sdc = await ver(B, 5, 'A')
+  rapor('sıra dışı submit_answer reddedildi', sdc.error?.message === 'Sıra dışı soru', sdc.error?.message)
+
+  // Yavaş (8 sn) doğru cevap ≈ 160 (±10)
+  await al(B, 1)
+  const d1 = await dogruSik(id, 1)
+  await bekle(8000)
+  const r1 = await ver(B, 1, d1)
+  rapor(
+    'yavaş (8 sn) doğru cevap ≈ 160 (±10)',
+    !r1.error && r1.data?.correct === true && Math.abs(r1.data?.points - 160) <= 10,
+    r1.error?.message ?? `${r1.data?.points}`,
+  )
+  skor += Number(r1.data?.points)
+
+  // Yanlış cevap −25
+  await al(B, 2)
+  const d2 = await dogruSik(id, 2)
+  const yanlis = ['A', 'B', 'C', 'D', 'E'].find((s) => s !== d2)!
+  const r2 = await ver(B, 2, yanlis)
+  rapor(
+    'yanlış cevap −25',
+    !r2.error && r2.data?.correct === false && r2.data?.points === -25 && r2.data?.correct_option === d2,
+    r2.error?.message ?? JSON.stringify(r2.data),
+  )
+  skor -= 25
+
+  // Boş cevap 0 puan
+  await al(B, 3)
+  const r3 = await ver(B, 3, null)
+  rapor('boş cevap 0 puan', !r3.error && r3.data?.points === 0 && r3.data?.correct === false, r3.error?.message)
+
+  // B kalan soruları (4..9) boş geçer; 10. soruyu bitiren B ilk bitirendir
+  let son: { data: any } = { data: null }
+  for (let pos = 4; pos <= 9; pos++) {
+    const g = await al(B, pos)
+    if (g.error) throw new Error(`B get_question(${pos}): ${g.error.message}`)
+    son = await ver(B, pos, null)
+  }
+  rapor(
+    'B 10. soruyu bitirdi: finished ve speedup_triggered',
+    son.data?.finished === true && son.data?.speedup_triggered === true,
+    JSON.stringify(son.data),
+  )
+
+  // Oyuncu ve oyun satırları
+  const { data: bp } = await admin
+    .from('game_players')
+    .select('score, correct_count, wrong_count, current_q, finished_at, q_started_at')
+    .eq('game_id', id).eq('user_id', B.id).single()
+  rapor(
+    'B satırı: puan/doğru/yanlış/finished_at',
+    bp?.score === skor && bp?.correct_count === 2 && bp?.wrong_count === 1 && bp?.current_q === 10 &&
+      !!bp?.finished_at && bp?.q_started_at === null,
+    JSON.stringify(bp),
+  )
+  const { data: g1 } = await admin.from('games').select('speedup_at, speedup_remaining_ms, speedup_by').eq('id', id).single()
+  rapor(
+    'speedup_at dolu, speedup_remaining_ms > 0, speedup_by = B',
+    !!g1?.speedup_at && Number(g1?.speedup_remaining_ms) > 0 && g1?.speedup_by === B.id,
+    JSON.stringify(g1),
+  )
+
+  // Bitirmiş oyuncu soru isteyemez
+  const bitmis = await al(B, 9)
+  rapor('bitiren oyuncu yeni soru isteyemiyor', bitmis.error?.message === 'Sıra dışı soru', bitmis.error?.message)
+
+  // A da bitirir; speedup_by B olarak kalmalı, ikinci bitiren tetiklemez
+  let aSon: { data: any } = { data: null }
+  for (let pos = 0; pos <= 9; pos++) {
+    const g = await al(A, pos)
+    if (g.error) throw new Error(`A get_question(${pos}): ${g.error.message}`)
+    aSon = await ver(A, pos, null)
+  }
+  const { data: g2 } = await admin.from('games').select('speedup_at, speedup_remaining_ms, speedup_by').eq('id', id).single()
+  rapor(
+    'ikinci bitiren speedup değerlerini değiştirmedi',
+    aSon.data?.finished === true && aSon.data?.speedup_triggered === false &&
+      g2?.speedup_by === B.id && g2?.speedup_at === g1?.speedup_at && g2?.speedup_remaining_ms === g1?.speedup_remaining_ms,
+    JSON.stringify({ aSon: aSon.data, g2 }),
+  )
+
+  // LGS oyununda ders etiketi '(LGS)'; başlamadan önce 'Oyun başlamadı'
+  const lg = await A.client.rpc('create_game', { p_kategori: 'lgs_sayisal' })
+  if (lg.data?.game_id) oyunlar.push(lg.data.game_id)
+  if (lg.error || !lg.data?.game_id) {
+    rapor("lgs_sayisal oyunu kuruldu (get_question testi)", false, lg.error?.message)
+    return
+  }
+  const lj = await B.client.rpc('join_game', { p_code: lg.data.code })
+  const ls = await A.client.rpc('start_game', { p_game_id: lg.data.game_id })
+  rapor('LGS oyunu B katıldı ve A başlattı', !lj.error && !ls.error, lj.error?.message ?? ls.error?.message)
+  const erken = await B.client.rpc('get_question', { p_game_id: lg.data.game_id, p_position: 0 })
+  rapor('geri sayım bitmeden get_question reddedildi', erken.error?.message === 'Oyun başlamadı', erken.error?.message)
+  await bekle(3500)
+  const lq = await B.client.rpc('get_question', { p_game_id: lg.data.game_id, p_position: 0 })
+  rapor(
+    "LGS get_question ders etiketinde '(LGS)' geçiyor",
+    !lq.error && /Matematik \(LGS\)|Fen Bilimleri \(LGS\)/.test(String(lq.data?.ders)),
+    lq.error?.message ?? lq.data?.ders,
+  )
+}
+
 async function main() {
   const A = await kullaniciOlustur('A')
   const B = await kullaniciOlustur('B')
@@ -243,6 +424,9 @@ async function main() {
   // (f) geçersiz kategori (LGS eklendikten sonra da reddedilmeli)
   const bad2 = await A.client.rpc('create_game', { p_kategori: 'lgs_xyz' })
   rapor("geçersiz kategori 'Geçersiz kategori' der", bad2.error?.message === 'Geçersiz kategori', bad2.error?.message)
+
+  // ---- get_question / submit_answer (0004_rpc_game.sql): ilk oyun (A + B, playing) ----
+  await soruCevapTesti(A, B, gameId)
 }
 
 main()
