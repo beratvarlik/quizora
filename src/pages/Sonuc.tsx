@@ -127,7 +127,7 @@ export default function Sonuc() {
   const xp = sonuc.xpBreakdown
 
   return (
-    <main className="sayfa">
+    <main className="sayfa sn-sayfa">
       <BaglantiBandi />
       <div className="icerik">
         <section className="kazanan">
@@ -161,6 +161,8 @@ export default function Sonuc() {
           )}
         </section>
 
+        <div className="sn-panel">
+        <h2 className="sn-baslik">Sonucum</h2>
         {ben && (
           <div className="puan-satir">
             <div>
@@ -270,8 +272,9 @@ export default function Sonuc() {
             </div>
           )}
         </div>
+        </div>
 
-        <div className="px-5" style={{ marginTop: 26 }}>
+        <div className="px-5 sn-siralama-etiket" style={{ marginTop: 26 }}>
           <span className="etiket">Sıralama</span>
         </div>
         <div className="sira-liste">

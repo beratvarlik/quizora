@@ -57,6 +57,15 @@ function Cerceve() {
   )
 }
 
+// Web'de altta ince şerit: "Nasıl oynanır" (mobilde gizli)
+const P = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' } as const
+const ADIMLAR = [
+  { metin: 'Sınavını ve alanını seç', ikon: <svg viewBox="0 0 24 24" {...P}><path d="M4 6h16M4 12h10M4 18h7" /></svg> },
+  { metin: 'Lobi kur, kodu paylaş', ikon: <svg viewBox="0 0 24 24" {...P}><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2" /></svg> },
+  { metin: '10 soruda hızla yarış', ikon: <svg viewBox="0 0 24 24" {...P}><circle cx="12" cy="13" r="8" /><path d="M12 9v4l3 2M9 2h6" /></svg> },
+  { metin: 'XP kazan, rütbe atla', ikon: <svg viewBox="0 0 24 24" {...P}><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" /><path d="M8.5 13.5L12 11l3.5 2.5" /></svg> },
+]
+
 function sinavOku(): Sinav {
   try {
     return localStorage.getItem(K_SINAV) === 'lgs' ? 'lgs' : 'yks'
@@ -127,6 +136,10 @@ export default function Acilis() {
               düello<em>.</em>
             </h1>
             <p className="lp-alt">YKS ve LGS’ye arkadaşlarınla yarışarak hazırlan.</p>
+            <button type="button" className="lp-ana-oyna lp-web-oyna" onClick={oyna} disabled={bekliyor}>
+              <span>Hemen oyna</span>
+              <IkOk />
+            </button>
           </div>
           <div className="lp-secim">
             <div className="lp-sinav" role="tablist" aria-label="Sınav">
@@ -153,13 +166,25 @@ export default function Acilis() {
                 {DERS_SATIRI[sinav]}
               </span>
             </p>
-            <button type="button" className="lp-ana-oyna" onClick={oyna} disabled={bekliyor}>
+            <button type="button" className="lp-ana-oyna lp-mobil-oyna" onClick={oyna} disabled={bekliyor}>
               <span>{ad} ile oyna</span>
               <IkOk />
             </button>
           </div>
         </div>
       </section>
+      <ol className="lp-adimlar-serit" aria-label="Nasıl oynanır">
+        {ADIMLAR.map((a, i) => (
+          <li key={a.metin}>
+            <span className="lp-adim-ikon" aria-hidden="true">
+              {a.ikon}
+            </span>
+            <span>
+              <b>{i + 1}</b> {a.metin}
+            </span>
+          </li>
+        ))}
+      </ol>
     </main>
   )
 }
