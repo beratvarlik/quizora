@@ -12,8 +12,8 @@ export const dersAdi = (d: string) => d.replace(/\s*\((AYT|TYT|LGS)\)\s*$/, '')
 const KALIN = 'aıou'
 const INCE = 'eiöü'
 const SERT = 'fstkçşhp'
-/** Tamlama sonu (Din Kültürü, İnkılap Tarihi, Fen Bilimleri): ekten önce "n" gelir. */
-const TAMLAMA = /(Kültürü|Tarihi|Bilimleri)$/
+/** Belirtisiz isim tamlaması (Din Kültürü, Mol Kavramı, Fen Bilimleri): ekten önce "n" gelir. */
+const TAMLAMA = /\s\S*[ıiuü]$/
 
 function sonUnlu(k: string): string {
   const s = k.toLocaleLowerCase('tr-TR')
@@ -70,6 +70,8 @@ export interface OneriEylemi {
   etiket: string
   /** /yanlislarim/coz için ders filtresi (ham etiket) */
   ders: string
+  /** varsa ayrıca konu filtresi (kaçırılanların hepsi bu konudaysa) */
+  konu?: string
 }
 export interface Oneri {
   tur: 'kutlama' | 'zayif' | 'acele' | 'bos' | 'genel'
@@ -162,13 +164,22 @@ function oneriSec(items: ReviewItem[], a: MacAnalizi): Oneri[] {
   const zayif = a.dersler.find(d => d.ders === a.enZayif)
   if (zayif && zayif.yanlis + zayif.bos > 0) {
     const kac = zayif.yanlis + zayif.bos
+    // Konu bilgisi: kaçırılan soruların konuları (null olanlar sayılmaz)
+    const kacanlar = items.filter(q => q.ders === zayif.ders && q.outcome !== 'correct')
+    const konular = new Map<string, number>()
+    for (const q of kacanlar) if (q.topic) konular.set(q.topic, (konular.get(q.topic) ?? 0) + 1)
+    const [enKonu, enKonuSayi] = [...konular.entries()].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0], 'tr'))[0] ?? [null, 0]
+    const tekKonu = enKonu !== null && enKonuSayi === kac ? enKonu : null
     const yer = bulunma(zayif.ad)
-    const giris =
-      kac === zayif.toplam
-        ? zayif.toplam === 1
-          ? `${yer} tek soruyu kaçırdın.`
-          : `${yer} ${zayif.toplam} sorunun hepsini kaçırdın.`
-        : `${yer} ${zayif.toplam} sorunun ${sayiEki(kac)} kaçırdın.`
+    const giris = tekKonu
+      ? `${zayif.ad} · ${bulunma(tekKonu)} ${kac === 1 ? 'bir soru' : `${kac} soru`} kaçırdın.`
+      : enKonu
+        ? `${yer} ${zayif.toplam} sorunun ${sayiEki(kac)} kaçırdın, en çok ${enKonu} konusunda.`
+        : kac === zayif.toplam
+          ? zayif.toplam === 1
+            ? `${yer} tek soruyu kaçırdın.`
+            : `${yer} ${zayif.toplam} sorunun hepsini kaçırdın.`
+          : `${yer} ${zayif.toplam} sorunun ${sayiEki(kac)} kaçırdın.`
     const devam = sec(
       [
         `Yanlışlarım'dan ${kac === 1 ? 'bu soruyu' : `bu ${kac} soruyu`} tekrar çöz.`,
@@ -179,7 +190,7 @@ function oneriSec(items: ReviewItem[], a: MacAnalizi): Oneri[] {
     adaylar.push({
       tur: 'zayif',
       metin: `${giris} ${devam}`,
-      eylem: { etiket: kac === 1 ? 'Bu soruyu çöz' : `Bu ${kac} soruyu çöz`, ders: zayif.ders },
+      eylem: { etiket: kac === 1 ? 'Bu soruyu çöz' : `Bu ${kac} soruyu çöz`, ders: zayif.ders, ...(tekKonu ? { konu: tekKonu } : {}) },
       puan: 30 + kac * 5,
     })
   }
@@ -232,6 +243,8 @@ function oneriSec(items: ReviewItem[], a: MacAnalizi): Oneri[] {
 // B) Performansım: konular ve 3 günlük mini program (deterministik)
 // ---------------------------------------------------------------------
 type Konu = PerformanceStats['byTopic'][number]
+/** Sunucu konusu girilmemiş soruları bu ad altında toplar; anlamlı bir konu değil. */
+export const DIGER = 'Diğer'
 
 const KATEGORI_ADI: Record<Kategori, string> = {
   sayisal: 'Sayısal', esit_agirlik: 'Eşit Ağırlık', sozel: 'Sözel', tyt: 'TYT', lgs_sozel: 'LGS Sözel', lgs_sayisal: 'LGS Sayısal',
@@ -249,7 +262,7 @@ export const kategoriAdi = (k: Kategori) => KATEGORI_ADI[k]
 
 /** En düşük doğruluklu 3-5 konu (az örnekli konular atlanır). */
 export function zorlananKonular(s: PerformanceStats): Konu[] {
-  const l = s.byTopic.filter(t => !t.lowSample).sort((a, b) => a.accuracy - b.accuracy || b.answered - a.answered || a.topic.localeCompare(b.topic, 'tr'))
+  const l = s.byTopic.filter(t => !t.lowSample && t.topic !== DIGER).sort((a, b) => a.accuracy - b.accuracy || b.answered - a.answered || a.topic.localeCompare(b.topic, 'tr'))
   const zayif = l.filter(t => t.accuracy < 70).length
   return l.slice(0, Math.min(5, Math.max(3, zayif)))
 }
@@ -258,13 +271,13 @@ export function zorlananKonular(s: PerformanceStats): Konu[] {
 export function gucluKonular(s: PerformanceStats): Konu[] {
   const zor = new Set(zorlananKonular(s).map(t => `${t.subject}|${t.topic}`))
   return s.byTopic
-    .filter(t => !t.lowSample && !zor.has(`${t.subject}|${t.topic}`))
+    .filter(t => !t.lowSample && t.topic !== DIGER && !zor.has(`${t.subject}|${t.topic}`))
     .sort((a, b) => b.accuracy - a.accuracy || b.answered - a.answered || a.topic.localeCompare(b.topic, 'tr'))
     .slice(0, 3)
 }
 
 export type ProgramEylemi =
-  | { tur: 'defter'; ders: string; etiket: string }
+  | { tur: 'defter'; ders: string; konu?: string; etiket: string }
   | { tur: 'yaris'; kategori: Kategori; sinav: Sinav; etiket: string }
 export interface ProgramGunu {
   gun: 1 | 2 | 3
@@ -276,7 +289,7 @@ export interface ProgramGunu {
 
 /**
  * 3 günlük mini program: her gün en zayıf konulardan biri + somut görev. Aynı veri → aynı program.
- * defterSayi: ders → Yanlışlarım'daki çözülmemiş soru sayısı (getMistakeSummary.bySubject).
+ * defterSayi: Yanlışlarım'daki çözülmemiş soru sayısı; anahtar "ders" ya da "ders|konu" (defterSayilari()).
  */
 export function miniProgram(s: PerformanceStats, defterSayi: Record<string, number> = {}): ProgramGunu[] {
   let zayif: Konu[] = zorlananKonular(s)
@@ -284,7 +297,7 @@ export function miniProgram(s: PerformanceStats, defterSayi: Record<string, numb
     // Konu verisi yoksa derslerden türet
     zayif = [...s.bySubject]
       .sort((a, b) => a.accuracy - b.accuracy || b.answered - a.answered)
-      .map(d => ({ exam: d.exam, subject: d.subject, topic: dersAdi(d.subject), answered: d.answered, correct: d.correct, accuracy: d.accuracy }))
+      .map(d => ({ exam: d.exam, subject: d.subject, topic: dersAdi(d.subject), answered: d.answered, correct: d.correct, accuracy: d.accuracy, lowSample: false }))
   }
   if (!zayif.length) return []
 
@@ -294,13 +307,13 @@ export function miniProgram(s: PerformanceStats, defterSayi: Record<string, numb
     const kat = dersKategorisi(k.exam, k.subject)
     const bas = `${dersAdi(k.subject)} · ${k.topic}`
     const yaris: ProgramEylemi = { tur: 'yaris', kategori: kat, sinav: k.exam, etiket: 'Yarışa gir' }
-    const n = defterSayi[k.subject] ?? 0
+    const konuN = defterSayi[`${k.subject}|${k.topic}`] ?? 0
     let metin: string
     let eylem: ProgramEylemi
     if (i === 0) {
-      if (n > 0) {
-        metin = `${bas}: Yanlışlarım'daki ${n} soruyu çöz`
-        eylem = { tur: 'defter', ders: k.subject, etiket: 'Çöz' }
+      if (konuN > 0) {
+        metin = `${bas}: Yanlışlarım'daki ${konuN} soruyu çöz`
+        eylem = { tur: 'defter', ders: k.subject, konu: k.topic, etiket: 'Çöz' }
       } else {
         metin = `${bas}: 1 ${KATEGORI_ADI[kat]} yarışta bu konuya odaklan`
         eylem = yaris
@@ -316,4 +329,14 @@ export function miniProgram(s: PerformanceStats, defterSayi: Record<string, numb
     gunler.push({ gun: (i + 1) as 1 | 2 | 3, subject: k.subject, topic: k.topic, metin, eylem })
   }
   return gunler
+}
+
+/** Defter listesinden sayılar: "ders" ve "ders|konu" anahtarları (konusuz sorular yalnızca derse sayılır). */
+export function defterSayilari(l: Array<{ subject: string; topic: string | null }>): Record<string, number> {
+  const s: Record<string, number> = {}
+  for (const m of l) {
+    s[m.subject] = (s[m.subject] ?? 0) + 1
+    if (m.topic) s[`${m.subject}|${m.topic}`] = (s[`${m.subject}|${m.topic}`] ?? 0) + 1
+  }
+  return s
 }

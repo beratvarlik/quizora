@@ -88,7 +88,7 @@ export default function MacAnalizi({ liste, onSoruAc }: { liste: ReviewItem[] | 
             .filter(o => o.eylem)
             .slice(0, 1)
             .map(o => (
-              <Button key="eylem" tur="iki" className="ma-eylem" onClick={() => git('/yanlislarim/coz', { state: { ders: o.eylem!.ders } })}>
+              <Button key="eylem" tur="iki" className="ma-eylem" onClick={() => git('/yanlislarim/coz', { state: { ders: o.eylem!.ders, konu: o.eylem!.konu } })}>
                 {o.eylem!.etiket} →
               </Button>
             ))}
