@@ -156,34 +156,102 @@
   .oy-sayfa.koyu-ekran .siklar { padding-bottom: 0; }
   .oy-sayfa .bant { bottom: 128px; }
 
-  /* Dikey canlı sıralama */
+  /* Dikey canlı sıralama: yarış pisti (satır düzeni DikeySiralama.tsx sabitleriyle aynı) */
   .dikey-siralama { position: relative; }
-  .ds-ust { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+  .ds-ust { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
   .ds-liste { position: relative; list-style: none; }
-  /* Sabit slot: tüm satırlar aynı yükseklik/genişlik; konum yalnızca translateY (bileşendeki SLOT) */
   .ds-satir {
-    position: absolute; top: 0; left: 0; width: 100%; height: 56px; margin: 0; display: flex; align-items: center; gap: 10px; padding: 0 12px;
-    border-radius: 16px; background: #FFFDFB; box-shadow: 0 1px 2px rgba(43, 14, 23, .06), 0 4px 14px rgba(43, 14, 23, .06);
-    transition: transform .5s var(--zipla), box-shadow .3s; will-change: transform;
+    position: absolute; top: 0; left: 0; width: 100%; height: 96px; margin: 0;
+    transition: transform .5s var(--zipla);
   }
-  .ds-satir.ben { box-shadow: inset 0 0 0 2px var(--orange), 0 4px 14px rgba(43, 14, 23, .06); }
-  /* Lider: büyütme yok; turuncu kenar + parıltı, büyük avatar, altın rozet */
-  .ds-satir.ds-lider { z-index: 1; box-shadow: 0 0 0 2px var(--orange), 0 6px 20px rgba(241, 90, 36, .28); }
-  .ds-satir.ds-lider.ben { box-shadow: inset 0 0 0 2px var(--orange), 0 0 0 2px rgba(241, 90, 36, .35), 0 6px 20px rgba(241, 90, 36, .28); }
-  .ds-satir.ds-lider .ds-no { background: linear-gradient(135deg, #FFD27A, #F15A24); color: var(--ink); }
-  .ds-no { width: 24px; height: 24px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--burgundy); color: var(--cream); font: 800 12px var(--font-baslik); }
-  .ds-orta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-  .ds-ad { font: 700 14px var(--font-baslik); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
-  .ds-cubuk { height: 4px; border-radius: 99px; background: var(--cizgi); overflow: hidden; }
-  .ds-cubuk i { display: block; height: 100%; border-radius: inherit; background: var(--orange); transition: width .4s; }
-  .ds-cubuk i.bitti { background: var(--dogru); }
-  .ds-puan { font: 800 18px var(--font-baslik); font-variant-numeric: tabular-nums; color: var(--ink); }
-  .koyu-ekran .ds-satir { background: #2A1118; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04); }
-  .koyu-ekran .ds-satir.ben { box-shadow: inset 0 0 0 2px var(--orange); }
-  .koyu-ekran .ds-satir.ds-lider { box-shadow: 0 0 0 2px var(--orange), 0 6px 22px rgba(241, 90, 36, .35); }
-  .koyu-ekran .ds-satir.ds-lider.ben { box-shadow: inset 0 0 0 2px var(--orange), 0 0 0 2px rgba(241, 90, 36, .35), 0 6px 22px rgba(241, 90, 36, .35); }
+  .ds-satir.ds-lider { z-index: 1; }
+  .ds-no {
+    position: absolute; left: 0; top: 45px; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%;
+    background: var(--burgundy); color: var(--cream); font: 800 11px var(--font-baslik);
+  }
+  .ds-lider .ds-no { background: var(--orange); color: var(--ink); }
+  .ds-no.pop { animation: ds-pop .45s var(--zipla); }
+  .ds-pist { position: absolute; left: 30px; right: 24px; top: 53px; height: 6px; border-radius: 99px; background: rgba(112, 43, 58, .12); overflow: hidden; }
+  .ds-dolgu {
+    position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, #F15A24, #FFB15C);
+    transition: transform .6s cubic-bezier(.34, 1.56, .64, 1);
+  }
+  .ds-dalga {
+    position: absolute; right: 0; top: 0; width: 70px; height: 100%; opacity: 0;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, .95), rgba(255, 255, 255, 0));
+    animation: ds-dalga .7s ease-out;
+  }
+  .ds-bayrak { position: absolute; right: 2px; top: 38px; color: var(--burgundy); opacity: .7; line-height: 0; }
+  .ds-satir.bitti .ds-bayrak { color: var(--dogru); opacity: 1; }
+  .ds-kosucu {
+    position: absolute; left: 0; top: 0; width: 52px; height: 82px;
+    transition: transform .6s cubic-bezier(.34, 1.56, .64, 1);
+  }
+  .ds-satir:not(.ben) .ds-kosucu { opacity: .85; }
+  .ds-etiket { position: absolute; left: 0; top: 0; height: 20px; max-width: 150px; display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+  .ds-etiket.sag { left: auto; right: 0; }
+  .ds-ad { min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 600 14px/20px var(--font-govde); color: var(--ink); }
+  .ds-puan { flex: none; font: 800 18px/20px var(--font-baslik); font-variant-numeric: tabular-nums; color: var(--ink); }
+  .ds-zipla, .ds-sars { position: absolute; left: 0; top: 30px; width: 52px; height: 52px; }
+  .ds-sars { top: 0; }
+  .ds-zipla.oyna { animation: ds-zipla .55s cubic-bezier(.34, 1.56, .64, 1); }
+  .ds-sars.oyna { animation: ds-sars .4s; }
+  .ds-sars .av { position: relative; z-index: 1; }
+  .ds-hale { position: absolute; inset: -5px; border-radius: 50%; background: radial-gradient(circle, rgba(241, 90, 36, .5) 55%, rgba(241, 90, 36, 0) 72%); opacity: 0; }
+  .ds-lider .ds-hale { opacity: 1; animation: ds-hale 2.2s ease-in-out infinite; }
+  .ds-alev { display: none; }
+  .ds-tik {
+    position: absolute; right: -4px; bottom: -2px; z-index: 2; width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%;
+    background: var(--dogru); color: #fff; font: 800 11px/1 var(--font-govde); box-shadow: 0 0 0 2px var(--cream);
+  }
+  .ds-ucan { position: absolute; left: 58px; top: 32px; font: 800 15px var(--font-baslik); white-space: nowrap; pointer-events: none; opacity: 0; }
+  .ds-ucan.arti { color: var(--dogru); animation: ds-ucar .9s ease-out; }
+  .ds-ucan.eksi { color: var(--yanlis); animation: ds-dus .9s ease-out; }
+  .ds-etiket.sag ~ .ds-ucan { left: auto; right: 58px; }
+  .ds-kivilcim { position: absolute; left: 0; top: 50px; width: 0; height: 0; }
+  .ds-kivilcim i { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #FFB15C; opacity: 0; animation: ds-kivilcim .6s ease-out; }
+  .ds-kivilcim i:nth-child(1) { --dx: -22px; --dy: -14px; }
+  .ds-kivilcim i:nth-child(2) { --dx: -28px; --dy: 2px; animation-delay: .04s; }
+  .ds-kivilcim i:nth-child(3) { --dx: -20px; --dy: 14px; animation-delay: .08s; }
+  .ds-kivilcim i:nth-child(4) { --dx: -12px; --dy: -22px; background: var(--orange); animation-delay: .02s; }
+  .ds-tac { position: absolute; left: 0; top: 0; z-index: 3; width: 26px; height: 18px; line-height: 0; transition: transform .6s cubic-bezier(.34, 1.56, .64, 1); }
+  .ds-tac svg { width: 100%; height: 100%; }
+  .ds-noktalar { position: absolute; left: 30px; top: 88px; display: flex; gap: 5px; }
+  .ds-noktalar i { width: 6px; height: 6px; border-radius: 50%; background: rgba(112, 43, 58, .14); transition: opacity .3s; }
+  .ds-noktalar i.d { background: var(--dogru); }
+  .ds-noktalar i.y { background: var(--yanlis); }
+  .ds-noktalar i.b { background: #A79A9D; }
+  @keyframes ds-pop { 0% { transform: scale(1); } 45% { transform: scale(1.35); } 100% { transform: scale(1); } }
+  @keyframes ds-dalga { 0% { transform: translateX(-90px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateX(10px); opacity: 0; } }
+  @keyframes ds-zipla { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-14px); } 70% { transform: translateY(2px); } }
+  @keyframes ds-sars { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-7px); } 55% { transform: translateX(4px); } 80% { transform: translateX(-2px); } }
+  @keyframes ds-hale { 0%, 100% { transform: scale(.94); opacity: .55; } 50% { transform: scale(1.1); opacity: 1; } }
+  @keyframes ds-ucar { 0% { transform: translateY(6px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(-26px); opacity: 0; } }
+  @keyframes ds-dus { 0% { transform: translateY(-4px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(22px); opacity: 0; } }
+  @keyframes ds-kivilcim { 0% { transform: translate(0, 0) scale(1); opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(.3); opacity: 0; } }
+
+  /* 2× (koyu ekran): alev dolgu, liderde alev izi, panel kenarında turuncu nabız */
   .koyu-ekran .ds-ad, .koyu-ekran .ds-puan { color: var(--cream); }
-  .koyu-ekran .ds-cubuk { background: rgba(245, 242, 237, .16); }
+  .koyu-ekran .ds-pist { background: rgba(245, 242, 237, .14); }
+  .koyu-ekran .ds-bayrak { color: var(--cream); }
+  .koyu-ekran .ds-noktalar i:not([class]) { background: rgba(245, 242, 237, .18); }
+  .koyu-ekran .ds-dolgu { background: linear-gradient(90deg, #C8102E, #E0262B 35%, #F15A24 75%, #FFB15C); }
+  .koyu-ekran .ds-dolgu::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(90deg, rgba(255, 210, 122, 0), rgba(255, 210, 122, .7)); animation: ds-titre .35s ease-in-out infinite alternate;
+  }
+  .koyu-ekran .ds-lider .ds-alev {
+    display: block; position: absolute; right: 40px; top: 18px; width: 30px; height: 16px; border-radius: 50%;
+    background: radial-gradient(ellipse at right, #FFB15C 0%, #F15A24 40%, rgba(224, 38, 43, 0) 75%);
+    transform-origin: right center; animation: ds-alev-iz .4s ease-in-out infinite alternate;
+  }
+  .koyu-ekran .dikey-siralama::after {
+    content: ''; position: absolute; inset: -12px -14px; border-radius: 20px; pointer-events: none;
+    box-shadow: inset 0 0 0 2px rgba(241, 90, 36, .7), 0 0 26px rgba(241, 90, 36, .45); animation: ds-nabiz 1.2s ease-in-out infinite;
+  }
+  @keyframes ds-titre { from { opacity: .35; } to { opacity: 1; } }
+  @keyframes ds-alev-iz { from { transform: scaleX(.75); opacity: .7; } to { transform: scaleX(1.15); opacity: 1; } }
+  @keyframes ds-nabiz { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
 
   /* ---------- Sonuç: solda kazanan + sıralama, sağda "Sonucum" paneli ---------- */
   .sn-sayfa .icerik {
@@ -291,5 +359,8 @@
 }
 
 @media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
-  .sn-panel, .ds-satir { animation: none; transition: none; }
+  .sn-panel { animation: none; transition: none; }
+  /* Pist: aynı düzen, animasyonsuz (taç/hale/alev/uçan puan yok) */
+  .dikey-siralama *, .dikey-siralama::after { animation: none !important; transition: none !important; }
+  .ds-ucan, .ds-dalga, .ds-kivilcim, .ds-alev { display: none !important; }
 }
