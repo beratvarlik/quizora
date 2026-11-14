@@ -69,8 +69,6 @@ React, TypeScript, Vite ve Tailwind ile arayüz; Supabase (Postgres, Realtime, A
 
 ## ✨ Özellikler
 
-## ✨ Özellikler
-
 - 🎓 **YKS ve LGS:** YKS'de Sayısal, Eşit Ağırlık, Sözel ve TYT; LGS'de Sözel ve Sayısal oturum. Her yarış 10 sorudur; YKS 5 şıklı, LGS 4 şıklıdır.
 - ⚡ **Hemen Katıl:** Oda kurmadan ya da kod girmeden, kategoriye göre otomatik eşleşme. Rakip yoksa yeni lobi açılır ve rakip aranır; ikinci oyuncu gelince 10 saniye sonra yarış kendiliğinden başlar.
 - 👥 **Özel lobi:** Arkadaşlarla 5 kişiye kadar, lobi kodu (`QZ-XXXX`) ve QR kodla katılım. Kayıt ya da şifre gerekmez.
