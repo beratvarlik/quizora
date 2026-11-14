@@ -4,7 +4,7 @@
    avatar ızgarası ve Sonucum paneli kendi içinde kayar. */
 
 /* Yalnızca web'de görünen öğeler (mobilde hiç kutu oluşturmaz → mobil düzen aynı kalır) */
-.lp-web-oyna, .lp-adimlar-serit, .dikey-siralama, .sn-baslik { display: none; }
+.lp-web-oyna, .lp-adimlar-serit, .dikey-siralama, .sn-baslik, .mn-logo { display: none; }
 
 @media (min-width: 1024px) {
   /* ---------- Genel: tek ekran, sayfa kaymaz ---------- */
@@ -67,6 +67,11 @@
   }
   .mn-sayfa .icerik > * { grid-column: 1; margin-left: 0; margin-right: 0; }
   .mn-sayfa .ust-bar { grid-column: 1 / -1; grid-row: 1; padding-left: 0; padding-right: 0; }
+  .mn-sayfa .mn-logo { display: inline-block; flex: none; margin: 0 18px 0 6px; }
+  .mn-sayfa .mn-kartlar .defter-kart { gap: 10px; overflow: visible; }
+  .mn-sayfa .mn-kartlar .defter-ikon { width: 34px; height: 34px; }
+  .mn-sayfa .mn-kartlar .defter-metin b { font-size: 15px; white-space: nowrap; }
+  .mn-sayfa .mn-kartlar .defter-rozet { top: -6px; right: -6px; box-shadow: 0 0 0 3px var(--cream); }
   .mn-sayfa .px-5, .mn-sayfa .kat-izgara, .mn-sayfa .dagilim, .mn-sayfa .aksiyon { padding-left: 0; padding-right: 0; }
   .mn-sayfa .icerik > .px-5 { grid-row: 2; margin-top: 0 !important; }
   .mn-sayfa .baslik br { display: none; }

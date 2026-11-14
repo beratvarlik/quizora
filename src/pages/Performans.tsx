@@ -87,7 +87,7 @@ export default function Performans() {
       <DevreHatlari kose="sag-kenar" ust={240} boyut={200} soluk />
       <div className="icerik">
         <header className="ust-bar">
-          <button type="button" className="geri-btn" aria-label="Geri dön" onClick={() => (window.history.length > 1 ? git(-1) : git('/menu'))}>
+          <button type="button" className="geri-btn" aria-label="Ana menüye dön" onClick={() => git('/menu')}>
             <IkGeri />
           </button>
           <div className="ust-sag">

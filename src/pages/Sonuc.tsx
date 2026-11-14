@@ -107,7 +107,7 @@ export default function Sonuc() {
     setKuruluyor(true)
     try {
       const { code: yeni } = await api.createGame(oyun.kategori)
-      git(`/lobi/${yeni}`)
+      git(`/lobi/${yeni}`, { replace: true })
     } catch (e) {
       setHata(hataMesaji(e))
       setKuruluyor(false)
@@ -344,7 +344,7 @@ export default function Sonuc() {
           <Button onClick={tekrarOyna} disabled={kuruluyor}>
             {kuruluyor ? 'Lobi kuruluyor…' : 'Tekrar oyna'}
           </Button>
-          <Button tur="uc" onClick={() => git('/menu')}>
+          <Button tur="uc" onClick={() => git('/menu', { replace: true })}>
             Ana menüye dön
           </Button>
         </div>

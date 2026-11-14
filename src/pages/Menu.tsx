@@ -8,6 +8,7 @@ import { BaglantiBandi, Yukleniyor } from '../components/Durum'
 import { GorevKarti, GorevPaneli } from '../components/Gorevler'
 import { IkArti, IkDefter, IkGrafik, IkSimsek } from '../components/Ikon'
 import KademeRozet from '../components/KademeRozet'
+import Logo, { GeriButonu } from '../components/Logo'
 import SesButonu from '../components/SesButonu'
 import { KATEGORILER, KategoriIkon, kategoriBul } from '../components/Kategoriler'
 import { getMistakeSummary } from '../hooks/defter'
@@ -251,6 +252,9 @@ export default function Menu() {
       <DevreHatlari kose="sol-alt" boyut={200} />
       <div className="icerik">
         <header className="ust-bar">
+          <div className="ust-sol">
+          <GeriButonu onClick={() => git('/')} etiket="Açılış sayfasına dön" />
+          <Logo className="mn-logo" />
           <Link to="/profil" className="ben-bar" aria-label="Profili düzenle">
             <Avatar avatarKey={profile.avatarKey} photoUrl={profile.photoUrl} ad={profile.displayName} boyut={36} ben />
             <div>
@@ -258,11 +262,13 @@ export default function Menu() {
               <div className="ben-alt">Profili düzenle</div>
             </div>
           </Link>
+          </div>
           <div className="ust-sag">
           {stat && (
             <span key={parla} ref={xpHedef} className={`rank-cip${parla ? ' parla' : ''}`} aria-label={`Rütbe: ${stat.rankLabel}, ${xpGoster ?? stat.xp} XP`}>
               <KademeRozet rankKey={stat.rankKey} label={stat.rankLabel} />
-              {stat.rankLabel} · {xpGoster ?? stat.xp} XP
+              <span className="rc-etiket">{stat.rankLabel} · </span>
+              {xpGoster ?? stat.xp} XP
             </span>
           )}
           <SesButonu />
@@ -294,7 +300,7 @@ export default function Menu() {
 
         <div className="px-5" style={{ marginTop: 18 }}>
           <h1 className="baslik">
-            Alanını
+            Alanını{' '}
             <br />
             seç<em>.</em>
           </h1>
@@ -337,7 +343,7 @@ export default function Menu() {
           </span>
           <span className="defter-metin">
             <b>Yanlışlarım</b>
-            <small>{defterSayi === null ? '…' : defterSayi === 0 ? 'Defterin temiz ✓' : 'Kaçırdıklarını tekrar çöz'}</small>
+            <small>{defterSayi === null ? '…' : defterSayi === 0 ? 'Defterin temiz ✓' : 'Tekrar çöz'}</small>
           </span>
           {defterSayi !== null && defterSayi > 0 && <span className="defter-rozet">{defterSayi}</span>}
           <span className="defter-ok" aria-hidden="true">›</span>
