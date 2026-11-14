@@ -20,9 +20,9 @@ Oyuna ilk girişte bir isim yaz ve hazır avatarlardan birini seç ya da kendi f
 - **YKS:** Sayısal, Eşit Ağırlık, Sözel, TYT
 - **LGS:** Sözel Oturum, Sayısal Oturum
 
-### 3. Lobiye gir
-- **Lobi kur:** Seçtiğin kategoriyle bir lobi oluşturursun. Ekranda lobi kodu (`QZ-XXXX`) ve bir QR kod çıkar.
-- **Lobiye katıl:** Arkadaşının QR kodunu telefon kamerasıyla okut ya da menüde lobi kodunu gir.
+### 3. Yarışa gir
+- **Hemen Katıl:** Kategoriyi seç ve tek dokunuşla uygun bir lobiye gir. Aynı kategoride bekleyen oyuncu varsa onunla eşleşirsin, yoksa yeni bir lobi açılır. İkinci oyuncu gelince 10 saniye sonra yarış kendiliğinden başlar.
+- **Özel lobi:** Lobi kur, kodu ya da QR'ı arkadaşlarınla paylaş. Başlatmak için en az 2 oyuncu gerekir; lobiyi kuran **Yarışmayı başlat**'a basar.
 
 Bir lobide en fazla 5 oyuncu olur. Yarışı başlatmak için en az 2 oyuncu gerekir. Lobiyi kuran oyuncu **Yarışmayı başlat**'a basar ve herkeste 3-2-1 geri sayımı başlar.
 
@@ -34,6 +34,9 @@ Bir lobide en fazla 5 oyuncu olur. Yarışı başlatmak için en az 2 oyuncu ger
 
 ### 5. 2× hız modu
 İlk bitiren oyuncu 10 soruyu tamamladığı anda **kalan süre iki kat hızlı akmaya başlar**. Ekranda şimşek ve ateş efektleri belirir. Henüz bitirmemiş oyuncular kalan sorulara yetişmeye çalışır; bitirenlerin puanı sabit kalır, sıralama ise canlı güncellenmeye devam eder.
+
+### 6. Sonuç ve inceleme
+Süre dolunca ya da herkes bitirince sonuç ekranı açılır: sıralama, doğru/yanlış/boş sayın, puan dökümün, kazandığın XP ve rank atladıysan rank atlama animasyonu. Altında 10 soru şerit şerit listelenir; bir şeride dokununca doğru şıkkı ve **çözüm açıklamasını** görür, hatalarından öğrenirsin.
 
 ## 😩 Problem
 
@@ -66,15 +69,19 @@ React, TypeScript, Vite ve Tailwind ile arayüz; Supabase (Postgres, Realtime, A
 
 ## ✨ Özellikler
 
-- 🎓 **YKS ve LGS:** YKS'de Sayısal, Eşit Ağırlık, Sözel ve TYT; LGS'de Sözel ve Sayısal oturum. Her yarış 10 sorudur ve soru dağılımı kategoriye göre sabittir.
-- 👥 **Çok oyunculu lobi:** 5 kişiye kadar. Lobi kodu (`QZ-XXXX`) ve QR kodla katılım; kayıt ya da şifre gerekmez.
+## ✨ Özellikler
+
+- 🎓 **YKS ve LGS:** YKS'de Sayısal, Eşit Ağırlık, Sözel ve TYT; LGS'de Sözel ve Sayısal oturum. Her yarış 10 sorudur; YKS 5 şıklı, LGS 4 şıklıdır.
+- ⚡ **Hemen Katıl:** Oda kurmadan ya da kod girmeden, kategoriye göre otomatik eşleşme. Rakip yoksa yeni lobi açılır ve rakip aranır; ikinci oyuncu gelince 10 saniye sonra yarış kendiliğinden başlar.
+- 👥 **Özel lobi:** Arkadaşlarla 5 kişiye kadar, lobi kodu (`QZ-XXXX`) ve QR kodla katılım. Kayıt ya da şifre gerekmez.
 - ⏱️ **Eş zamanlı yarış:** Herkes aynı 10 soruyu aynı anda görür, 120 saniyelik sürede kendi hızında çözer.
-- ⚡ **Hız bonuslu puanlama:** Doğru cevap 100 ile 200 arası puan verir (ne kadar hızlıysan o kadar çok), yanlış cevap −25, boş 0.
-- 🔥 **2× hız modu:** İlk bitiren oyuncu 10. soruyu tamamlayınca kalan süre iki kat hızlı akar; şimşek ve ateş efektleri başlar.
-- 📊 **Canlı sıralama:** Her oyuncunun puanı ve kaçıncı soruda olduğu anlık güncellenir, satırlar animasyonla yer değiştirir.
-- 🏆 **XP ve rank sistemi:** Her yarıştan XP kazanılır; Çaylak'tan Efsane'ye uzanan 14 basamaklı bir lig ve canlı liderlik tablosu vardır.
+- 🎯 **Hız bonuslu puanlama:** Doğru cevap 100-200 puan (ne kadar hızlıysan o kadar çok), yanlış −25, boş 0.
+- 🔥 **2× hız modu:** İlk bitiren 10. soruyu tamamlayınca kalan süre iki kat hızlı akar; şimşek ve ateş efektleri başlar.
+- 📊 **Canlı sıralama:** Puanlar ve soru ilerlemesi anlık güncellenir, satırlar animasyonla yer değiştirir.
+- 📝 **Soru incelemesi:** Yarış bitince her soru için doğru/yanlış/boş durumun, seçtiğin ve doğru şık, puanın, süren ve 1-2 cümlelik çözüm açıklaması görünür.
+- 🏆 **XP ve rank:** Her yarıştan XP kazanılır; Çaylak'tan Efsane'ye 14 basamaklı lig ve canlı liderlik tablosu.
 - 🖼️ **Görselli sorular:** Şekil, grafik ve fotoğraf içeren sorular desteklenir.
-- 🔁 **Kaldığın yerden devam:** Oyun sırasında sayfa yenilenirse oyuncu kaldığı sorudan devam eder.
+- 🔁 **Kaldığın yerden devam:** Sayfa yenilense de oyun kaldığın sorudan sürer.
 - 📱 **Telefon odaklı:** iPhone Safari başta olmak üzere mobil ve web için tasarlandı.
 
 ## 🏆 XP ve Rank Sistemi
@@ -114,12 +121,13 @@ XP = 20 (katılım) + puan / 10 + yerleşim bonusu + 10 (ilk bitiren)
 Sonuç ekranında XP dökümü (katılım, puan, yerleşim, ilk bitiren), XP çubuğunun dolması ve rank atlandıysa **rank atlama animasyonu** gösterilir. Ana menüdeki liderlik tablosu XP'ye göre sıralanır ve her satırda rank rozeti, XP ve galibiyet sayısı yer alır.
 
 ## 🧱 Mimari
-Oyunun tüm kuralları (puanlama, süre, 2× hız, XP) veritabanında çalışır; arayüz yalnızca gösterir ve cevap gönderir.
+
+Oyunun tüm kuralları (eşleşme, puanlama, süre, 2× hız, XP, soru incelemesi) veritabanı fonksiyonlarında çalışır. Arayüz yalnızca gösterir ve cevap gönderir.
 
 ```mermaid
 flowchart LR
   A["📱 Telefon<br/>React arayüzü"] -- "QuizoraApi" --> B["⚙️ Supabase<br/>RPC fonksiyonları"]
-  B --> C[("🗄️ Postgres<br/>24 soru tablosu<br/>oyun ve XP tabloları")]
+  B --> C[("🗄️ Postgres<br/>24 soru tablosu<br/>oyun, XP ve rank tabloları")]
   B -- "Realtime" --> A
   D["▲ Vercel"] -- "yayınlar" --> A
 ```
@@ -127,22 +135,36 @@ flowchart LR
 | Katman | Teknoloji | Görevi |
 | --- | --- | --- |
 | Arayüz | React, TypeScript, Vite, Tailwind CSS | Ekranlar, animasyonlar, QR kod; mobil ve web |
-| Veritabanı | Supabase Postgres | 24 soru tablosu, oyun, oyuncu, cevap, XP tabloları |
-| Oyun mantığı | Postgres RPC fonksiyonları | Oyun kurma, katılma, soru verme, puanlama, bitirme, XP |
+| Veritabanı | Supabase Postgres | 24 soru tablosu (18 YKS, 6 LGS), oyun, oyuncu, cevap, XP tabloları |
+| Oyun mantığı | Postgres RPC fonksiyonları | Oyun kurma, katılma, soru verme, puanlama, bitirme, XP, inceleme |
+| Eşleşme | `quick_join`, `start_if_ready`, `leave_game` | Kategori başına kilitli hızlı eşleşme, host'suz otomatik başlama |
+| İnceleme | `get_game_review` | Biten yarış için cevaplar, doğru şık ve çözüm açıklaması |
 | Canlı akış | Supabase Realtime | Lobi, canlı sıralama, 2× mod, liderlik |
 | Kimlik | Supabase Anonymous Auth | Kayıtsız giriş |
 | Depolama | Supabase Storage | Avatar, profil fotoğrafı ve soru görselleri |
 | Yayın | Vercel | `main` dalındaki her birleştirmede otomatik yayın |
 
-Arayüz ile backend arasındaki **tek bağ** `src/types.ts` içindeki `QuizoraApi` arayüzüdür. Arayüz, backend hazır olana kadar aynı arayüzü uygulayan bir sahte (mock) servisle geliştirildi; bir ortam değişkeniyle gerçek servise geçilir.
+Arayüz ile backend arasındaki **tek bağ** `src/types.ts` içindeki `QuizoraApi` arayüzüdür. Arayüz, backend hazır olana kadar aynı arayüzü uygulayan bir sahte (mock) servisle geliştirildi; bir ortam değişkeniyle (`VITE_USE_MOCK`) gerçek servise geçilir.
+
+### Veritabanı yapısı
+
+| Grup | İçerik |
+| --- | --- |
+| Soru tabloları (24) | 18 YKS (TYT ve AYT dersleri) + 6 LGS (Türkçe, İnkılap, Din Kültürü, İngilizce, Matematik, Fen). Hepsinde aynı sütunlar; `aciklama` dahili not, `cozum_aciklamasi` öğrenciye gösterilen çözüm |
+| Oyun tabloları | `profiles`, `games`, `game_players`, `game_questions`, `answers` |
+| XP ve rank | `player_stats`, `rank_tiers` (14 basamak) |
+| Ayarlar | `app_settings` (örneğin `min_players`) |
+
+Ana RPC'ler: `create_game`, `quick_join`, `join_game`, `start_game`, `start_if_ready`, `leave_game`, `get_game`, `get_game_by_id`, `get_question`, `submit_answer`, `finish_game`, `get_game_review`, `get_my_stats`, `get_global_leaderboard`, `server_time`.
 
 ### Bir yarışın akışı
 
-1. Host `create_game` ile oyunu kurar, sunucu kategoriye göre sorulardan 10 tanesini rastgele ve tekrarsız seçer.
-2. Oyuncular `join_game` ile katılır; host `start_game` ile başlatır, başlangıç zamanı sunucuya yazılır.
+1. Oyuncu **Hemen Katıl** (`quick_join`) ile uygun herkese açık lobiye girer ya da özel lobi kurar (`create_game`); sunucu kategoriye göre 10 soruyu rastgele ve tekrarsız seçer.
+2. İkinci oyuncu gelince geri sayım başlar; süre dolunca `start_if_ready` (ya da özel lobide host'un `start_game`'i) yarışı başlatır.
 3. Oyuncu her soruyu `get_question` ile alır (doğru şık olmadan), `submit_answer` ile cevaplar; puan sunucuda hesaplanır.
 4. İlk bitiren oyuncu 2× hız modunu tetikler; sunucu o anı ve kalan süreyi kaydeder.
 5. Süre dolunca ya da herkes bitirince `finish_game` sonucu, XP ve rank değişimini hesaplar.
+6. Yarış bittikten sonra `get_game_review` oyuncunun cevaplarını, doğru şıkları ve çözüm açıklamalarını döndürür.
 
 ## 🔒 Güvenlik
 
@@ -153,6 +175,10 @@ Arayüz ile backend arasındaki **tek bağ** `src/types.ts` içindeki `QuizoraAp
 - 🚪 **Yetki kontrolü.** Oyuncu yalnızca üyesi olduğu oyunu görebilir; kendi XP'sini ya da puanını doğrudan değiştiremez.
 - 🔑 **Gizli anahtar istemcide yoktur.** `service_role` / `secret` anahtarı yalnızca yerel `scripts/` için kullanılır, hiçbir zaman `VITE_` önekiyle yazılmaz ve repoya girmez; yayın ortamına eklenmez.
 - ✅ **Otomatik testler.** `scripts/security-test.ts` yukarıdaki kuralları dener: oturumsuz erişim, üye olmayan oyuncu, doğrudan yazma, hileli cevaplar, eşzamanlı bitirme ve XP tekrarı.
+
+### Canlı akış
+
+Arayüz, lobi ve oyun durumunu `games` ve `game_players` değişikliklerini dinleyerek (Realtime) alır; ayrıca birkaç saniyede bir durumu yeniden çekerek bağlantı kopsa bile ekranın donmamasını sağlar. Sayaç, cihaz saatine değil sunucu saatine göre hesaplanır (sunucu-istemci farkı ölçülür), bu yüzden tüm telefonlarda geri sayım ve 2× geçişi aynıdır.
 
 ## 🚀 Kurulum
 
@@ -170,8 +196,9 @@ npm install
 
 ### 2. Supabase projesini hazırla
 1. Supabase'de yeni bir proje oluştur (bölge: Frankfurt).
-2. **Authentication → Sign In / Providers** bölümünde **Anonymous sign-ins** seçeneğini aç.
+2. **Authentication → Sign In / Providers → User Signups** bölümünde **Allow anonymous sign-ins** seçeneğini aç ve kaydet.
 3. **Project Settings → API** sayfasından **Project URL** ve **publishable (anon)** anahtarını kopyala. Betikler için **secret (service_role)** anahtarına da ihtiyacın olacak.
+4. Çok kişiyle deneyeceksen **Authentication → Rate Limits** bölümünde anonim giriş sınırını yükselt (varsayılan IP başına saatte 30; aynı Wi-Fi'den gelen kalabalık için 500 gibi bir değer ver).
 
 ### 3. Ortam değişkenleri
 Proje kökünde `.env.local` dosyası oluştur (repoya girmez):
@@ -190,37 +217,60 @@ SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
 | `VITE_USE_MOCK` | `true` ise sahte servis, `false` ise gerçek Supabase |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yalnızca `scripts/` için; **asla `VITE_` ile yazma, asla paylaşma** |
 
+> [!WARNING]
+> `service_role` / `secret` anahtarı tüm güvenliği atlar. Repoya, sohbetlere ve yayın ortamına (Vercel) **girmez**.
+
 Bağlantıyı denemek için: `npx tsx scripts/ping.ts` (sonda `OK` görmelisin).
 
 ### 4. Veritabanını kur
-`supabase/migrations` klasöründeki SQL dosyalarını **numara sırasıyla** Supabase **SQL Editor**'de çalıştır (dosyayı aç, içeriği yapıştır, Run). Sonra doğrula:
+`supabase/migrations` klasöründeki **tüm** SQL dosyalarını **numara sırasıyla** Supabase **SQL Editor**'de çalıştır (dosyayı aç, içeriği yapıştır, Run). Sonra doğrula:
 
 ```bash
 npx tsx scripts/check-schema.ts
 ```
 
 ### 5. Soruları yükle
-Test sorularıyla denemek için `npx tsx scripts/seed-test-questions.ts`. Gerçek sorular için CSV şablonunu doldurup yükle (ayrıntı: [`docs/SORU-EKLEME.md`](docs/SORU-EKLEME.md)):
+Hızlı deneme için test sorularıyla başlayabilirsin:
+
+```bash
+npx tsx scripts/seed-test-questions.ts          # örnek [TEST] soruları ekler
+npx tsx scripts/seed-test-questions.ts --temizle  # hepsini siler
+```
+
+Gerçek sorular için CSV şablonunu (`scripts/soru-sablonu.csv`) doldurup yükle. Sütunlar: `tablo, soru_metni, secenek_a … secenek_e, dogru_sik, gorsel_dosya, aciklama` (LGS soruları 4 şıklıdır, `secenek_e` boş bırakılır). Ayrıntı: [`docs/SORU-EKLEME.md`](docs/SORU-EKLEME.md).
 
 ```bash
 npx tsx scripts/import-questions.ts sorular.csv --dry-run --gorsel-klasor gorseller
 npx tsx scripts/import-questions.ts sorular.csv --gorsel-klasor gorseller
+```
+
+Öğrenciye gösterilen **çözüm açıklamaları** ayrı bir CSV ile yüklenir (sütunlar: `tablo, soru_metni, cozum_aciklamasi`):
+
+```bash
+npx tsx scripts/aciklama-yukle.ts aciklamalar.csv --dry-run
+npx tsx scripts/aciklama-yukle.ts aciklamalar.csv
+```
+
+Hangi kategorinin oynanabilir ve açıklamalı olduğunu görmek için:
+
+```bash
 npx tsx scripts/soru-durumu.ts
 ```
 
-`soru-durumu` hangi kategorinin oynanabilir olduğunu gösterir.
+### 6. Oyuncu sayısı ayarı
+Yarışın başlaması için en az oyuncu sayısı `app_settings` tablosundadır (varsayılan 2). SQL Editor'de değiştirmek için:
 
-Yarış sonrası soru incelemesinde öğrenciye gösterilen çözüm açıklamaları (`cozum_aciklamasi`, en çok 400 karakter) ayrı bir CSV ile yüklenir: `npx tsx scripts/aciklama-yukle.ts aciklamalar.csv --dry-run` (ayrıntı: `docs/SORU-EKLEME.md`). Migration `0008_cozum_aciklamasi.sql` önce uygulanmış olmalı.
+```sql
+update app_settings set value = '2' where key = 'min_players';
+```
 
-Akıllı analiz (Performansım) için her sorunun bir konusu (`topic`) vardır: yeni soru CSV'sinde `topic` sütunu zorunludur; mevcut sorulara `npx tsx scripts/konu-yukle.ts scripts/konu-atamalari.csv` ile yüklenir (migration `0011_akilli_analiz.sql` önce uygulanmış olmalı; ayrıntı: `docs/SORU-EKLEME.md` bölüm 2c).
-
-### 6. Çalıştır
+### 7. Çalıştır
 ```bash
 npm run dev
 ```
 Tarayıcıda `http://localhost:5173` adresini aç. İki oyuncuyu denemek için biri normal, biri **gizli pencerede** açılır.
 
-### 7. Test ve derleme
+### 8. Test ve derleme
 ```bash
 npm run build                      # tip kontrolü + üretim derlemesi
 npx tsx scripts/e2e-sim.ts         # uçtan uca simülasyon
@@ -228,13 +278,24 @@ npx tsx scripts/security-test.ts   # güvenlik testleri
 ```
 
 > [!NOTE]
-> `scripts/hepsi.ts` çok sayıda anonim kullanıcı oluşturur. Supabase'in anonim giriş sınırı (varsayılan saatte 30) yükseltilmeden çalıştırma.
+> `scripts/hepsi.ts` çok sayıda anonim kullanıcı oluşturur. Supabase'in anonim giriş sınırını yükseltmeden ve yayındaki siteye karşı çalıştırma.
 
-### Demo botları (yalnızca demo için)
-Hemen Katıl ile tek başına bekleyen oyuncuya, istenirse sanal rakipler (bot) katılabilir. **Bu özellik yalnızca demo içindir ve varsayılan olarak KAPALIDIR.** Botlar kendilerini dürüstçe gösterir (adları "(bot)" ile biter), genel liderlik tablosuna ve XP istatistiklerine girmez; botlu yarışta oyuncu yalnızca katılım ve puan XP'si alır, kazanma sayısı artmaz. Açmak için önce `npx tsx scripts/bot-olustur.ts` çalıştırılır, sonra Supabase SQL Editor'de `update app_settings set value = 'acik' where key = 'bot_modu';` (kapatmak için `'kapali'`). Ayrıntı: `docs/PROJE.md` "Demo botları". Migration: `0013_demo_botlari.sql`.
+### 9. Demo araçları (isteğe bağlı)
+Sunum hazırlığı için, **yalnızca demo amacıyla**:
 
-### 8. Yayına al
-Vercel'e GitHub reposunu bağla (Framework: Vite, Build: `npm run build`, Output: `dist`) ve `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_USE_MOCK=false` değişkenlerini ekle. Kökteki `vercel.json`, QR kodla gelen `/join/KOD` bağlantılarının çalışmasını sağlar. Ayrıntılı adımlar: [`docs/YAYIN.md`](docs/YAYIN.md).
+```bash
+npx tsx scripts/xp-ayarla.ts "<oyuncu adı>" 95   # oyuncunun XP'sini ayarlar (rank atlamasını göstermek için)
+```
+
+Tek başına bekleyen oyuncuya demo rakipleri eklemek için bot modu (varsayılan **kapalı**; botların adı "(bot)" ile biter ve liderliğe girmez):
+
+```bash
+npx tsx scripts/bot-olustur.ts      # bot hesaplarını oluşturur
+```
+```sql
+update app_settings set value = 'acik' where key = 'bot_modu';   -- açar
+update app_settings set value = 'kapali' where key = 'bot_modu'; -- kapatır
+```
 
 ## 🧗 Karşılaştığımız Zorluklar
 
