@@ -160,13 +160,17 @@
   .dikey-siralama { position: relative; }
   .ds-ust { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
   .ds-liste { position: relative; list-style: none; }
+  /* Sabit slot: tüm satırlar aynı yükseklik/genişlik; konum yalnızca translateY (bileşendeki SLOT) */
   .ds-satir {
-    position: absolute; left: 0; right: 0; height: 56px; display: flex; align-items: center; gap: 10px; padding: 0 12px;
+    position: absolute; top: 0; left: 0; width: 100%; height: 56px; margin: 0; display: flex; align-items: center; gap: 10px; padding: 0 12px;
     border-radius: 16px; background: #FFFDFB; box-shadow: 0 1px 2px rgba(43, 14, 23, .06), 0 4px 14px rgba(43, 14, 23, .06);
-    transition: top .5s var(--zipla);
+    transition: transform .5s var(--zipla), box-shadow .3s; will-change: transform;
   }
   .ds-satir.ben { box-shadow: inset 0 0 0 2px var(--orange), 0 4px 14px rgba(43, 14, 23, .06); }
-  .ds-satir.lider .ds-no { background: var(--orange); color: var(--ink); }
+  /* Lider: büyütme yok; turuncu kenar + parıltı, büyük avatar, altın rozet */
+  .ds-satir.ds-lider { z-index: 1; box-shadow: 0 0 0 2px var(--orange), 0 6px 20px rgba(241, 90, 36, .28); }
+  .ds-satir.ds-lider.ben { box-shadow: inset 0 0 0 2px var(--orange), 0 0 0 2px rgba(241, 90, 36, .35), 0 6px 20px rgba(241, 90, 36, .28); }
+  .ds-satir.ds-lider .ds-no { background: linear-gradient(135deg, #FFD27A, #F15A24); color: var(--ink); }
   .ds-no { width: 24px; height: 24px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--burgundy); color: var(--cream); font: 800 12px var(--font-baslik); }
   .ds-orta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
   .ds-ad { font: 700 14px var(--font-baslik); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
@@ -176,6 +180,8 @@
   .ds-puan { font: 800 18px var(--font-baslik); font-variant-numeric: tabular-nums; color: var(--ink); }
   .koyu-ekran .ds-satir { background: #2A1118; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04); }
   .koyu-ekran .ds-satir.ben { box-shadow: inset 0 0 0 2px var(--orange); }
+  .koyu-ekran .ds-satir.ds-lider { box-shadow: 0 0 0 2px var(--orange), 0 6px 22px rgba(241, 90, 36, .35); }
+  .koyu-ekran .ds-satir.ds-lider.ben { box-shadow: inset 0 0 0 2px var(--orange), 0 0 0 2px rgba(241, 90, 36, .35), 0 6px 22px rgba(241, 90, 36, .35); }
   .koyu-ekran .ds-ad, .koyu-ekran .ds-puan { color: var(--cream); }
   .koyu-ekran .ds-cubuk { background: rgba(245, 242, 237, .16); }
 
