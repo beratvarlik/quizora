@@ -230,6 +230,9 @@ npx tsx scripts/security-test.ts   # güvenlik testleri
 > [!NOTE]
 > `scripts/hepsi.ts` çok sayıda anonim kullanıcı oluşturur. Supabase'in anonim giriş sınırı (varsayılan saatte 30) yükseltilmeden çalıştırma.
 
+### Demo botları (yalnızca demo için)
+Hemen Katıl ile tek başına bekleyen oyuncuya, istenirse sanal rakipler (bot) katılabilir. **Bu özellik yalnızca demo içindir ve varsayılan olarak KAPALIDIR.** Botlar kendilerini dürüstçe gösterir (adları "(bot)" ile biter), genel liderlik tablosuna ve XP istatistiklerine girmez; botlu yarışta oyuncu yalnızca katılım ve puan XP'si alır, kazanma sayısı artmaz. Açmak için önce `npx tsx scripts/bot-olustur.ts` çalıştırılır, sonra Supabase SQL Editor'de `update app_settings set value = 'acik' where key = 'bot_modu';` (kapatmak için `'kapali'`). Ayrıntı: `docs/PROJE.md` "Demo botları". Migration: `0013_demo_botlari.sql`.
+
 ### 8. Yayına al
 Vercel'e GitHub reposunu bağla (Framework: Vite, Build: `npm run build`, Output: `dist`) ve `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_USE_MOCK=false` değişkenlerini ekle. Kökteki `vercel.json`, QR kodla gelen `/join/KOD` bağlantılarının çalışmasını sağlar. Ayrıntılı adımlar: [`docs/YAYIN.md`](docs/YAYIN.md).
 

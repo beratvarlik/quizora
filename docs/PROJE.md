@@ -93,12 +93,25 @@ Oyun tabloları: profiles, games, game_players, game_questions, answers, global_
 | `0006b_fix_submit_lock.sql` | `submit_answer` eşzamanlı son soru kilitlenmesini giderir (`for no key update`) |
 | `0007_lgs_4_sik.sql` | LGS soruları 4 şıklı: LGS tablolarında `secenek_e` boş olabilir, `dogru_sik` yalnız A-D; `get_question` boş E'yi `options`'a koymaz; `submit_answer` soruda olmayan şık için 'Geçersiz şık' der. **0006b'den SONRA çalıştırılır** (`submit_answer`'ın en güncel hâlini içerir). |
 | `0008_cozum_aciklamasi.sql` | 24 soru tablosuna `cozum_aciklamasi` (≤ 400 karakter) ve `get_game_review` RPC'si |
+| `0013_demo_botlari.sql` | Demo botları (varsayılan KAPALI): `profiles.is_bot`, `bot_profilleri`, `app_settings` bot ayarları, `bot_doldur`/`bot_ilerlet`/`_bot_isle` (iç), `game_snapshot` + `get_game`/`get_game_by_id` (bot tetikleme, `players[].is_bot`), `finish_game` (botlu XP kuralı), `get_global_leaderboard` (bot yok), `leave_game` |
 | `0012_gunluk_gorevler.sql` | Günlük görevler: `daily_claims`, `mistake_book.practice_resolved_at`, görev havuzu/ilerleme iç yardımcıları, `practice_answer` (practice_resolved_at), `get_daily_tasks`, `claim_daily_task` |
 | `0011_akilli_analiz.sql` | Akıllı analiz: 24 soru tablosuna `topic` (≤ 60 karakter), `get_performance`, `get_game_review`/`get_mistakes` öğelerine `topic`; mevcut soruların konuları `scripts/konu-yukle.ts` ile yüklenir |
 | `0010_yanlislarim_defteri.sql` | Yanlışlarım defteri: `mistake_book`, `mistake_games`, iç yardımcılar, `finish_game` (defteri doldurur), `get_game_review.added_to_notebook`, `get_mistake_summary`, `get_mistakes`, `practice_answer`, `remove_mistake`, backfill |
 | `0009_hemen_katil.sql` | Hemen Katıl: `games.is_public/auto_start_at/last_activity_at`, `quick_join`, `start_if_ready`, `leave_game`; `create_game` iç yardımcıya taşındı, `join_game` güncellendi |
 
 Eski migration dosyaları değiştirilmez; düzeltmeler yeni dosya olarak eklenir. Geliştirmede `app_settings.min_players` 1 yapılabilir; **demo/yayın öncesi 2 olmalı** (`docs/YAYIN.md`).
+
+## Demo botları (Hemen Katıl için sanal rakipler; YALNIZCA demo)
+- **Varsayılan KAPALI** (`app_settings.bot_modu = 'kapali'`). Açma/kapama (Supabase SQL Editor):
+  `update app_settings set value = 'acik' where key = 'bot_modu';` · `update app_settings set value = 'kapali' where key = 'bot_modu';`
+  Diğer ayarlar: `bot_sayisi` (varsayılan 2, en çok 4) ve `bot_bekleme_sn` (varsayılan 7). Botlar önce `npx tsx scripts/bot-olustur.ts` ile oluşturulur (`--sil` kaldırır).
+- **Ne zaman katılır:** mod açıkken, herkese açık (Hemen Katıl) lobide **tek başına** bekleyen insana, o insan `bot_bekleme_sn` kadar beklemişse `bot_sayisi` kadar bot eklenir ve `autoStartAt = şimdi + 5 sn` olur; yarış normal akışla başlar. 2+ insanlı lobiye, özel (kodlu) lobiye ve dolu lobiye bot eklenmez. Kontrol, lobiye bakan istemcinin `getGame`/`getGameByCode` çağrılarıyla (kilit altında, idempotent) yapılır; arka plan işi yoktur.
+- **Dürüstlük:** bot adları "(bot)" ile biter (Ada, Mert, Zeynep, Can); `PlayerState.isBot` (isteğe bağlı) `true` gelir; arayüz "BOT" rozeti gösterebilir.
+- **Oyun sırasında:** botların cevapları da istemci çağrılarıyla "tembel" yazılır (`get_game`/`get_game_by_id`/`finish_game`): her bot için deterministik plan (soru başına `max(2, ort_sure_sn × (0,6 + 0,8·u))` sn, doğruluk olasılığı; LGS 4, YKS 5 şık). Puan ve süre kuralı gerçek oyuncularla AYNI (`scoring.ts`). Bot ilk bitirirse 2× modunu tetikler (Ada, 6,5 sn ile genelde ilk bitirendir). Çağrı sıklığı sonucu değiştirmez.
+- **XP / liderlik etkisi:** botlar `player_stats`'a ve genel liderlik tablosuna HİÇ girmez (botların XP'si 0, rank "Çaylak"); botlu oyunda insan yalnızca **katılım (20) + puan (puan/10)** XP'si alır, derece (1./2./3.) ve ilk bitiren bonusu YOKTUR ve `wins` artmaz. Botlar Yanlışlarım defterine girmez; günlük görev `friends2` ("arkadaşınla yarış") botlu oyunu saymaz. Botsuz oyunlarda hiçbir kural değişmez.
+- **Güvenlik:** bot hesapları rastgele şifreyle oluşturulur ve şifre saklanmaz (giriş yapılamaz); istemci `is_bot`, `bot_profilleri` ve `app_settings` yazamaz; bot fonksiyonları istemciye kapalıdır.
+- Lobide yalnızca botlar kalırsa (insan `leaveGame` yaparsa) lobi silinir.
+- **Sunumda dikkat:** `bot_modu`'nu bir yarış sürerken kapatma; botların cevapları durur ve kalan soruları boş sayılır. Modu yarışlar arasında değiştir. Bot hesapları yalnızca `bot-olustur.ts` ile oluşturulan 4 hesaptır; `bot_profilleri`'nde hız sırası (`ort_sure_sn` artan) ilk `bot_sayisi` botu seçer (Ada, Can, Mert, Zeynep).
 
 ## Test ve doğrulama araçları (`scripts/`, service role gerekir, hepsi `.env.local` okur)
 | Komut | Ne yapar |
@@ -110,6 +123,7 @@ Eski migration dosyaları değiştirilmez; düzeltmeler yeni dosya olarak ekleni
 | `e2e-sim.ts [--oyuncu N] [--kategori ad] [--hizli]` | N sanal oyuncuyla tam yarış simülasyonu |
 | `security-test.ts` | Yetkiler, RLS, XP hileleri, süre kuralı, eşzamanlılık, storage |
 | `soru-durumu.ts` | 24 tabloda soru sayıları; kategoriler hazır mı |
+| `bot-olustur.ts` | Demo botlarını oluşturur / `--sil` ile kaldırır (varsayılan kapalı; açma SQL'i "Demo botları" bölümünde) |
 | `import-questions.ts`, `aciklama-yukle.ts`, `konu-yukle.ts`, `seed-test-questions.ts`, `xp-ayarla.ts` | Soru yükleme (`topic` zorunlu), çözüm açıklaması yükleme, konu yükleme, test sorusu, demo XP aracı (`docs/SORU-EKLEME.md`) |
 
 Entegrasyon ve yayın: [ENTEGRASYON.md](ENTEGRASYON.md) (B için akış, sayaç, hata mesajları), [YAYIN.md](YAYIN.md) (Vercel).
@@ -148,6 +162,7 @@ export interface PlayerState {
   userId: string; displayName: string; avatarKey: string | null; photoUrl: string | null;
   score: number; currentQ: number; correctCount: number; wrongCount: number; finished: boolean; totalTimeMs: number;
   rankKey: string; rankLabel: string;
+  isBot?: boolean; // demo botu (adı '(bot)' ile biter); isteğe bağlı, arayüz 'BOT' rozeti gösterebilir
 }
 export interface Question { position: number; ders: string; text: string; imageUrl: string | null; options: Partial<Record<Secenek, string>> }
 export interface AnswerResult { correct: boolean; points: number; correctOption: Secenek; newScore: number; finished: boolean; speedupTriggered: boolean }
