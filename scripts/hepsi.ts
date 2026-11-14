@@ -20,6 +20,7 @@ const ADIMLAR: Adim[] = [
   { ad: 'e2e-sim (2 oyuncu: sayisal, lgs_sozel, lgs_sayisal)', dosya: 'e2e-sim.ts', args: [], zamanAsimiMs: 8 * DAKIKA },
   { ad: 'e2e-sim (5 oyuncu)', dosya: 'e2e-sim.ts', args: ['--oyuncu', '5'], zamanAsimiMs: 8 * DAKIKA },
   { ad: 'e2e-sim --hizli (Hemen Katıl, 3 oyuncu, tyt)', dosya: 'e2e-sim.ts', args: ['--hizli', '--oyuncu', '3', '--kategori', 'tyt'], zamanAsimiMs: 8 * DAKIKA },
+  { ad: 'e2e-sim --bot (demo botları, 1 insan)', dosya: 'e2e-sim.ts', args: ['--bot'], zamanAsimiMs: 5 * DAKIKA },
   { ad: 'security-test', dosya: 'security-test.ts', args: [], zamanAsimiMs: 6 * DAKIKA },
   { ad: 'soru-durumu', dosya: 'soru-durumu.ts', args: [], zamanAsimiMs: 3 * DAKIKA },
 ]
