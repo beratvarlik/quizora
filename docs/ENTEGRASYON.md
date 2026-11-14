@@ -139,6 +139,13 @@ async function otomatikBaslat(gameId: string) {
 - Kodla katılırken herkese açık lobide geri sayım bittiyse 'Oyun başlamak üzere' hatası gelir (tablo bölüm 10): "Yarış başlamak üzere, yeni bir lobi dene" göster; `quickJoin` yeni lobi açar.
 - Aynı kullanıcı arka arkaya `quickJoin` yaparsa aynı lobiyi alır (`created=false`).
 
+## 7c. Demo botları (`PlayerState.isBot`)
+Demo için sunucu, "Hemen Katıl" lobisinde tek başına bekleyen oyuncuya sanal rakipler (bot) ekleyebilir (varsayılan KAPALI; ayrıntı `docs/PROJE.md` "Demo botları"). **Arayüzde değişiklik gerekmez:** botlar normal oyuncu gibi gelir (lobi listesi, yarış sırasında skor/ilerleme, sonuç sıralaması). Tek fark:
+- `PlayerState.isBot?: boolean` (isteğe bağlı): `true` ise oyuncu bottur. `getGame`/`getGameByCode`/`getGameById` oyuncularında ve `finishGame` sıralamasında (`RankedPlayer`) gelir. Arayüz isterse "BOT" rozeti gösterebilir; adlar zaten "(bot)" ile biter.
+- Bot XP almaz (`xpGained: 0`, `rankKey: 'caylak'`) ve genel liderlikte (`getGlobalLeaderboard`) görünmez. **Botlu oyunda insanın XP'si yalnızca katılım + puan**'dır: `xpBreakdown.placement` ve `firstFinisher` 0 gelir (zaten bölüm 5'teki gibi ekranda gösterilir), `wins` artmaz.
+- Botlar lobiye insan tek başına birkaç saniye bekleyince, `getGameByCode` çağrısıyla (zaten yaptığın 3 sn'lik tazeleme/realtime olaylarında) katılır; `autoStartAt` 5 sn sonraya ayarlanır. Lobi akışı (7b) aynıdır: `autoStartAt` dolunca `startIfReady`.
+- Yarış sırasında botların cevapları, `getGame*` çağrıları (abonelik tazelemesi) geldikçe yazılır; ek bir çağrı gerekmez.
+
 ## 8. `finishGame` ne zaman çağrılır
 `remainingMs ≤ 0` olduğunda **veya** tüm oyuncular `finished` olduğunda. Birden fazla istemcinin aynı anda çağırması güvenlidir. Saat farkı yüzünden bazen sunucu henüz bitmedi diyebilir; kısa süre yeniden dene:
 ```ts

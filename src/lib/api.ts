@@ -109,6 +109,7 @@ interface HamOyuncu {
   total_time_ms: number
   rank_key: string
   rank_label: string
+  is_bot?: boolean
 }
 
 interface HamSnapshot {
@@ -283,6 +284,7 @@ function mapPlayer(h: HamOyuncu): PlayerState {
     totalTimeMs: h.total_time_ms,
     rankKey: h.rank_key,
     rankLabel: h.rank_label,
+    isBot: !!h.is_bot,
   }
 }
 

@@ -4,9 +4,11 @@
 //   npx tsx scripts/e2e-sim.ts --oyuncu 5           (5 oyuncu; 2-5 arası)
 //   npx tsx scripts/e2e-sim.ts --kategori tyt       (yalnızca o kategori)
 //   npx tsx scripts/e2e-sim.ts --hizli              (oyuncular quickJoin ile girer; host olmadan startIfReady ile başlar)
+//   npx tsx scripts/e2e-sim.ts --bot                (tek insan + demo botlarla tam oyun; bot ayarlarını geçici açar ve geri alar)
 // Test soruları için önce: npx tsx scripts/seed-test-questions.ts
 import { config } from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
+import { randomBytes } from 'node:crypto'
 import { createApi, type Istemci } from '../src/lib/api.ts'
 import { remainingMs, scorePoints } from '../src/lib/scoring.ts'
 import type { AnswerResult, GameResult, GameSnapshot, Kategori, QuizoraApi, RankedPlayer, Secenek } from '../src/types.ts'
@@ -44,6 +46,7 @@ function argumanOku(ad: string): string | undefined {
 const oyuncuSayisi = Number(argumanOku('--oyuncu') ?? '2')
 const kategoriArg = argumanOku('--kategori')
 const hizli = process.argv.includes('--hizli')
+const botModu = process.argv.includes('--bot')
 if (!Number.isInteger(oyuncuSayisi) || oyuncuSayisi < 2 || oyuncuSayisi > 5) {
   console.error('HATA: --oyuncu 2 ile 5 arasında bir sayı olmalı')
   process.exit(1)
@@ -711,10 +714,169 @@ function tabloYazdir(): void {
   }
 }
 
+// =====================================================================
+// Demo botları (--bot): tek insan + botlarla tam oyun (0013_demo_botlari.sql)
+// =====================================================================
+const BOT_ANAHTARLARI = ['bot_modu', 'bot_sayisi', 'bot_bekleme_sn']
+let botAyarYedek: Record<string, string | null> | null = null
+
+async function botAyarlariniGeriYukle(): Promise<void> {
+  if (!botAyarYedek) return
+  for (const k of BOT_ANAHTARLARI) {
+    const v = botAyarYedek[k]
+    if (v === null) await admin.from('app_settings').delete().eq('key', k)
+    else await admin.from('app_settings').upsert({ key: k, value: v })
+  }
+  botAyarYedek = null
+}
+
+// Test botu: gerçek bir bot hesabı gibi (rastgele şifre, saklanmaz); temizlik kullanıcıyı siler
+async function botHesabiOlustur(ad: string, ortSureSn: number, dogruluk: number): Promise<string> {
+  const { data, error } = await admin.auth.admin.createUser({
+    email: `e2e-bot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@quizora.invalid`,
+    password: randomBytes(24).toString('base64url'),
+    email_confirm: true,
+  })
+  if (error || !data.user) throw new Error(`bot hesabı: ${error?.message}`)
+  const id = data.user.id
+  kullanicilar.push(id)
+  const p = await admin.from('profiles').insert({ id, display_name: ad, is_bot: true })
+  if (p.error) throw new Error(`bot profili: ${p.error.message}`)
+  const b = await admin.from('bot_profilleri').insert({ user_id: id, dogruluk, ort_sure_sn: ortSureSn })
+  if (b.error) throw new Error(`bot_profilleri: ${b.error.message}`)
+  return id
+}
+
+async function botTuru(): Promise<void> {
+  const e = '[bot ×1 tyt]'
+  const kategori: Kategori = 'tyt'
+  let insan!: Oyuncu
+  const botIdleri: string[] = []
+  let gameId = ''
+  let code = ''
+
+  if (
+    !(await adim(`${e} 1. 1 insan + 2 test botu; bot_modu 'acik', 2 bot, bekleme 7 sn`, async () => {
+      const { data } = await admin.from('app_settings').select('key, value').in('key', BOT_ANAHTARLARI)
+      botAyarYedek = Object.fromEntries(BOT_ANAHTARLARI.map((k) => [k, (data ?? []).find((r) => r.key === k)?.value ?? null]))
+      for (const [k, v] of [['bot_sayisi', '2'], ['bot_bekleme_sn', '7'], ['bot_modu', 'acik']]) {
+        const { error } = await admin.from('app_settings').upsert({ key: k, value: v })
+        if (error) throw new Error(`app_settings(${k}): ${error.message}`)
+      }
+      insan = await oyuncuOlustur('E2E bot insan')
+      await statAyarla(insan.id, 0)
+      // Hızlı ve hep doğru (2 sn/soru) + daha yavaş ve %60 doğru: gerçek botlardan (>= 6,5 sn) hızlı olduklarından seçilirler
+      botIdleri.push(await botHesabiOlustur('E2E-Ada (bot)', 0.5, 1))
+      botIdleri.push(await botHesabiOlustur('E2E-Mert (bot)', 3, 0.6))
+      return '1 insan, 2 bot'
+    }))
+  ) return
+
+  if (
+    !(await adim(`${e} 2. quickJoin; insan 60 sn beklemiş sayılınca getGameByCode botları ekler (isBot), auto_start_at +5 sn`, async () => {
+      await admin.from('games').update({ last_activity_at: new Date(Date.now() - 600_000).toISOString() })
+        .eq('status', 'lobby').eq('is_public', true).eq('kategori', kategori)
+      const ilk = await insan.api.quickJoin(kategori)
+      kontrol(ilk.created === true, 'quickJoin yeni lobi açmadı')
+      gameId = ilk.gameId
+      code = ilk.code
+      oyunlar.push(gameId)
+      const erken = await insan.api.getGameByCode(code)
+      kontrol(erken.players.length === 1, `bekleme süresi dolmadan ${erken.players.length} oyuncu (bot erken geldi)`)
+      await admin.from('game_players').update({ joined_at: new Date(Date.now() - 60_000).toISOString() }).eq('game_id', gameId)
+      const snap = await insan.api.getGameByCode(code)
+      kontrol(snap.players.length === 3, `${snap.players.length} oyuncu (beklenen 3)`)
+      const botlar = snap.players.filter((p) => p.isBot === true)
+      kontrol(botlar.length === 2 && botlar.every((b) => b.displayName.endsWith('(bot)') && botIdleri.includes(b.userId)), `botlar: ${JSON.stringify(botlar.map((b) => b.displayName))}`)
+      const insanSatir = snap.players.find((p) => p.userId === insan.id)
+      kontrol(!!insanSatir && insanSatir.isBot === false, 'insanın isBot alanı false olmalı')
+      kontrol(snap.game.isPublic === true && snap.game.status === 'lobby' && snap.game.autoStartAt !== null, 'lobi isPublic/autoStartAt')
+      const { data: s } = await admin.from('games').select('auto_start_at, last_activity_at').eq('id', gameId).single()
+      const fark = new Date(s!.auto_start_at).getTime() - new Date(s!.last_activity_at).getTime()
+      kontrol(Math.abs(fark - 5000) < 100, `auto_start_at farkı ${fark} ms (beklenen 5000)`)
+      const tekrar = await insan.api.getGameByCode(code)
+      kontrol(tekrar.players.length === 3, `ikinci çağrıda ${tekrar.players.length} oyuncu (tekrar eklenmemeli)`)
+      return `${botlar.map((b) => b.displayName).join(', ')}`
+    }))
+  ) return
+
+  const ofsetMs = await insan.api.getServerOffsetMs()
+  if (
+    !(await adim(`${e} 3. autoStartAt dolunca startIfReady: botlu oyun başlar, startedAt ≈ şimdi+3 sn`, async () => {
+      const snap0 = await insan.api.getGameByCode(code)
+      await bekle(Math.max(0, new Date(snap0.game.autoStartAt!).getTime() - (Date.now() + ofsetMs)) + 400)
+      const t0 = Date.now() + ofsetMs
+      await insan.api.startIfReady(gameId)
+      const snap = await insan.api.getGameByCode(code)
+      kontrol(snap.game.status === 'playing' && snap.game.startedAt !== null, `oyun playing değil (${snap.game.status})`)
+      const fark = new Date(snap.game.startedAt!).getTime() - t0
+      kontrol(fark >= 1500 && fark <= 4500, `startedAt şimdi+${fark} ms`)
+      await bekle(3300)
+      return `startedAt = şimdi+${fark} ms`
+    }))
+  ) return
+
+  let puanInsan = 0
+  if (
+    !(await adim(`${e} 4. insan 10 soruyu çözer (bot cevapları get_game çağrılarıyla yazılır); get_question çıktısında doğru şık yok`, async () => {
+      const siklar = await dogruSiklariOku(gameId)
+      const c = await coz(insan, gameId, siklar, { tur: 'hizli', yanlis: [] })
+      kontrol(c.sizinti === null, c.sizinti ?? '')
+      puanInsan = toplamPuan(c)
+      return `insan ${puanInsan} puan`
+    }))
+  ) return
+
+  if (
+    !(await adim(`${e} 5. zaman ilerler: botlar 10 cevabını yazar ve bitirir; puanlar formülle tutarlı`, async () => {
+      await sureyiBitir(gameId)
+      const snap = await insan.api.getGameByCode(code)
+      const botlar = snap.players.filter((p) => p.isBot)
+      kontrol(botlar.length === 2 && botlar.every((b) => b.currentQ === 10 && b.finished), `botlar: ${JSON.stringify(botlar.map((b) => [b.currentQ, b.finished]))}`)
+      for (const id of botIdleri) {
+        const { data: cevaplar } = await admin.from('answers').select('position, dogru, sure_ms, puan').eq('game_id', gameId).eq('user_id', id).order('position')
+        const liste = (cevaplar ?? []) as Array<{ position: number; dogru: boolean | null; sure_ms: number; puan: number }>
+        kontrol(liste.length === 10 && liste.every((x, i) => x.position === i), `${id}: ${liste.length} cevap`)
+        kontrol(liste.every((x) => x.puan === scorePoints(x.dogru, x.sure_ms / 1000)), `${id}: puan formülle uyumsuz`)
+        const bot = botlar.find((b) => b.userId === id)!
+        kontrol(bot.score === liste.reduce((t, x) => t + x.puan, 0), `${id}: skor ${bot.score} ≠ cevap toplamı`)
+        kontrol(bot.correctCount === liste.filter((x) => x.dogru === true).length, `${id}: doğru sayısı`)
+      }
+      return botlar.map((b) => `${b.displayName} ${b.score}`).join(', ')
+    }))
+  ) return
+
+  await adim(`${e} 6. finishGame: botlar sıralamada (isBot, Çaylak, XP 0); insan XP = 20 + puan/10, derece ve ilk bitiren bonusu 0; wins artmaz`, async () => {
+    const sonuc: GameResult = await insan.api.finishGame(gameId)
+    kontrol(sonuc.ranking.length === 3, `ranking ${sonuc.ranking.length} kişi`)
+    const botSatirlari = sonuc.ranking.filter((r: RankedPlayer) => botIdleri.includes(r.userId))
+    kontrol(botSatirlari.length === 2 && botSatirlari.every((r) => r.isBot === true && r.rankKey === 'caylak' && r.xpGained === 0), 'bot satırları (isBot/rankKey/xpGained)')
+    const ben = sonuc.ranking.find((r) => r.userId === insan.id)!
+    kontrol(ben.score === puanInsan, `insan skoru ${ben.score} ≠ ${puanInsan}`)
+    const beklenen = 20 + Math.floor(puanInsan / 10)
+    const xb = sonuc.xpBreakdown
+    kontrol(xb.participation === 20 && xb.points === Math.floor(puanInsan / 10) && xb.placement === 0 && xb.firstFinisher === 0 && xb.total === beklenen && ben.xpGained === beklenen,
+      `xpBreakdown ${JSON.stringify(xb)} (beklenen toplam ${beklenen})`)
+    const stat = await statOku([insan.id, ...botIdleri])
+    kontrol(stat[insan.id]?.xp === beklenen && stat[insan.id].wins === 0 && stat[insan.id].games_played === 1, `insan player_stats ${JSON.stringify(stat[insan.id])}`)
+    kontrol(botIdleri.every((id) => stat[id] === undefined), 'botlar için player_stats satırı oluştu')
+    const lb = await insan.api.getGlobalLeaderboard()
+    kontrol(!lb.some((r) => botIdleri.includes(r.userId) || r.displayName.endsWith('(bot)')), 'liderlik tablosunda bot var')
+    const inc = await insan.api.getGameReview(gameId)
+    kontrol(inc.items.length === 10, `inceleme ${inc.items.length} öğe`)
+    return `insan ${ben.rank}. oldu, +${beklenen} XP, wins ${stat[insan.id].wins}`
+  })
+}
+
 async function main(): Promise<void> {
   const { data: tiers, error } = await admin.from('rank_tiers').select('min_xp, rank_label').order('min_xp', { ascending: false })
   if (error || !tiers || tiers.length === 0) throw new Error(`rank_tiers okunamadı (0003 çalıştırıldı mı?): ${error?.message}`)
   rankTablosu = tiers as Array<{ min_xp: number; rank_label: string }>
+
+  if (botModu) {
+    await botTuru()
+    return
+  }
 
   const ana = (kategoriArg as Kategori | undefined) ?? 'sayisal'
   await tur(oyuncuSayisi, ana, true)
@@ -731,6 +893,7 @@ main()
     console.error(`KALDI — beklenmeyen hata — ${e instanceof Error ? e.message : String(e)}`)
   })
   .finally(async () => {
+    await botAyarlariniGeriYukle() // --bot: özgün bot ayarlarına dön
     await temizle()
     tabloYazdir()
     const kalanlar = kayitlar.filter((k) => !k.gecti)

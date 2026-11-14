@@ -14,6 +14,7 @@ export interface PlayerState {
   userId: string; displayName: string; avatarKey: string | null; photoUrl: string | null;
   score: number; currentQ: number; correctCount: number; wrongCount: number; finished: boolean; totalTimeMs: number;
   rankKey: string; rankLabel: string;
+  isBot?: boolean; // demo botu (adı '(bot)' ile biter); isteğe bağlı, arayüz 'BOT' rozeti gösterebilir
 }
 export interface Question { position: number; ders: string; text: string; imageUrl: string | null; options: Partial<Record<Secenek, string>> }
 export interface AnswerResult { correct: boolean; points: number; correctOption: Secenek; newScore: number; finished: boolean; speedupTriggered: boolean }

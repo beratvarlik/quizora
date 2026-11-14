@@ -290,7 +290,7 @@ async function testler(): Promise<void> {
     return `${TUM_TABLOLAR.length} tablo`
   })
   await adim('1b. anon: games, game_players, answers, game_questions ve diğer tablolar okunamıyor', async () => {
-    const tablolar = ['games', 'game_players', 'answers', 'game_questions', 'profiles', 'player_stats', 'rank_tiers', 'global_scores', 'app_settings', 'mistake_book', 'mistake_games', 'daily_claims']
+    const tablolar = ['games', 'game_players', 'answers', 'game_questions', 'profiles', 'player_stats', 'rank_tiers', 'global_scores', 'app_settings', 'mistake_book', 'mistake_games', 'daily_claims', 'bot_profilleri']
     const sizan: string[] = []
     for (const t of tablolar) {
       const r = await anon.from(t).select('*').limit(1)
@@ -327,6 +327,13 @@ async function testler(): Promise<void> {
       ['_daily_pool', {}],
       ['_daily_task_ids', { p_day: '2026-01-01' }],
       ['_daily_progress', { p_uid: SIFIR_UUID, p_day: '2026-01-01' }],
+      ['bot_doldur', { p_game_id: SIFIR_UUID }],
+      ['bot_ilerlet', { p_game_id: SIFIR_UUID }],
+      ['_bot_isle', { p_game_id: SIFIR_UUID }],
+      ['_bot_modu_acik', {}],
+      ['_bot_sayisi', {}],
+      ['_bot_bekleme_sn', {}],
+      ['_bot_u', { p_tohum: 'x' }],
       ['_perf_rows', { p_uid: SIFIR_UUID, p_since: '2000-01-01T00:00:00Z', p_exam: null }],
       ['get_global_leaderboard', {}],
       ['get_my_stats', {}],
@@ -492,6 +499,52 @@ async function testler(): Promise<void> {
     const i2 = await C.client.rpc('_daily_pool')
     const i3 = await C.client.rpc('_daily_task_ids', { p_day: bugun })
     kontrol(!!i1.error && !!i2.error && !!i3.error, '_daily_* iç yardımcıları istemciden çağrılabildi!')
+  })
+  await adim('2a7. Demo botları: iç fonksiyonlar istemciye kapalı; bot_profilleri/app_settings yazılamaz; istemci is_bot ayarlayamaz; bot hesaplarıyla giriş yapılamaz', async () => {
+    // İç fonksiyonlar (bot tetikleme/ilerletme istemciden çağrılamaz)
+    const ic: Array<[string, Record<string, unknown>]> = [
+      ['bot_doldur', { p_game_id: g1 }], ['bot_ilerlet', { p_game_id: g1 }], ['_bot_isle', { p_game_id: g1 }],
+      ['_bot_modu_acik', {}], ['_bot_sayisi', {}], ['_bot_bekleme_sn', {}], ['_bot_u', { p_tohum: 'x' }],
+    ]
+    for (const [ad, args] of ic) {
+      const r = await C.client.rpc(ad, args)
+      kontrol(!!r.error, `${ad} istemciden çağrılabildi!`)
+    }
+    // Tablolar: okuma ve yazma yok
+    const bp = await C.client.from('bot_profilleri').select('*')
+    kontrol(okumaEngellendi(bp), `bot_profilleri okunabildi: ${JSON.stringify(bp.data)}`)
+    const bpYaz = await C.client.from('bot_profilleri').insert({ user_id: C.id, dogruluk: 1, ort_sure_sn: 1 }).select()
+    kontrol(!!bpYaz.error || (bpYaz.data ?? []).length === 0, 'C bot_profilleri tablosuna yazabildi!')
+    const { data: modOnce } = await admin.from('app_settings').select('value').eq('key', 'bot_modu').single()
+    const ay = await C.client.from('app_settings').select('*')
+    kontrol(okumaEngellendi(ay), `app_settings okunabildi: ${JSON.stringify(ay.data)}`)
+    const ayGunc = await C.client.from('app_settings').update({ value: 'acik' }).eq('key', 'bot_modu').select()
+    kontrol(!!ayGunc.error || (ayGunc.data ?? []).length === 0, 'C app_settings.bot_modu değerini değiştirebildi!')
+    const ayEkle = await C.client.from('app_settings').upsert({ key: 'bot_modu', value: 'acik' }).select()
+    kontrol(!!ayEkle.error || (ayEkle.data ?? []).length === 0, 'C app_settings upsert yapabildi!')
+    const { data: modSonra } = await admin.from('app_settings').select('value').eq('key', 'bot_modu').single()
+    kontrol(modSonra?.value === modOnce?.value, `bot_modu değişti: ${modOnce?.value} → ${modSonra?.value}`)
+
+    // İstemci profiline is_bot yazamaz: güncelleme yok sayılır; yeni profil ekleyen kullanıcı da is_bot=true yapamaz
+    await C.client.from('profiles').update({ is_bot: true }).eq('id', C.id)
+    const { data: pc } = await admin.from('profiles').select('is_bot').eq('id', C.id).single()
+    kontrol(pc?.is_bot === false, 'C kendi profilini bot yapabildi!')
+    const yeni = createClient(url!, anonKey!, { auth: { persistSession: false, autoRefreshToken: false } })
+    const { data: oturum, error: oErr } = await yeni.auth.signInAnonymously()
+    kontrol(!oErr && !!oturum.user, `yeni anonim oturum: ${oErr?.message}`)
+    kullanicilar.push(oturum.user!.id)
+    const ins = await yeni.from('profiles').insert({ id: oturum.user!.id, display_name: 'Sahte Bot', is_bot: true })
+    const { data: pi } = await admin.from('profiles').select('is_bot').eq('id', oturum.user!.id).maybeSingle()
+    kontrol(!ins.error && pi?.is_bot === false, `is_bot=true ile profil eklenebildi: ${ins.error?.message ?? JSON.stringify(pi)}`)
+
+    // Bot hesaplarıyla giriş yapılamaz (rastgele şifre; yaygın şifreler denenir)
+    const giris = createClient(url!, anonKey!, { auth: { persistSession: false, autoRefreshToken: false } })
+    for (const eposta of ['bot-1@quizora.invalid', 'bot-2@quizora.invalid', 'bot-3@quizora.invalid', 'bot-4@quizora.invalid']) {
+      for (const sifre of ['password123', 'quizora-bot']) {
+        const g = await giris.auth.signInWithPassword({ email: eposta, password: sifre })
+        kontrol(!!g.error && !g.data.session, `${eposta} ile giriş yapılabildi!`)
+      }
+    }
   })
   await adim('2b. C: başkasının oyununu start_game ile başlatamıyor', async () => {
     const m = await mesaj(() => C.api.startGame(g1))
